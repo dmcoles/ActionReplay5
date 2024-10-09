@@ -3747,7 +3747,7 @@ LAB_A13854:
 	BSR.S	SUB_A137FC
 	BSR.W	PrintChar
 	DBF	D1,LAB_A13854
-	MOVE.W	#$0008,cursorX
+	MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D1
 	RTS
@@ -4361,7 +4361,7 @@ LAB_A14804:
 	JSR	PrintText(PC)
 	MOVE.L	D6,D0
 	JSR	SUB_A1A3FA
-	MOVE.W	#$000f,cursorX
+	MOVE.W	#$0010,cursorX
 	MOVEM.L	(A7)+,D0-D2/D6/A0-A1
 	RTS
 CopperEndText:
@@ -7903,7 +7903,7 @@ LAB_A17B6A:
 	JSR	SUB_A137FC(PC)
 	BSR.W	PrintChar
 	DBF	D1,LAB_A17B6A
-	MOVE.W	#$0008,cursorX
+	MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D1/A1
 	RTS
@@ -20334,14 +20334,14 @@ LAB_A20AC6:
 	MOVEQ	#0,D0
 	BRA.S	LAB_A20A74
 DirOfText:
-
 	DC.B	"Directory of ",0
+
 BlocksFreeText:
-
 	DC.B	" blocks free, ",0
-DiskUsedText:
 
+DiskUsedText:
 	DC.B	" % of disk used",$D,0
+
 SUB_A20AF8:
 	MOVEM.L	D0-D3/A0,-(A7)
 	MOVEQ	#$A,D0
