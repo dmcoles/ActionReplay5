@@ -70,6 +70,7 @@ EXT_300		EQU	$300
 EXT_41E		EQU	$41E
 EXT_1000	EQU	$1000
 EXT_100E	EQU	$100E
+EXT_4E80	EQU	$4E80
 EXT_5000	EQU	$5000
 EXT_8400	EQU	$8400
 EXT_20000	EQU	$20000
@@ -78,18 +79,8 @@ EXT_27C28	EQU	$27C28
 EXT_32000	EQU	$32000
 EXT_7C000 EQU $7C000
 EXT_40000	EQU	$40000
+EXT_70000	EQU	$70000
 EXT_80000	EQU	$80000
-;chipramsave1
-EXT_1E5000	EQU	$65000;$1E5000   ;start of ram area
-EXT_1E8E80	EQU	$68E80;$1E8E80   ;this was $4e80 in AR3
-;chipramsave3
-EXT_1ECD00	EQU	$6CD00;$1ECD00   ;mempeeker help sprite area (no longer)
-EXT_1ECD04	EQU	$6CD04;$1ECD04   ;mempeeker help sprite area+4 (no longer)
-EXT_1EDD00	EQU	$6DD00;$1EDD00   ;copper area (no longer)
-EXT_1EDE90	EQU	$6DE90;$1EDE90   ;ar logo copper area (no longer)
-EXT_1EE0E8	EQU	$6E0E8;$1EE0E8   ;this was $70000 in AR3
-EXT_1F30E8	EQU	$730E8;$1F30E8   ;ar logo bitmap area (no longer)
-EXT_1F80E8	EQU	$780E8;$1F80E8   ;end of ram area
 EXT_200000	EQU	$200000
 EXT_BFD000	EQU	$BFD000
 EXT_BFD100	EQU	$BFD100
@@ -183,19 +174,6 @@ BOOT_LOGO_WINDOW	EQU	$2c81b8c1
 BOOT_LOGO_FETCH	EQU	$3800d0
 BOOT_LOGO_BPLCON	EQU	$AA0024
 
-KEY_CURLEFT EQU $82
-KEY_CURRIGHT EQU $83
-KEY_F1	EQU	$8A
-KEY_F2	EQU	$8B
-KEY_F3	EQU	$8C
-KEY_F4	EQU	$8D
-KEY_F5	EQU	$8E
-KEY_F6	EQU	$8F
-KEY_F7	EQU	$90
-KEY_F8	EQU	$91
-KEY_F9	EQU	$92
-KEY_F10	EQU	$93
-
 BURST_NIB_DEST	EQU	$2058C
 
 ; Custom equates (from config file)
@@ -204,15 +182,9 @@ _LVOSuperState	EQU	-150
 _LVOAllocAbs	EQU	-204
 _LVOFreeMem	EQU	-210
 
-EXT__1F80E8	EQU	EXT_1F80E8
-EXT__1E5000	EQU EXT_1E5000
-EXT__1EDD00	EQU	EXT_1EDD00
-EXT__1ECD00	EQU	EXT_1ECD00
-EXT__1EDE90	EQU	EXT_1EDE90
-EXT__1E8E80	EQU	EXT_1E8E80
 MaxLinesPerPage	EQU	$18
-F2Key	EQU	-117
 F1Key	EQU	-118
+F2Key	EQU	-117
 F3Key	EQU	-116
 F4Key	EQU	-115
 F5Key	EQU	-114
@@ -930,7 +902,7 @@ PrintCursor:
 	MOVEM.L	D0-D1/A0-A1,-(A7)
 	MOVEQ	#0,D0
 	MOVEQ	#0,D1
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.W	#$0280,D0
 	MULU	cursorY,D0
 	ADD.W	cursorX,D0
@@ -1118,7 +1090,7 @@ LAB_A112E6:
 LAB_A112F6:
 	MOVE.L	D1,(A0)+
 	DBF	D0,LAB_A112F6
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	$280(A0),A1
   MOVE.W	#$01df,D0
 LAB_A1130A:
@@ -1172,7 +1144,7 @@ LAB_A11382:
 LAB_A11392:
 	MOVE.L	D1,-(A1)
 	DBF	D0,LAB_A11392
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	$3C00(A0),A0
 	LEA	$280(A0),A1
   MOVE.W	#$01df,D0
@@ -1206,7 +1178,7 @@ InstallVblank:
 	ST	LAB_A481E4
 	LEA	EXT_DFF000,A5
 	LEA	RegSnoop,A6
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	ChipramSave1,A1
 	MOVE.W	#$0f9f,D0
 LAB_A11406:
@@ -1216,14 +1188,6 @@ LAB_A11406:
 	MOVE.L	D2,(A0)+
 	ADDQ.W	#8,A1
 	DBF	D0,LAB_A11406
-  ifnd arhardware
-	LEA	ChipramSave3,A0
-	LEA	EXT_1ECD00,A1
-LAB_A11424:
-	MOVE.B	(A1)+,(A0)+
-	CMPA.L	#EXT__1F80E8,A1
-	BNE.S	LAB_A11424
-  endc
 	MOVE.L	$80(A6),SaveCop1Lch
 	MOVE.L	$E0(A6),SaveBpl1Pth
 	MOVE.L	$100(A6),SaveBplCon0
@@ -1251,7 +1215,7 @@ RestoreDisplay1:
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$0300,$96(A5)
 	MOVE.W	#$0020,$9A(A5)
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	ChipramSave1,A1
 	MOVE.W	#$0f9f,D0
 LAB_A119F6:
@@ -1261,14 +1225,6 @@ LAB_A119F6:
 	MOVE.L	D2,(A0)+
 	ADDQ.W	#8,A1
 	DBF	D0,LAB_A119F6
-  ifnd arhardware
-	LEA	ChipramSave3,A0
-	LEA	EXT_1ECD00,A1
-LAB_A11A14:
-	MOVE.B	(A0)+,(A1)+
-	CMPA.L	#EXT__1F80E8,A1
-	BNE.S	LAB_A11A14
-  endc
   ifd arhardware
 	MOVE.L	SaveCop1Lch,cop1lch(A5)
   endc
@@ -1421,8 +1377,8 @@ LAB_A115BA:
 LAB_A1160C:
 LAB_A11652:
 	MOVE.L	ArBgCol,color00(A5)
-	MOVE.L	#EXT__1E5000,bpl1pth(A5)
-	MOVE.L	#$00000200,spr0pth(A5)
+	MOVE.L	#EXT_1000,bpl1pth(A5)
+	MOVE.L	#EXT_200,spr0pth(A5)
 
 	TST.B	LAB_A4821E
 	BEQ.W	LAB_A116E0
@@ -1477,9 +1433,7 @@ LAB_A116E0:
 	MOVE.L	#$200,spr0pth(A5)
 
 LAB_A1170A:
-LAB_A1172C:
-LAB_A11738:
-	MOVE.L	#EXT__1EDD00,LAB_A489F2
+	;MOVE.L	#EXT_1EDD00,LAB_A489F2
 	ST	LAB_A489F0
 	MOVEM.L	(A7)+,D0-D1/A0/A5
 	RTS
@@ -1562,7 +1516,7 @@ LAB_A118B0:
 LAB_A118C6:
 	MOVEQ	#7,D2
 	MOVE.W	#$0120,D0
-	MOVE.L	#EXT__1ECD00,D1
+	MOVE.L	#EXT_100,D1
 LAB_A118D2:
   MOVE.L D1,(a5,d0)
 	ADDQ.W	#4,D0
@@ -1570,7 +1524,7 @@ LAB_A118D2:
 	DBF	D2,LAB_A118D2
   MOVE.W #$8020,dmacon(a5)
 LAB_A118F2:
-	MOVE.L	#EXT__1EDE90,LAB_A489F2
+	;MOVE.L	#EXT_1EDE90,LAB_A489F2
 	ST	LAB_A489F0
 	MOVEM.L	(A7)+,D0-D4/A0/A3-A5
 	RTS
@@ -2661,6 +2615,7 @@ CMD_X:
 	BNE.S	LAB_A12A58
 	JSR	CMD_CLRDMON(PC)
 LAB_A12A58:
+  JSR WaitNoKeypress
 	ADDQ.W	#4,A7
 	RTS
 resetTBufferText:
@@ -4135,12 +4090,12 @@ AboutArText:
 	DC.B	"==============================================",$D,0
   even
 memSafeReadByte1:
-	CMPA.L	#EXT__1E8E80,A0
+	CMPA.L	#EXT_4E80,A0
 	BCC.S	LAB_A1456C
-	CMPA.L	#EXT__1E5000,A0
+	CMPA.L	#EXT_5000,A0
 	BCS.W	LAB_A145E2
 	MOVE.L	A0,-(A7)
-  SUB.L  #EXT_1E5000,A0
+  SUB.L  #EXT_5000,A0
 	ADDA.L	#LAB_A35CF6,A0
 LAB_A14564:
 	MOVEQ	#0,D0
@@ -4199,11 +4154,11 @@ LAB_A145E2:
 	BRA.W	LAB_A14564
 memSafeReadByte2:
 	MOVEM.L	D1/A0,-(A7)
-	CMPA.L	#EXT__1E5000,A0
+	CMPA.L	#EXT_5000,A0
 	BCS.S	LAB_A1465C
-	CMPA.L	#EXT__1E8E80,A0
+	CMPA.L	#EXT_4E80,A0
 	BCC.S	LAB_A1462E
-  SUB.L  #EXT_1E5000,A0
+  SUB.L  #EXT_5000,A0
 	ADDA.L	#LAB_A35CF6,A0
 LAB_A1462E:
 	TST.B	LAB_A489FC
@@ -6536,7 +6491,7 @@ LAB_A16AD6:
 	RTS
 PrintChar:
 	MOVEM.L	D0-D3/A0-A2,-(A7)
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	fontData(PC),A1
 	MOVEQ	#0,D1
 	MOVE.B	D0,D1
@@ -7060,6 +7015,7 @@ LAB_A171AE:
 	BRA.W	LAB_A16C70
 PrintF8:
 	LEA	MemPeekerText,A0
+  JSR WaitNoKeypress
 	ST	LAB_A483CA
 	JSR	PrintPagedText
 	JSR	PrintReady
@@ -7095,7 +7051,7 @@ Cls:
 LAB_A17254:
 	MOVE.L	#$20202020,(A0)+
 	DBF	D0,LAB_A17254
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.W	#$07cf,D0
 LAB_A17268:
 	CLR.L	(A0)+
@@ -7314,15 +7270,15 @@ LAB_A174CE:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
 OffsetText:
-
 	DC.B	"  offset: ",0,0
+
 SUB_A174E0:
 	MOVEM.L	D0-D4/D6/A0-A6,-(A7)
 	MOVE.W	D0,D6
 	MOVE.L	LAB_A4820A,D1
 	LEA	EscapePressed,A5
 	MOVE.B	LAB_A480CA,D4
-	LEA	EXT_1E8E80,A6
+	LEA	EXT_4E80,A6
 	SUBQ.W	#1,D6
 	LEA	currentFilename,A0
 LAB_A17506:
@@ -7353,10 +7309,10 @@ LAB_A1753E:
 	MOVEA.L	A3,A0
 	CMPA.L	A6,A0
 	BCC.S	LAB_A1758A
-	CMPA.L	#EXT__1E5000,A0
+	CMPA.L	#EXT_5000,A0
 	BCS.S	LAB_A17560
 	MOVE.L	A0,-(A7)
-  SUB.L  #EXT_1E5000,A0
+  SUB.L  #EXT_5000,A0
 	ADDA.L	#LAB_A35CF6,A0
 LAB_A1755A:
 	MOVE.B	(A0),D0
@@ -9138,9 +9094,9 @@ LAB_A18C9C:
 	BEQ.W	memPeekKeyUp
 	CMPI.W	#$0081,D0
 	BEQ.W	memPeekKeyDown
-	CMPI.W	#KEY_CURLEFT,D0
+	CMPI.W	#CursorLeft,D0
 	BEQ.W	memPeekKeyLeft
-	CMPI.W	#KEY_CURRIGHT,D0
+	CMPI.W	#CursorRight,D0
 	BEQ.W	memPeekKeyRight
 	CMPI.W	#$0084,D0
 	BEQ.W	memPeekKeyDel
@@ -9295,7 +9251,7 @@ memPeekKeyHelp:
 	TST.B	memPeekerHelpFlag
 	BNE.W	LAB_A19C8E
   LEA LAB_A442F6,A1
-	LEA	EXT_1ECD00,A0
+	LEA	EXT_100,A0
   MOVE.W	#$015e,D0
 LAB_A19022:
   MOVE.L (A0),(A1)+
@@ -9519,7 +9475,7 @@ memPeekKeyDel:
 	BEQ.W	LAB_A19C8E
 
   LEA LAB_A442F6,A1
-	LEA	EXT_1ECD00,A0
+	LEA	EXT_100,A0
   MOVE.W	#$015e,D0
 restorePeekRam:
   MOVE.L (A1)+,(A0)+
@@ -10201,7 +10157,7 @@ SUB_A19C28:
 	MOVE.B	D0,D1
 	ADD.W	D1,D1
 	LSR.W	#8,D0
-	LEA	EXT_1ECD00,A0
+	LEA	EXT_100,A0
 	MOVEQ	#7,D2
 LAB_A19C3E:
 	CMPI.W	#$0020,D0
@@ -10259,7 +10215,7 @@ LAB_A19CBA:
 	BSR.W	SUB_A18FDC
 
   LEA LAB_A442F6,A1
-	LEA	EXT_1ECD00,A0
+	LEA	EXT_100,A0
   MOVE.W	#$015e,D0
 restorePeekRam2:
   MOVE.L (A1)+,(A0)+
@@ -10355,7 +10311,7 @@ SUB_A19DE6:
 	MULU	#$00d8,D1
 	MOVE.W	LAB_A481F6,D2
 	MULU	#$0018,D2
-	LEA	EXT_1ECD04,A0
+	LEA	EXT_104,A0
 	LEA	0(A0,D1.W),A0
 	LEA	0(A0,D2.W),A0
 	MOVE.W	LAB_A481F4,D2
@@ -10702,7 +10658,7 @@ SwapChipRam1:
 	MOVEM.L	D0-D1/A0-A1,-(A7)
 	MOVE.W	#$3e7f,D0
 	LEA	ChipramSave1,A0
-	LEA	EXT_1E5000,A1
+	LEA	EXT_1000,A1
 LAB_A1A3E8:
 	MOVE.B	(A0),D1
 	MOVE.B	(A1),(A0)
@@ -15007,7 +14963,7 @@ SUB_A1D87C:
 	SUBI.L	#$000000f1,D4
 	MOVE.W	D2,D5
 	SUB.W	D0,D5
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	ADDA.L	D4,A0
 	MOVE.W	D3,D6
 	SUB.W	D1,D6
@@ -15022,7 +14978,7 @@ LAB_A1D8B8:
 	DBF	D5,LAB_A1D8B8
 	ORI.B	#$f0,0(A0,D6.L)
 	ORI.B	#$f0,(A0)
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	ADDA.L	D4,A0
 	MOVE.W	D2,D6
 	SUB.W	D0,D6
@@ -15049,7 +15005,7 @@ SUB_A1D900:
 	SUBI.L	#$000000a1,D4
 	MOVE.W	D2,D5
 	SUB.W	D0,D5
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	ADDA.L	D4,A0
 	MOVE.W	D3,D6
 	SUB.W	D1,D6
@@ -15079,7 +15035,7 @@ SUB_A1D956:
 	SUBI.L	#$000000a1,D4
 	MOVE.W	D2,D5
 	SUB.W	D0,D5
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	ADDA.L	D4,A0
 	MOVE.W	D3,D6
 	SUB.W	D1,D6
@@ -15146,7 +15102,7 @@ LAB_A1DA32:
 	RTS
 SUB_A1DA38:
 	MOVEM.L	D0/A0-A1,-(A7)
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.W	#$0f9f,D0
 LAB_A1DA46:
 	CLR.L	(A0)+
@@ -15205,7 +15161,7 @@ LAB_A1DB3C:
 	MOVE.L	(A0)+,cursorX
 	JSR	SUB_A18FDC(PC)
 	ST	LAB_A481E4
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.W	#$0f9f,D0
 LAB_A1DB68:
 	CLR.L	(A0)+
@@ -17651,25 +17607,25 @@ LAB_412EDA:
 TrackerCheckKeys:
 	JSR	GetKeyCode		;412f00: 4eb900401e06
 	MOVE.W	KeyCode,D0		;412f06: 30390044f29e
-	CMPI.W	#KEY_F1,D0		;412f0c: 0c40008a
+	CMPI.W	#F1Key,D0		;412f0c: 0c40008a
 	BEQ.W	TrackerPlayMod		;412f10: 67000492
-	CMPI.W	#KEY_F2,D0		;412f14: 0c40008b
+	CMPI.W	#F2Key,D0		;412f14: 0c40008b
 	BEQ.W	TrackerStopMod		;412f18: 67000492
-	CMPI.W	#KEY_F3,D0		;412f1c: 0c40008c
+	CMPI.W	#F3Key,D0		;412f1c: 0c40008c
 	BEQ.W	TrackerSeeDetails	;412f20: 67000c0a
-	CMPI.W	#KEY_F4,D0		;412f24: 0c40008d
+	CMPI.W	#F4Key,D0		;412f24: 0c40008d
 	BEQ.W	TrackerSaveMod		;412f28: 67000040
-	CMPI.W	#KEY_F5,D0		;412f2c: 0c40008e
+	CMPI.W	#F5Key,D0		;412f2c: 0c40008e
 	BEQ.W	TrackerRenameMod	;412f30: 670000ce
-	CMPI.W	#KEY_F6,D0		;412f34: 0c40008f
+	CMPI.W	#F6Key,D0		;412f34: 0c40008f
 	BEQ.W	TrackerShowSongData	;412f38: 67000264
-	CMPI.W	#KEY_F7,D0		;412f3c: 0c400090
+	CMPI.W	#F7Key,D0		;412f3c: 0c400090
 	BEQ.W	TrackerContinueSearch	;412f40: 67000472
-	CMPI.W	#KEY_F8,D0		;412f44: 0c400091
+	CMPI.W	#F8Key,D0		;412f44: 0c400091
 	BEQ.W	TrackerChange16		;412f48: 670000be
-	CMPI.W	#KEY_F9,D0		;412f4c: 0c400092
+	CMPI.W	#F9Key,D0		;412f4c: 0c400092
 	BEQ.W	TrackerCalcLength	;412f50: 670000be
-	CMPI.W	#KEY_F10,D0		;412f54: 0c400093
+	CMPI.W	#F10Key,D0		;412f54: 0c400093
 	BEQ.W	TrackerExit		;412f58: 67000004
 	BRA.S	TrackerCheckKeys	;412f5c: 60a2
 TrackerExit:
@@ -18488,25 +18444,25 @@ LAB_413D8A:
 	BTST	#2,$16(A5)		;413d9c: 082d00020016
 	BEQ.W	ScanMoveRight		;413da2: 670001da
 	MOVE.W	KeyCode,D0		;413da6: 30390044f29e
-	CMPI.W	#KEY_F1,D0		;413dac: 0c40008a
+	CMPI.W	#F1Key,D0		;413dac: 0c40008a
 	BEQ.W	ScanPlaySample		;413db0: 670004fe
-	CMPI.W	#KEY_F2,D0		;413db4: 0c40008b
+	CMPI.W	#F2Key,D0		;413db4: 0c40008b
 	BEQ.W	ScanCalcRange		;413db8: 670003f0
-	CMPI.W	#KEY_F10,D0		;413dbc: 0c400093
+	CMPI.W	#F10Key,D0		;413dbc: 0c400093
 	BEQ.W	ScanExit		;413dc0: 67000052
-	CMPI.W	#KEY_CURLEFT,D0		;413dc4: 0c400082
+	CMPI.W	#CursorLeft,D0		;413dc4: 0c400082
 	BEQ.W	scanKeyLeft		;413dc8: 6700017c
-	CMPI.W	#KEY_CURRIGHT,D0		;413dcc: 0c400083
+	CMPI.W	#CursorRight,D0		;413dcc: 0c400083
 	BEQ.W	scanKeyRight		;413dd0: 67000190
 	CMPI.W	#$0080,D0		;413dd4: 0c400080
 	BEQ.W	LAB_413F1E		;413dd8: 67000144
 	CMPI.W	#$0081,D0		;413ddc: 0c400081
 	BEQ.W	LAB_413F32		;413de0: 67000150
-	CMPI.W	#KEY_F3,D0		;413de4: 0c40008c
+	CMPI.W	#F3Key,D0		;413de4: 0c40008c
 	BEQ.W	LAB_413EB8		;413de8: 670000ce
-	CMPI.W	#KEY_F4,D0		;413dec: 0c40008d
+	CMPI.W	#F4Key,D0		;413dec: 0c40008d
 	BEQ.W	LAB_413E5E		;413df0: 6700006c
-	CMPI.W	#KEY_F5,D0		;413df4: 0c40008e
+	CMPI.W	#F5Key,D0		;413df4: 0c40008e
 	BEQ.W	ScanSaveSample		;413df8: 6700011a
 	MOVEQ	#0,D2			;413dfc: 7400
 	MOVEQ	#2,D3			;413dfe: 7602
@@ -18897,7 +18853,7 @@ txtScanInfo:
 SUB_414498:
 	MOVEM.L	D0-D6/A0-A3/A5,-(A7)
 	LEA	EXT_DFF000,A5
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	LEA	80.W,A1
 	MOVE.L	A1,D4
 	MULU	D1,D4
@@ -22186,7 +22142,7 @@ LAB_A22044:
 	RTS
 CMD_CD:
 	BSR.W	SUB_A2231A
-	LEA	EXT_1EE0E8,A0
+	LEA	EXT_70000,A0
 	BSR.W	SUB_A1F9DE
 	TST.W	D0
 	BEQ.S	LAB_A2206E
@@ -22351,7 +22307,7 @@ CMD_MAKEDIR:
 	ST	LAB_A483C9
 	TST.W	D0
 	BEQ.W	LAB_A21070
-	LEA	EXT_1EE0E8,A0
+	LEA	EXT_70000,A0
 	BSR.W	SUB_A1F9DE
 	LEA	currentFilename,A1
 	BSR.S	SUB_A22240
@@ -24156,6 +24112,7 @@ LAB_A23CB8:
 	BEQ.S	LAB_A23CB8
 	TST.B	EscapePressed
 	BNE.S	LAB_A23CD0
+  JSR WaitNoKeypress
 	BRA.S	LAB_A23C90
 LAB_A23CD0:
 	MOVEM.L	(A7)+,D0-D1/A0-A1
@@ -25052,11 +25009,11 @@ LAB_A24CB2:
 	ADD.W	D2,D0
 	MOVE.B	D0,LAB_A4838B
 LAB_A24CD8:
-	BSR.S	SUB_A24CE4
+	BSR.S	ReadTracks
 	BSR.W	PrintDiskOpResult
 	BSR.W	SUB_A1FA3E
 	RTS
-SUB_A24CE4:
+ReadTracks:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
 	MOVEA.L	A1,A2
 LAB_A24CEA:
@@ -25354,7 +25311,7 @@ LAB_A250F8:
 	MOVEQ	#0,D2
 	MOVEA.L	DiskMonBuffer,A1
 	MOVE.B	D4,currDriveNo
-	BSR.W	SUB_A24CE4
+	BSR.W	ReadTracks
 	BMI.S	LAB_A2511A
 	MOVE.B	D5,currDriveNo
 	BSR.W	SUB_A24EF0
@@ -25414,7 +25371,7 @@ LAB_A251BA:
 	BSR.W	SUB_A25314
 	LEA	EXT_8400,A1
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A24CE4
+	BSR.W	ReadTracks
 	BMI.W	LAB_A25282
 	LEA	InsertDestText(PC),A0
 	JSR	PrintText
@@ -25438,7 +25395,7 @@ LAB_A25204:
 	MOVEQ	#0,D1
 	MOVEQ	#$4F,D2
 	LEA	EXT_8400,A1
-	BSR.W	SUB_A24CE4
+	BSR.W	ReadTracks
 	BMI.S	LAB_A25282
 	LEA	EXT_80000,A1
 	TST.L	LAB_A48230
@@ -25447,7 +25404,7 @@ LAB_A25204:
 LAB_A2523A:
 	MOVEQ	#$50,D1
 	MOVEQ	#$4F,D2
-	BSR.W	SUB_A24CE4
+	BSR.W	ReadTracks
 	BMI.S	LAB_A25282
 	LEA	InsertDestText(PC),A0
 	JSR	PrintText
@@ -25933,7 +25890,7 @@ LAB_A259D2:
 	LEA	EXT_5000.W,A0
 	MOVEA.L	DiskMonBuffer,A1
 	BSR.W	SUB_A24E64
-	BSR.W	SUB_A24CE4
+	BSR.W	ReadTracks
 	BPL.S	LAB_A259F2
 	CMPI.W	#$fff8,D0
 	BEQ.S	LAB_A259FA
@@ -26779,7 +26736,7 @@ SUB_A266EA:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
 	MOVE.L	LAB_A480DE,-(A7)
 	MOVE.B	currDriveNo,-(A7)
-	LEA	EXT_1EE0E8,A0
+	LEA	EXT_70000,A0
 	JSR	SUB_A1F9DE(PC)
 	JSR	SUB_A1DA38
 	LEA	fileDialog(PC),A6
@@ -26874,7 +26831,7 @@ LAB_A26856:
 	JSR	SUB_A1DB1E
 LAB_A26864:
 	EXG	A6,A0
-	LEA	EXT_1EE0E8,A0
+	LEA	EXT_70000,A0
 	JSR	SUB_A1FA3E(PC)
 	MOVEQ	#0,D0
 	BRA.W	LAB_A26A08
@@ -26996,7 +26953,7 @@ LAB_A269E6:
 LAB_A269F8:
 	EXG	A0,A6
 	MOVE.L	D0,-(A7)
-	LEA	EXT_1EE0E8,A0
+	LEA	EXT_70000,A0
 	JSR	SUB_A1FA3E(PC)
 	MOVE.L	(A7)+,D0
 LAB_A26A08:
@@ -27311,7 +27268,7 @@ LAB_A26DCC:
 	BRA.W	LAB_A26C8C
 LAB_A26DD6:
 	SF	LAB_A481E4
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.W	#$0280,D0
 	MULU	cursorY,D0
 	ADD.W	cursorX,D0
@@ -29164,12 +29121,12 @@ LAB_A28DE4:
 	BRA.W	LAB_A28EB0
 LAB_A28E00:
 	MOVE.L	LAB_A4831E,D0
-	LEA	EXT_1E5000,A2
+	LEA	EXT_1000,A2
 	JSR	SUB_A21D86
 	BMI.S	LAB_A28DD4
 	JSR	SUB_A1FA3E
 	BMI.S	LAB_A28DDA
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	CMPI.L	#$000003f3,(A0)
 	BEQ.S	LAB_A28E32
 LAB_A28E2A:
@@ -29195,7 +29152,7 @@ LAB_A28E56:
 	BNE.S	LAB_A28E2A
 	CMPI.L	#$000003ec,(A0)+
 	BNE.S	LAB_A28E2A
-	LEA	EXT_1E5000,A1
+	LEA	EXT_1000,A1
 	MOVE.L	(A0)+,D0
 	SUBQ.L	#1,D0
 	TST.L	(A0)+
@@ -29254,7 +29211,7 @@ SUB_A28EDA:
 	ANDI.W	#$fffc,D0
 	LSR.L	#2,D0
 	MOVE.L	D0,LAB_A48442
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.L	#$000003f3,(A0)+
 	CLR.L	(A0)+
 	MOVE.L	#$00000001,(A0)+
@@ -29342,7 +29299,7 @@ LAB_A29056:
 	LEA	LAB_A28D2E(PC),A0
 	BRA.S	LAB_A2908C
 LAB_A29062:
-	LEA	EXT_1E5000,A2
+	LEA	EXT_1000,A2
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A48442,D0
 	JSR	SUB_A213FE
@@ -29371,7 +29328,7 @@ LAB_A290B4:
 	MOVEQ	#0,D0
 	BRA.S	LAB_A2908E
 SUB_A290B8:
-	LEA	EXT_1E5000,A0
+	LEA	EXT_1000,A0
 	MOVE.L	LAB_A480DA,D0
 	SUB.L	DiskMonBuffer,D0
 	SUBI.L	#$00000080,D0
@@ -29422,7 +29379,7 @@ LAB_A2913C:
 	MOVE.W	#$0100,EXT_DFF096
 	MOVE.W	LAB_A48442,D1
 	MOVEA.L	LAB_A48446,A0
-	LEA	EXT_1E5000,A1
+	LEA	EXT_1000,A1
 	SUBQ.W	#1,D1
 LAB_A2918C:
 	MOVE.B	(A1)+,D0
@@ -31351,7 +31308,7 @@ HelpText:
 	DC.B	"file on screen                  - type (path)filename",$D,"    ren"
 	DC.B	"ame: Rename file                          - rename (path)oldn"
 	DC.B	"ame,newname",$D,"   relabel: Change/set diskname                  "
-	DC.B	"- relabel diskname",$D,$A
+	DC.B	"- relabel diskname",$D,$D
 	DC.B	"Freezer and ripper commands:",$D,"----------------------------",$D,"   "
 	DC.B	"     sa: Save current program to disk         - sa (path)name"
 	DC.B	"(,crate)",$D,"        sr: Save current program and start       - s"
@@ -31389,7 +31346,7 @@ HelpText:
 	DC.B	"  - tdc",$D,"       tdd: Deep trainer delete addresses        - td"
 	DC.B	"d start end",$D,"        td: Display deep trainer addresses       "
 	DC.B	"- td",$D,"       tdi: Display probable trainer addresses   - tdi",$D," "
-	DC.B	"      tdx: Exit old deep trainer                - tdx",$D,$A
+	DC.B	"      tdx: Exit old deep trainer                - tdx",$D
 	DC.B	"Misc. commands",$D,"--------------",$D,"   ramtest: Checks memoryblock "
 	DC.B	"for harderrors    - ramtest start end",$D,"      pack: Packs memor"
 	DC.B	"y                         - pack start end dest crrate",$D,"    un"
@@ -31413,7 +31370,7 @@ HelpText:
 	DC.B	"   - setmap",$D,"    setcop: Copper specify for Exit of AR-PRO    "
 	DC.B	"- setcop (address)",$D,"     ascii: Show ASCII-Table              "
 	DC.B	"       - ascii",$D,"     alert: Display alert (guru) list         "
-	DC.B	"   - alert (guru-number)",$D,$A
+	DC.B	"   - alert (guru-number)",$D,$D
 	DC.B	"Printer commands:",$D,"-----------------",$D," smallchar: Activate very"
 	DC.B	" small printer chars   - smallchar",$D,"normalchar: Normal printer"
 	DC.B	"chars                 - normalchar",$D,"       prt: Print string  "
@@ -31430,9 +31387,7 @@ HelpText:
 	DC.B	"able deep memwatcher       - deepmw",$D,$A,"  romavoid: Change kickst"
 	DC.B	"art placement adr       - romavoid",$D,"     cache: Change cache s"
 	DC.B	"tatus (020/030 only)   - cache XXXX",$D,"            where X is ei"
-	DC.B	"ther 0 or 1",$D,$D,"Function Keys",$D,"-------------",$D," Shift F9 : compare screen pages   "
-	DC.B	"              - Shift F9",$D," Shift F10: chage screen mode   15Mh"
-	DC.B	"z/31Mhz      - Shift F10",$D,$A
+	DC.B	"ther 0 or 1",$D,$D
 	DC.B	"Monitor command:",$D,"----------------",$D," setexcept: Set exception "
 	DC.B	"handler (no more guru) - setexcept",$D,"      comp: Compare memory"
 	DC.B	"blocks                 - comp start end dest",$D,"        lm: Load"
@@ -31472,7 +31427,7 @@ HelpText:
 	DC.B	"ess",$D,"        no: Show/set ascii-dump offset           - no (of"
 	DC.B	"fset)",$D,"        nq: Display memory quick as ascii        - nq a"
 	DC.B	"ddress",$D,"         o: Fill memoryblock with string         - o s"
-	DC.B	"tring, start end",$D,$A,"         r: Show/edit processor registers   "
+	DC.B	"tring, start end",$D,"         r: Show/edit processor registers   "
 	DC.B	"     - r (reg value)",$D,"         w: Show/edit cia's             "
 	DC.B	"         - w (register)",$D,"         y: Show/edit memory as binar"
 	DC.B	"y           - y address",$D,"        ys: Show/set datawidth for th"
@@ -31497,10 +31452,10 @@ HelpText:
 	DC.B	"dump on/off",$D,"F7     : Switch overwrite/insert mode",$D,"F8     : Sh"
 	DC.B	"ow instructions for the mempeeker",$D,"F9     : Switch german & us"
 	DC.B	"a keyboard",$D,"SH F9  : Compare screen pages",$D,"F10    : Switch scre"
-	DC.B	"en",$D,"SH F10 : Switch between 15Mhz/31Mhz",$D,"POWER-LED is off = rea"
+	DC.B	"en",$D,"SH F10 : Switch between 15Mhz/31Mhz",$D,$D,"POWER-LED is off = rea"
 	DC.B	"dy to execute commands!",$D,"Press left mousebutton to abort print"
 	DC.B	"er output",$D,"Use cursorkeys in combination with shift too",$D,"======"
-	DC.B	"======================================",$D,0
+	DC.B	"======================================",$D,$D,0
 MemPeekerText:
 	DC.B	$0d
 
@@ -36670,8 +36625,8 @@ copperPos:
 	DS.L	1
 LAB_A489F0:
 	DS.W	1
-LAB_A489F2:
-	DS.L	1
+;LAB_A489F2:
+;	DS.L	1
 currCopper:
 	DS.L	1
 robdmode:
@@ -36692,12 +36647,6 @@ LAB_A48A0C:
 	DS.L	$23
 LAB_A4550E:
 	DS.L	$212
-  ifnd arhardware
-ChipramSave3:
-	DS.L	$2FFF
-	DS.W	1
-	DS.B	1
-  endc
 LAB_A54A97:
 	DS.B	1
 dataend:
