@@ -162,6 +162,7 @@ EXT_DFF1DC	EQU	$DFF1DC
 
 EXT_E80000	EQU	$E80000
 EXT_F80004	EQU	$F80004
+EXT_F80005	EQU	$F80005
 EXT_F8000E	EQU	$F8000E
 EXT_F8031C	EQU	$F8031C
 EXT_F800D0	EQU	$F800D0
@@ -622,6 +623,7 @@ getVBR:
   MOVE.L (A7)+,ILLEG_OPC.W
   RTS
 vbrtrap:
+  MOVE.W #0,vbrflag
   ADD.L  #4,2(a7)
   RTE
 
@@ -629,6 +631,7 @@ getCACR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   MOVEQ #0,D0
+  MOVE.W #1,vbrflag
   MOVEC CACR,D0
   MOVE.L (A7)+,ILLEG_OPC.W
   RTS
@@ -1743,15 +1746,22 @@ Print4DigitHex:
 	BSR.W	PrintValue
 	MOVE.L	(A7)+,D1
 	RTS
+Print6DigitHex:
+	MOVE.L	D1,-(A7)
+	MOVEQ	#6,D1
+	BSR.W	PrintValue
+	MOVE.L	(A7)+,D1
+	RTS
 Print8DigitHex:
 	MOVE.L	D1,-(A7)
 	MOVEQ	#8,D1
 	BSR.W	PrintValue
 	MOVE.L	(A7)+,D1
 	RTS
-Print7DigitHex:
+PrintAddressHex:
 	MOVE.L	D1,-(A7)
-	MOVEQ	#7,D1
+  MOVE.W cpuAddrSize,D1
+	;MOVEQ	#8,D1
 	BSR.W	PrintValue
 	MOVE.L	(A7)+,D1
 	RTS
@@ -1942,7 +1952,7 @@ LAB_A12216:
 	LEA	currentCopperText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	currCopper,D0
-	BSR.W	Print7DigitHex
+	BSR.W	Print6DigitHex
 	BSR.W	PrintReady
 	RTS
 currentCopperText:
@@ -2740,7 +2750,7 @@ LAB_A12BE0:
 	MOVE.W	(A0)+,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	DBF	D1,LAB_A12BE0
 	JSR	PrintCR
 	LEA	BitplanesHeaderText(PC),A0
@@ -2792,12 +2802,12 @@ LAB_A12C90:
 	MOVE.W	(A0)+,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	DBF	D1,LAB_A12C90
 	MOVE.W	SaveDmaCon,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#3,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVE.W	SaveIntreq,D0
 	BSR.W	SUB_A1732C
 	BSR.W	SUB_A173DC
@@ -2809,16 +2819,16 @@ LAB_A12CCE:
 	MOVE.W	(A0)+,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	DBF	D1,LAB_A12CCE
 	MOVE.W	RegSnoopBltcon0,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVE.W	RegSnoopBltcon1,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVE.W	SaveDskSync,D0
 	BSR.W	SUB_A1732C
 	BSR.W	SUB_A173DC
@@ -2835,7 +2845,7 @@ LAB_A12CCE:
 	MOVE.W	EXT_DFF010,D0
 	BSR.W	SUB_A1732C
 	MOVEQ	#4,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVEQ	#0,D2
 	LEA	LAB_A48254,A1
 LAB_A12D50:
@@ -2850,12 +2860,12 @@ LAB_A12D62:
 	MOVEQ	#0,D0
 	MOVE.B	0(A1,D2.W),D0
 	LSR.W	#1,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	MOVEQ	#3,D1
 	BSR.W	PrintValue
 LAB_A12D7A:
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	ADDQ.W	#1,D2
 	CMPI.W	#$0004,D2
 	BNE.S	LAB_A12D50
@@ -2866,7 +2876,7 @@ LAB_A12D7A:
 	LEA	RegSnoopAud0Lc,A1
 LAB_A12D9C:
 	MOVE.L	(A1)+,D0
-	BSR.W	Print7DigitHex
+	BSR.W	Print6DigitHex
 	LEA	LAB_A12E7D(PC),A0
 	BSR.W	PrintText
 	MOVE.W	(A1)+,D0
@@ -2980,7 +2990,7 @@ LAB_A12FA2:
 	MOVEQ	#$7E,D0
 	BSR.W	PrintChar
 	MOVE.L	(A7),D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVE.L	(A7),D0
 	BSR.W	SUB_A1613A
@@ -3343,11 +3353,11 @@ SUB_A1341C:
 	LEA	SearchFromText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	LEA	SearchToText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	A2,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	SUB_A173DC
 	MOVEM.L	(A7)+,D0/A0
 	RTS
@@ -3375,7 +3385,7 @@ SUB_A13452:
 	MOVE.W	(A1),D0
 	BSR.W	SUB_A13592
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVEQ	#$3B,D0
 	JSR	PrintChar
 	MOVE.W	D1,D0
@@ -3697,7 +3707,7 @@ SUB_A13814:
 	MOVE.W	#$003a,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	TST.W	LAB_A35698
 	BNE.W	LAB_A1387C
 	MOVEQ	#$F,D1
@@ -3722,7 +3732,10 @@ LAB_A13854:
 	BSR.S	SUB_A137FC
 	BSR.W	PrintChar
 	DBF	D1,LAB_A13854
-	MOVE.W	#$0009,cursorX
+  MOVE.W cpuAddrSize,D1
+  ADD.W #2,D1
+  MOVE.W	D1,cursorX
+	;MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D1
 	RTS
@@ -3779,7 +3792,7 @@ LAB_A138F2:
 	DBF	D3,LAB_A138F2
 	MOVE.L	(A7)+,D3
 	MOVE.L	D2,D0
-	BSR.W	Print8DigitHex
+	BSR.W	PrintAddressHex
 	MOVEA.L	(A7)+,A0
 	DBF	D1,LAB_A138E8
 	BSR.W	PrintSpace
@@ -3971,7 +3984,7 @@ LAB_A13BEC:
 	BEQ.S	LAB_A13C0E
 	LEA	ResidentProgramText(PC),A0
 	BSR.W	PrintText
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	JSR	SUB_A173DC
 LAB_A13C0E:
 	BTST	#0,VirusCheckerSettingsPrefs
@@ -3983,11 +3996,16 @@ LAB_A13C1E:
 	LEA	SaveCpuRegs,A0
 	MOVEA.L	$3C(A0),A1
 	MOVE.L	(A1),-(A7)
-  ifd arhardware
-	ADDQ.L	#6,$3C(A0)
-  else
-	ADDQ.L	#8,$3C(A0)
-  endc
+  MOVEQ #0,D0
+  MOVE.W  vbrflag,D0
+  ADD.W   D0,D0
+  ADDQ.W  #6,D0
+	ADD.L	D0,$3C(A0)
+  ;ifd arhardware
+	;ADDQ.L	#6,$3C(A0)
+  ;else
+	;ADDQ.L	#8,$3C(A0)
+  ;endc
 	MOVEA.L	$3C(A0),A0
 	MOVE.L	(A7)+,(A0)+
 	MOVE.W	(A0)+,D0
@@ -4007,16 +4025,20 @@ LAB_A13C1E:
 	SF	restartFlag
 LAB_A13C7C:
 	CMPI.L	#$00000136,SaveOldPc
-	BNE.S	LAB_A13D02
+	BNE	LAB_A13D02
 	LEA	SaveCpuRegs,A0
 	MOVEA.L	$3C(A0),A1
 	MOVE.L	(A1),-(A7)
-
-  ifd arhardware
-	ADDQ.L	#6,$3C(A0)
-  else
-	ADDQ.L	#8,$3C(A0)
-	endc
+  MOVEQ #0,D0
+  MOVE.W  vbrflag,D0
+  ADD.W   D0,D0
+  ADDQ.W  #6,D0
+  ADD.L D0,$3C(A0)
+  ;ifd arhardware
+	;ADDQ.L	#6,$3C(A0)
+  ;else
+	;ADDQ.L	#8,$3C(A0)
+	;endc
   MOVEA.L	$3C(A0),A0
 	MOVE.L	(A7)+,(A0)+
 	MOVE.W	(A0)+,D0
@@ -4039,7 +4061,7 @@ LAB_A13CCE:
 	LEA	MemoryByteText(PC),A0
 	JSR	PrintText(PC)
 	MOVE.L	A1,D0
-	JSR	Print7DigitHex(PC)
+	JSR	PrintAddressHex(PC)
 	LEA	ChangedFromText(PC),A0
 	JSR	PrintText(PC)
 	MOVE.W	D1,D0
@@ -4071,8 +4093,8 @@ aboutText:
 HeaderStarsText:
 	DC.B	$D,"************************************************************"
 	DC.B	"********************",0
-BreakPointRaisedText:
 
+BreakPointRaisedText:
 	DC.B	"Breakpoint raised at address: ",0
 ResidentProgramText:
 
@@ -4243,7 +4265,7 @@ SUB_A146CA:
 	MOVE.W	#$002c,D0
 	BSR.W	PrintChar
 	MOVE.L	D1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	Print6DigitHex
 	MOVEA.L	D0,A0
 	MOVEQ	#3,D1
 LAB_A146EE:
@@ -4270,7 +4292,7 @@ LAB_A146EE:
 	BSR.W	PrintValue
 	MOVE.W	D0,D1
 	MOVEQ	#$C,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVEQ	#$3B,D0
 	JSR	PrintChar
 	MOVE.W	D1,D0
@@ -4335,12 +4357,12 @@ LAB_A14766:
 LAB_A14804:
 	MOVE.W	#$0038,D0
 	SUB.W	cursorX,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	LEA	DCLText(PC),A0
 	JSR	PrintText(PC)
 	MOVE.L	D6,D0
 	JSR	SUB_A1A3FA
-	MOVE.W	#$0010,cursorX
+	MOVE.W	#$000f,cursorX
 	MOVEM.L	(A7)+,D0-D2/D6/A0-A1
 	RTS
 CopperEndText:
@@ -7189,7 +7211,7 @@ PrintCR:
 	BSR.W	PrintChar
 	MOVE.L	(A7)+,D0
 	RTS
-PrintFixedWidthValue:
+PrintSpaces:
 	MOVEM.L	D0-D1,-(A7)
 	MOVE.W	D0,D1
 	TST.W	D0
@@ -7269,7 +7291,7 @@ LAB_A17484:
 	SUBQ.W	#1,D2
 	BNE.S	LAB_A17484
 	MOVE.L	A3,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	LEA	OffsetText(PC),A0
 	BSR.W	PrintText
 	MOVEQ	#0,D0
@@ -7373,9 +7395,9 @@ LAB_A175A0:
 	BNE.S	LAB_A175BA
 	DBF	D0,LAB_A1753E
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
-	MOVEQ	#1,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintAddressHex
+	MOVEQ	#2,D0
+	BSR.W	PrintSpaces
 LAB_A175BA:
 	ADDQ.W	#1,A1
 	BRA.W	LAB_A17506
@@ -7558,10 +7580,10 @@ SUB_A1779A:
 	MOVE.W	#$00a7,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVE.L	A2,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVEA.L	A1,A0
 	BSR.W	memSafeReadLong
@@ -7649,7 +7671,7 @@ SUB_A178B0:
 	MOVE.W	#$0026,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVEA.L	A1,A0
 	BSR.W	memSafeReadLong
@@ -7725,7 +7747,7 @@ LAB_A17998:
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A47FB2,D0
 	LSL.W	#3,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	Print2DigitHex
 	BSR.W	PrintSpace
 	LEA	BitsText(PC),A0
@@ -7753,7 +7775,7 @@ SUB_A179FA:
 	MOVE.W	#$007c,D0
 	BSR.W	PrintChar
 	MOVE.L	D2,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVE.W	#$0025,D0
 	BSR.W	PrintChar
@@ -7767,7 +7789,10 @@ LAB_A17A26:
 	MOVEQ	#8,D1
 	BSR.W	SUB_A1359C
 	DBF	D2,LAB_A17A26
-	MOVE.W	#$0009,cursorX
+  MOVE.W cpuAddrSize,D2
+  ADD.W #2,D2
+  MOVE.W	D2,cursorX
+	;MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D2/A0
 	RTS
@@ -7868,7 +7893,7 @@ SUB_A17B50:
 	MOVE.W	#$002e,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintSpace
 	MOVEQ	#$3F,D1
 LAB_A17B6A:
@@ -7883,7 +7908,10 @@ LAB_A17B6A:
 	JSR	SUB_A137FC(PC)
 	BSR.W	PrintChar
 	DBF	D1,LAB_A17B6A
-	MOVE.W	#$0009,cursorX
+  MOVE.W cpuAddrSize,D1
+  ADD.W #2,D1
+  MOVE.W D1,cursorX
+	;MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D1/A1
 	RTS
@@ -7942,8 +7970,11 @@ LAB_407C6C:
 	JMP	(A3)			;407c96: 4ed3
 LAB_407C98: 
 	MOVE.B	#$13,LAB_A484DB		;407c98: 13fc00130044f845
+	CMPI.B	#$f8,EXT_F80005
+  BEQ.S .k2
 	CMPI.B	#$f8,EXT_FC0005		;407ca0: 0c3900f800fc0005
 	BNE.W	LAB_407CB4		;407ca8: 6600000a
+.k2
 	MOVE.B	#$20,LAB_A484DB		;407cac: 13fc00200044f845
 LAB_407CB4:
 	LEA	StackEnd,A7		;407cb4: 4ff900450000
@@ -8192,6 +8223,8 @@ ARInit:
 	NOT.B	LAB_A483DA
 	MOVE.W	DrivesConnected,DriveControlPrefsValue
 	MOVE.W	#$ffff,BootSelectPrefs
+  MOVE.W  #8,cpuAddrSize
+  MOVE.W  #6,cpuAddrSize+$ff000000
 	SF	LAB_A483CC
 	SF	LAB_A483D8
 	SF	exceptionsActive
@@ -8637,7 +8670,7 @@ LAB_A182DE:
 	LEA	FirstTrainpassText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	trainerContinueAddress,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	PrintCR
 	LEA	ChangeCounterText(PC),A0
 	BSR.W	PrintText
@@ -8720,7 +8753,7 @@ LAB_A18410:
 	LEA	SearchedUptoText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	trainerContinueAddress,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BSR.W	SUB_A173DC
 	CMPI.L	#LAB_A43CF6,trainerWorkspacePtr
 	BNE.S	LAB_A18442
@@ -8782,9 +8815,9 @@ LAB_A184AE:
 	BSR.W	PrintText
 LAB_A184CC:
 	MOVE.L	D3,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	BRA.S	LAB_A184AE
 LAB_A184DA:
 	TST.B	D4
@@ -8792,7 +8825,7 @@ LAB_A184DA:
 	LEA	NothingFoundText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	trainerContinueAddress,D0
-	BSR.W	Print7DigitHex
+	BSR.W	PrintAddressHex
 	BRA.W	PrintCR
 LAB_A184F4:
 	RTS
@@ -8905,9 +8938,9 @@ LAB_A186FE:
 	LEA	2(A2),A2
 	TST.L	D0
 	BEQ.S	LAB_A18714
-	BSR.W	Print7DigitHex
-	MOVE.W	#$0002,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintAddressHex
+	MOVE.W	#2,D0
+	BSR.W	PrintSpaces
 LAB_A18714:
 	DBF	D3,LAB_A186FE
 	BRA.W	PrintReady
@@ -9102,7 +9135,7 @@ LAB_A18994:
 	DC.L	$00760078,$007a007c,$0088008a,$00ac00ae
 	DC.L	$00bc00be,$00cc00ce,$00dc00de,$00f800fa
 	DC.L	$00fc00fe,$0106010c,$010e011c,$011effff
-SUB_A189E4:
+ConvertToBCD:
 	MOVEM.L	D1-D3,-(A7)
 	TST.L	D0
 	BEQ.S	LAB_A18A0C
@@ -9169,7 +9202,7 @@ LAB_A18A7A:
 	SUBQ.L	#1,D0
 	BSR.W	SUB_A1A3FA
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	BRA.S	LAB_A18A6C
 PrintWTF:
 	SF	LAB_A489FC
@@ -9693,7 +9726,7 @@ SUB_A19224:
 	BEQ.S	LAB_A1925E
 	ADD.W	D0,D0
 LAB_A1925E:
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	SUB_A19E50
 	MOVEM.L	(A7)+,D0-D3
 	RTS
@@ -9703,7 +9736,7 @@ SUB_A1926C:
 	MOVE.W	#$001c,LAB_A481F4
 	MOVE.W	#$0003,LAB_A481F6
 	MOVE.W	LAB_A480DE,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	SUB_A19E50
 	MOVEM.L	(A7)+,D0-D1
 	RTS
@@ -9725,7 +9758,7 @@ SUB_A192C2:
 	MOVE.W	#$0017,LAB_A481F4
 	MOVE.W	#$0004,LAB_A481F6
 	MOVE.W	memPeekerColorReg,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	SUB_A19E50
 	MOVE.W	#$001c,LAB_A481F4
 	MOVE.W	memPeekerColorReg,D0
@@ -10527,14 +10560,14 @@ LAB_A19CDE:
 	BSR.W	PrintText
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A480DE,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	MOVEQ	#3,D1
 	BSR.W	PrintValue
 	BSR.W	SUB_A173DC
 	LEA	CopperPosText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	copperPos,D0
-	JSR	Print7DigitHex
+	JSR	Print6DigitHex
 	BRA.W	SUB_A173DC
 PicHeightText:
 
@@ -10760,7 +10793,7 @@ LAB_A1A184:
 	BEQ.S	LAB_A1A1C4
 	LSL.W	#1,D0
 LAB_A1A1C4:
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	MOVEQ	#3,D1
 	BSR.W	PrintValue
 	LEA	HeightText(PC),A0
@@ -10768,7 +10801,7 @@ LAB_A1A1C4:
 	MOVE.W	LAB_A480DA,D0
 	SUB.W	LAB_A480D2,D0
 	ADDI.W	#$000e,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	MOVEQ	#3,D1
 	BSR.W	PrintValue
 	BRA.W	SUB_A173DC
@@ -11001,13 +11034,13 @@ LAB_A1A460:
 	BSR.W	PrintText
 	BSR.W	PrintSpace
 	MOVE.L	2(A3),D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BSR.W	PrintSpace
 	BSR.W	PrintSpace
 	MOVE.L	6(A3),D0
 	BSR.W	SUB_A1A3FA
 	MOVEQ	#3,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVE.B	$A(A3),D0
 	MOVEQ	#1,D1
 	BSR.W	PrintValue
@@ -11103,7 +11136,7 @@ LAB_A1A64A:
 	BSR.W	PrintText
 	LEA	$B(A0),A0
 	MOVEQ	#7,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	ADDQ.W	#1,D3
 	DBF	D2,LAB_A1A64A
 	BSR.W	SUB_A173DC
@@ -11232,7 +11265,7 @@ LAB_A1A81E:
 	MOVE.B	$18(A0),D0
 	BSR.W	SUB_A1359C
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue(PC)
+	JSR	PrintSpaces(PC)
 	MOVE.W	#$003b,D0
 	BSR.W	PrintChar
 	LEA	CiaRegsTable(PC),A0
@@ -11746,11 +11779,11 @@ LAB_A1AEBA:
 	MOVE.L	A0,D0
 	LEA	QuickDunpText(PC),A0
 	BSR.W	PrintText
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BRA.W	SUB_A173DC
 QuickDunpText:
+	DC.B	"Quick-dump up to address: ",0
 
-	DC.B	"Quick-dump up to address:",0
 CMD_RAMTEST:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -11829,7 +11862,7 @@ LAB_A1AFBA:
 	MOVE.L	A0,D0
 	BSR.W	SUB_A1A3FA
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	BRA.S	LAB_A1AF9A
 LAB_A1AFCE:
 	ST	LAB_A480CA
@@ -11837,7 +11870,7 @@ LAB_A1AFCE:
 	SUBQ.L	#2,D0
 	BSR.W	SUB_A1A3FA
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	BRA.W	LAB_A1AF58
 RamTesterHeaderText:
 
@@ -11961,28 +11994,51 @@ LAB_A1B170:
 LAB_A1B17E:
 	LEA	MemBytesFreeText(PC),A0
 	JSR	PrintText
-	MOVEQ	#7,D1
+  CMP.L #100000000,D3
+  BPL AvailAsHex
+	MOVE.L	D2,D0
+	ADD.L	D3,D0
+  CMP.L #100000000,D0
+  BPL AvailAsHex
+  
 	MOVEQ	#$21,D0
+	MOVEQ	#7,D1
 	BSR.W	PrintChar
 	MOVE.L	D2,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	PrintValue
 	MOVEQ	#3,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	MOVEQ	#$21,D0
+	MOVEQ	#8,D1
 	BSR.W	PrintChar
 	MOVE.L	D3,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	PrintValue
-	MOVEQ	#3,D0
-	BSR.W	PrintFixedWidthValue
+	MOVEQ	#2,D0
+	BSR.W	PrintSpaces
 	MOVEQ	#$21,D0
 	BSR.W	PrintChar
 	MOVE.L	D2,D0
 	ADD.L	D3,D0
-	BSR.W	SUB_A189E4
+	BSR.W	ConvertToBCD
 	BSR.W	PrintValue
 	BRA.W	SUB_A173DC
+AvailAsHex:
+	MOVEQ	#8,D1
+	MOVE.L	D2,D0
+	BSR.W	PrintValue
+	MOVEQ	#3,D0
+	BSR.W	PrintSpaces
+	MOVE.L	D3,D0
+	BSR.W	PrintValue
+	MOVEQ	#3,D0
+	BSR.W	PrintSpaces
+	MOVE.L	D2,D0
+	ADD.L	D3,D0
+	BSR.W	PrintValue
+	BRA.W	SUB_A173DC
+
 MemBytesFreeText:
 	DC.B	"Memorybytes free:",$D,"Chipmem    Fastmem    Totalmem",$D,0
 
@@ -12001,9 +12057,9 @@ SUB_A1B220:
 	BSR.W	SUB_A1B2C0
 	BEQ.S	LAB_A1B28E
 	MOVE.L	A2,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	EXG	A0,A1
 	JSR	PrintText
 	LEA	8(A2),A0
@@ -12441,16 +12497,16 @@ LAB_A1B5D0:
 	BNE.S	LAB_A1B5EA
 	MOVE.L	LAB_A4820A,D0
 LAB_A1B5EA:
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BRA.W	SUB_A173DC
 SearchedUptoAddrText:
 
 	DC.B	"Searched up to adr: ",0,0
 LAB_A1B60A:
 	MOVE.L	A4,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#1,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	JSR	SUB_A1613A(PC)
 	BSR.W	SUB_A173DC
 	BRA.S	LAB_A1B5BE
@@ -12507,7 +12563,7 @@ CMD_A:
 	MOVEQ	#$5E,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BRA.W	PrintSpace
 SUB_A1B6B8:
 	MOVE.L	A0,-(A7)
@@ -13251,7 +13307,7 @@ LAB_A1C162:
 	MOVE.W	#$005e,D0
 	JSR	PrintChar(PC)
 	MOVE.L	A4,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BSR.W	PrintSpace
 	SF	LAB_A489FC
 	RTS
@@ -14322,7 +14378,7 @@ LAB_A1CD9C:
 	ADDQ.L	#4,A0
 	BSR.W	PrintValue
 	MOVEQ	#1,D0
-	BSR.W	PrintFixedWidthValue
+	BSR.W	PrintSpaces
 	ADDQ.W	#1,D3
 	DBF	D2,LAB_A1CD9C
 	BRA.W	PrintReady
@@ -14484,9 +14540,9 @@ LAB_A1D10A:
 	MOVEQ	#5,D1
 	BRA.W	LAB_A1D118
 LAB_A1D118:
-  ifnd arhardware
-  ADD.L #2,D0
-  endc
+  ADD.W vbrflag,D0
+  ADD.W vbrflag,D0
+
 	MOVEA.L	#SaveCpuA7,A0
   MOVE.L (A0),A1
 	ADD.L	D0,(A0)
@@ -14504,20 +14560,21 @@ LAB_A1D118:
 	LEA	RaisedAtText(PC),A0
 	JSR	PrintText
   MOVE.L SaveOldPc,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	BSR.W	PrintReady
 	RTS
-ExceptionTypesTable:
 
+ExceptionTypesTable:
 	DC.B	"Addressing error",0
 	DC.B	"Illegal instruction",0
 	DC.B	"Division by zero",0
 	DC.B	"Line-A exception",0
 	DC.B	"Line-F exception",0
 	DC.B	"Privilege violation",0
-RaisedAtText:
 
+RaisedAtText:
 	DC.B	" raised at address: ",0,0
+
 calcArChecksum:
 	BSR.W	calcChecksum
 	MOVE.L	D0,checksum
@@ -16627,7 +16684,7 @@ LAB_A1E98C:
 	MOVEQ	#4,D1
 	MOVE.L	D7,cursorX
 	MOVEQ	#8,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	0(A1,D2.W),D0
 	JSR	SUB_A1EE00
 	MOVE.L	D2,D7
@@ -16894,10 +16951,10 @@ LAB_A1ECE4:
 LAB_A1ECF0:
 	MOVE.L	LAB_A483AA,D0
 	MOVE.L	#$000f0009,cursorX
-	JSR	Print7DigitHex
+	JSR	Print6DigitHex
 	MOVE.L	LAB_A483AE,D0
 	MOVE.L	#$00180009,cursorX
-	JSR	Print7DigitHex
+	JSR	Print6DigitHex
 	TST.B	ExtMemAddPrefsFlag
 	BEQ.S	LAB_A1ED2A
 	MOVEQ	#6,D0
@@ -18045,7 +18102,7 @@ LAB_412EA4:
 	LEA	LAB_41384F(PC),A0	;412ea4: 41fa09a9
 	JSR	PrintText		;412ea8: 4eb900403988
 	MOVE.L	ModPointer,D0		;412eae: 20390044f65c
-	JSR	Print7DigitHex		;412eb4: 4eb9004020a2
+	JSR	Print6DigitHex		;412eb4: 4eb9004020a2
 	LEA	LAB_41386D(PC),A0	;412eba: 41fa09b1
 	JSR	PrintText		;412ebe: 4eb900403988
 	LEA	LAB_41387C(PC),A0	;412ec4: 41fa09b6
@@ -18232,7 +18289,7 @@ LAB_41329A:
 	MOVE.W	(A0)+,D0		;41329a: 3018
 	JSR	SUB_A1732C		;41329c: 4eb9004072aa
 	MOVEQ	#2,D0			;4132a2: 7002
-	JSR	PrintFixedWidthValue	;4132a4: 4eb900407346
+	JSR	PrintSpaces	;4132a4: 4eb900407346
 	DBF	D1,LAB_41329A		;4132aa: 51c9ffee
 	JSR	SUB_A173DC		;4132ae: 4eb900407362
 	JSR	PrintCR		;4132b4: 4eb90040733a
@@ -18484,7 +18541,7 @@ SUB_4135F8:
 	TST.B	D0			;413608: 4a00
 	BNE.W	LAB_41361C		;41360a: 66000010
 	MOVE.W	#$0009,cursorX		;41360e: 33fc00090044f29a
-	JSR	Print7DigitHex		;413616: 4eb9004020a2
+	JSR	Print6DigitHex		;413616: 4eb9004020a2
 LAB_41361C:
 	MOVE.B	(A7)+,LAB_A481E4	;41361c: 13df0044f54e
 	MOVE.L	(A7)+,D0		;413622: 201f
@@ -18773,7 +18830,7 @@ TrackerSeeDetails:
 	LEA	LAB_413C68(PC),A0	;413b2c: 41fa013a
 	JSR	PrintText		;413b30: 4eb900403988
 	MOVE.L	ModPointer,D0		;413b36: 20390044f65c
-	JSR	Print7DigitHex		;413b3c: 4eb9004020a2
+	JSR	Print6DigitHex		;413b3c: 4eb9004020a2
 	JSR	SUB_A173DC		;413b42: 4eb900407362
 	MOVEA.L	D0,A1			;413b48: 2240
 	LEA	LAB_413C83(PC),A0	;413b4a: 41fa0137
@@ -19045,7 +19102,7 @@ SUB_413FC2:
 	MOVE.W	#$0005,cursorY		;413fc6: 33fc00050044f29c
 	TST.B	LAB_A480D6		;413fce: 4a390044f440
 	BNE.W	LAB_413FEE		;413fd4: 66000018
-	MOVE.W	#$0018,cursorX		;413fd8: 33fc001e0044f29a
+	MOVE.W	#$001e,cursorX		;413fd8: 33fc001e0044f29a
 	LEA	txtSampleStart(PC),A0	;413fe0: 41fa0179
 	MOVE.L	LAB_A480CA,D0		;413fe4: 20390044f434
 	BRA.W	LAB_414000		;413fea: 60000014
@@ -19055,7 +19112,7 @@ LAB_413FEE:
 	MOVE.L	LAB_A480CE,D0		;413ffa: 20390044f438
 LAB_414000:
 	JSR	PrintText		;414000: 4eb900403988
-	JSR	Print7DigitHex		;414006: 4eb9004020a2
+	JSR	Print6DigitHex		;414006: 4eb9004020a2
 	MOVEQ	#$3C,D0			;41400c: 703c
 	MOVEQ	#$41,D1			;41400e: 7241
 	BSR.W	SUB_41454E		;414010: 6100053c
@@ -20631,7 +20688,7 @@ LAB_A20906:
 	BMI.S	LAB_A209C4
 	BSR.W	SUB_A2202C
 	MOVE.L	D0,D2
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#4,D1
 	JSR	PrintValue
 	MOVE.L	A0,-(A7)
@@ -20642,7 +20699,7 @@ LAB_A20906:
 	MULU	#$03e8,D0
 	DIVU	#$06e0,D0
 	EXT.L	D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	ROXR.L	#4,D0
 	MOVEQ	#2,D1
 	CMPI.W	#$0100,D0
@@ -20689,7 +20746,7 @@ LAB_A20A14:
 	ADDQ.W	#1,D5
 	DBF	D3,LAB_A20A0C
 	MOVE.W	D2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVEA.L	A0,A4
 	MOVEQ	#$28,D0
 	JSR	PrintChar
@@ -20731,13 +20788,13 @@ LAB_A20A7C:
 	BNE.S	LAB_A20A74
 	MOVE.W	D2,D0
 	ADDQ.W	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	$144(A1),D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#6,D1
 	JSR	PrintValue
 	MOVEQ	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	BSR.W	SUB_A221D6
 	JSR	SUB_A173DC
 	MOVE.L	$1F0(A1),D0
@@ -20862,7 +20919,7 @@ LAB_A20C24:
 	JSR	PrintText
 	MOVE.L	D1,D0
 	LSR.L	#1,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#2,D1
 	JSR	PrintValue
 	LEA	HeadText(PC),A0
@@ -20886,7 +20943,7 @@ LAB_A20C24:
 	BEQ.S	LAB_A20CD8
 	MOVEA.L	A1,A0
 	MOVEQ	#$23,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	CLR.W	cursorX
 	BSR.W	SUB_A20D5C
 	MOVEA.L	A0,A1
@@ -20899,7 +20956,7 @@ LAB_A20CDC:
 LAB_A20CDE:
 	MOVE.L	D0,D1
 	MOVEQ	#$23,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	CLR.W	cursorX
 	BSR.W	SUB_A1FA3E
 	BMI.S	LAB_A20CF6
@@ -20934,7 +20991,7 @@ LAB_A20D6A:
 	JSR	PrintText
 	MOVE.W	D2,D0
 	LSR.W	#1,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#2,D1
 	JSR	PrintValue
 	LEA	HeadText(PC),A0
@@ -22190,11 +22247,11 @@ CMD_LM:
 	LEA	LoadingFromText(PC),A0
 	JSR	PrintText
 	MOVE.L	A2,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	ADD.L	LAB_A4831E,D0
 	LEA	LoadingToText(PC),A0
 	JSR	PrintText
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	JSR	SUB_A173DC
 	MOVEA.L	(A7)+,A0
 	MOVE.L	LAB_A4831E,D0
@@ -23779,7 +23836,7 @@ SUB_A23212:
 	MULU	#$000a,D0
 	LSR.L	#8,D0
 	LSR.L	#2,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	ROXR.L	#4,D0
 	MOVEQ	#1,D1
 	JSR	PrintValue
@@ -24850,16 +24907,16 @@ LAB_A24366:
 	JSR	PrintChar
 	MOVEQ	#3,D1
 	MOVE.W	D2,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	JSR	PrintValue
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVEQ	#$24,D0
 	JSR	PrintChar
 	MOVE.W	D2,D0
 	JSR	PrintValue
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVEQ	#$24,D0
 	JSR	PrintChar
 	MOVE.L	A6,D0
@@ -24867,7 +24924,7 @@ LAB_A24366:
 	MOVEQ	#7,D1
 	JSR	PrintValue
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVEA.L	A1,A0
 	MOVEA.L	A1,A5
 	JSR	FindNull(PC)
@@ -24879,7 +24936,7 @@ LAB_A24366:
 	JSR	memSafeReadByte1
 	JSR	Print2DigitHex
 	MOVEQ	#7,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	BRA.S	LAB_A2441C
 LAB_A243EE:
 	CMPI.B	#$02,D0
@@ -24887,7 +24944,7 @@ LAB_A243EE:
 	JSR	memSafeReadWord
 	JSR	SUB_A1732C
 	MOVEQ	#5,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	BRA.S	LAB_A2441C
 LAB_A2440A:
 	JSR	memSafeReadLong
@@ -25389,7 +25446,7 @@ LAB_A24B52:
 	LEA	TBuffHoldsText(PC),A0
 	JSR	PrintText
 	ANDI.L	#$0000ffff,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVE.L	D1,D3
 	MOVEQ	#3,D1
 	JSR	PrintValue
@@ -25433,7 +25490,7 @@ LAB_A24C04:
 	LEA	MaxReadText(PC),A0
 	JSR	PrintText
 	ANDI.L	#$0000ffff,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVE.L	D1,D3
 	MOVEQ	#3,D1
 	JSR	PrintValue
@@ -25447,17 +25504,17 @@ LAB_A24C46:
 	LEA	TBuffFromText(PC),A0
 	JSR	PrintText
 	MOVE.L	DiskMonBuffer,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	LEA	TBuffToText(PC),A0
 	JSR	PrintText
 	ADD.L	DiskMonBufferSize,D0
-	JSR	Print7DigitHex
+	JSR	Print8DigitHex
 	LEA	TBuffHoldingText(PC),A0
 	JSR	PrintText
 	MOVE.L	DiskMonBufferSize,D0
 	DIVU	#$1600,D0
 	EXT.L	D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#3,D1
 	JSR	PrintValue
 	LEA	TracksText2(PC),A0
@@ -25491,7 +25548,7 @@ LAB_A24CEA:
 	MOVE.W	D1,D0
 	BSR.W	SUB_A25372
 	MOVEQ	#4,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	(A7)+,D0
 	BSR.W	PrintDiskOpResult2
 	JSR	SUB_A173DC
@@ -25656,7 +25713,7 @@ LAB_A24F30:
 	MOVE.W	D1,D0
 	BSR.W	SUB_A25372
 	MOVEQ	#4,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	(A7)+,D0
 	BSR.W	PrintDiskOpResult2
 	JSR	SUB_A173DC
@@ -25928,7 +25985,7 @@ SUB_A25372:
 	MOVEQ	#0,D0
 	MOVE.W	(A7),D0
 	LSR.W	#1,D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVEQ	#2,D1
 	JSR	PrintValue
 	LEA	HeadText2(PC),A0
@@ -26104,9 +26161,9 @@ LAB_A25642:
 	CMP.L	(A2)+,D0
 	BEQ.S	LAB_A25660
 	MOVE.L	A0,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 LAB_A25660:
 	DBF	D2,LAB_A25642
 	JSR	SUB_A173DC
@@ -26239,7 +26296,7 @@ LAB_A25830:
 	SUB.W	cursorX,D1
 	BEQ.S	LAB_A25876
 	EXG	D0,D1
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	EXG	D0,D1
 LAB_A25876:
 	CMPI.W	#$0020,D0
@@ -26520,7 +26577,7 @@ LAB_A25BE0:
 	JSR	memSafeReadByte1
 	ADDQ.L	#1,A0
 	MOVEA.L	A0,A4
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	ROR.W	#8,D0
 	OR.B	D0,LAB_A4806B
 	CLR.B	D0
@@ -26567,16 +26624,16 @@ LAB_A25C66:
 	LEA	DmonBuffStartText(PC),A0
 	JSR	PrintText
 	MOVE.L	DiskMonBuffer,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	LEA	DmonBuffEndText(PC),A0
 	JSR	PrintText
 	MOVE.L	DiskMonBufferSize,D0
 	ADD.L	DiskMonBuffer,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	LEA	DmonBuffLenText(PC),A0
 	JSR	PrintText
 	MOVE.L	DiskMonBufferSize,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	JSR	PrintReady
 	RTS
 DmonBuffStartText:
@@ -26980,7 +27037,7 @@ LAB_A26118:
 	MOVE.W	#$0014,cursorY
 	LEA	JoyAndFireText(PC),A0
 	JSR	PrintText
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	CLR.W	cursorX
 	MOVE.W	LAB_A48416,D0
 	BPL.S	LAB_A26160
@@ -27478,7 +27535,7 @@ LAB_A268BE:
 	EXG	A3,A0
 	MOVE.L	#$00240016,cursorX
 	MOVEQ	#$2B,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	#$00240016,cursorX
 	JSR	PrintText
 	EXG	A3,A0
@@ -27590,7 +27647,7 @@ SUB_A26A52:
 	BMI.S	LAB_A26A34
 	JSR	SUB_A2202C(PC)
 	MOVE.L	D0,D2
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	MOVE.L	cursorX,-(A7)
 	MOVE.L	#$00230005,cursorX
 	MOVEQ	#4,D1
@@ -27603,7 +27660,7 @@ SUB_A26A52:
 	MULU	#$03e8,D0
 	DIVU	#$06e0,D0
 	EXT.L	D0
-	JSR	SUB_A189E4
+	JSR	ConvertToBCD
 	ROXR.L	#4,D0
 	MOVEQ	#2,D1
 	CMPI.W	#$0100,D0
@@ -27628,7 +27685,7 @@ SUB_A26AE8:
 	MOVE.L	LAB_A48418,currentDirBlock
 	MOVE.L	#$00240013,cursorX
 	MOVEQ	#$2B,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	#$00240013,cursorX
 	EXG	A6,A0
 	JSR	SUB_A22160(PC)
@@ -27689,7 +27746,7 @@ LAB_A26B92:
 	CLR.B	$15(A0)
 	MOVE.L	cursorX,-(A7)
 	MOVEQ	#$15,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	(A7)+,cursorX
 	JSR	PrintText
 	MOVE.B	(A7)+,$15(A0)
@@ -27718,7 +27775,7 @@ LAB_A26C06:
 	RTS
 LAB_A26C1C:
 	MOVEQ	#$18,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	ADDQ.W	#2,cursorY
 	MOVE.W	#$0002,cursorX
 	CLR.L	LAB_A47F3E
@@ -27753,7 +27810,7 @@ LAB_A26C8C:
 	MOVE.L	cursorX,-(A7)
 	MOVE.L	D7,cursorX
 	MOVE.W	D6,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	D7,cursorX
 	MOVEA.L	A1,A0
 	LEA	0(A0,D2.W),A0
@@ -28792,9 +28849,9 @@ LAB_A27BF6:
 	BMI.S	LAB_A27C10
 	TST.B	EscapePressed
 	BNE.S	LAB_A27C16
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 LAB_A27C10:
 	ADDQ.W	#2,A0
 	CMPA.L	A0,A1
@@ -28884,9 +28941,9 @@ LAB_A27D7A:
 	TST.B	EscapePressed
 	BNE.S	LAB_A27DA8
 	MOVE.L	A0,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 LAB_A27DA8:
 	ST	LAB_A480CA
 	BRA.S	LAB_A27DB4
@@ -29012,7 +29069,7 @@ SUB_A27F02:
 	LEA	SearchedUptoText,A0
 	JSR	PrintText
 	MOVE.L	trainerContinueAddress,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	JSR	SUB_A173DC
 	MOVEM.L	(A7)+,D0/A0
 	RTS
@@ -29089,9 +29146,9 @@ CMD_MW:
 LAB_A2806C:
 	MOVE.L	(A0)+,D0
 	BMI.S	LAB_A2807E
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 LAB_A2807E:
 	DBF	D1,LAB_A2806C
 	JSR	PrintReady
@@ -30525,7 +30582,7 @@ LAB_A2979E:
 	MOVE.L	#$00360010,cursorX
 LAB_A297BC:
 	MOVEQ	#$16,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.W	#$0036,cursorX
 	LEA	NotUsedText(PC),A0
 	JSR	PrintText
@@ -30541,7 +30598,7 @@ LAB_A297EE:
 	MOVEQ	#7,D5
 LAB_A29802:
 	MOVEQ	#$16,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.W	#$0036,cursorX
 	LEA	LAB_A45352,A1
 	MOVE.L	D2,D0
@@ -31334,7 +31391,7 @@ SUB_A2A0F6:
 	SF	printerDumpToggle
 	CLR.W	cursorX
 	MOVEQ	#$4F,D0
-	JSR	PrintFixedWidthValue
+	JSR	PrintSpaces
 	MOVE.L	(A7)+,D0
 	MOVE.W	(A7)+,cursorX
 	MOVE.B	(A7)+,printerDumpToggle
@@ -32766,7 +32823,7 @@ LAB_A2DB8A:
 	LEA	SQMemText(PC),A0
 	JSR	PrintText
 	MOVE.L	LAB_A483B6,D0
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 LAB_A2DBA0:
 	JSR	PrintReady
 	RTS
@@ -32968,7 +33025,7 @@ LAB_A2DE8A:
 	BNE.S	LAB_A2DEB4
 	CMP.L	D0,D6
 	BLS.S	LAB_A2DEAC
-	JSR	Print7DigitHex
+	JSR	PrintAddressHex
 	JSR	PrintSpace
 	JSR	PrintSpace
 LAB_A2DEAC:
@@ -35676,10 +35733,10 @@ SUB_A30FF8:
 	CMPI.W	#$0042,D0
 	BEQ.S	LAB_A31046
 	MOVEA.W	#$0001,A1
-	CMPI.W	#$0057,D0
+	CMPI.W	#$0057,D0     ;87 - W
 	BEQ.S	LAB_A31046
 	MOVEA.W	#$0002,A1
-	CMPI.W	#$004c,D0
+	CMPI.W	#$004c,D0     ;76   L
 	BEQ.S	LAB_A31046
 	MOVEA.W	#$0000,A1
 LAB_A31046:
@@ -36324,70 +36381,72 @@ LAB_A31946:
   ifd arhardware
 
 SoftBoot:
-	BTST	#0,FreezeState		;4002c6: 0839000000400001
-	BEQ.W	LAB_4002F4		;4002ce: 67000024
-	CMPI.L	#$00fc0144,2(A7)	;4002d2: 0caf00fc01440002
-	BEQ.S	.1		;4002da: 67007990
-	CMPI.L	#$00f80160,2(A7)	;4002de: 0caf00f801600002
-	BEQ.S	.1		;4002e6: 67007984
-	ST	LAB_A4824E		;4002ea: 50f90044f5b8
-	JMP	AREntry3		;4002f0: 60000bfe
-.1:
+  MOVE.B (A7)+,D0
+  
+;	BTST	#0,FreezeState		;4002c6: 0839000000400001
+;	BEQ.W	LAB_4002F4		;4002ce: 67000024
+;	CMPI.L	#$00fc0144,2(A7)	;4002d2: 0caf00fc01440002
+;	BEQ.S	.1		;4002da: 67007990
+;	CMPI.L	#$00f80160,2(A7)	;4002de: 0caf00f801600002
+;	BEQ.S	.1		;4002e6: 67007984
+;	ST	LAB_A4824E		;4002ea: 50f90044f5b8
+;	JMP	AREntry3		;4002f0: 60000bfe
+;.1:
   JMP LAB_407C6C
 
-LAB_4002F4:
-
-	MOVE.L	A0,-(A7)		;4002f4: 2f08
-	LEA	6(A7),A0		;4002f6: 41ef0006
-	MOVEA.L	(A0),A0			;4002fa: 2050
-  MOVE.L D0,-(A7)
-  MOVE.l A0,D0
-  SWAP D0
-  CMP.W #$00f8,D0
-  BMI.S notKSROM
-  CMP.W #$0100,D0
-  BPL.S notKSROM
-  MOVE.L (A7)+,D0
-  MOVE.L (A7)+,A0
-  RTE
-
-notKSROM:
-  MOVE.L (A7)+,D0
-	CMPA.L	#$00f80000,A0		;4002fc: b1fc00f80000
-	BLS.W	LAB_400314		;400302: 63000010
-	CMPI.L	#$51c9ffe8,(A0)		;400306: 0c9051c9ffe8
-	BNE.W	LAB_400314		;40030c: 66000006
-	BSR.W	SUB_4005EE		;400310: 610002dc
-LAB_400314:
-	MOVEA.L	(A7)+,A0		;400314: 205f
-	TST.B	LAB_A483CC		;400316: 4a390044f736
-	BEQ.W	LAB_40032C		;40031c: 6700000e
-	CMPI.L	#$00000120,2(A7)	;400320: 0caf000001200002
-	BNE.S	LAB_40032C			;400328: 67000bc0
-  JMP AREntry2
-LAB_40032C:
-	TST.B	LAB_A48391		;40032c: 4a390044f6fb
-	BEQ.W	LAB_400348		;400332: 67000014
-	CMPI.L	#$00000080,2(A7)	;400336: 0caf000000800002
-	BNE.W	LAB_400348		;40033e: 66000008
-	JMP	LAB_A25432		;400342: 4ef90041aec2
-LAB_400348:
-	TST.B	LAB_A481E5		;400348: 4a390044f54f
-	BEQ.W	LAB_40036E		;40034e: 6700001e
-	CMPI.L	#$00000180,2(A7)	;400352: 0caf000001800002
-	BEQ.W	LAB_40070E		;40035a: 670003b2
-	TST.B	LAB_A48336		;40035e: 4a390044f6a0
-	BEQ.W	LAB_40036E		;400364: 67000008
-	JSR	SUB_400622		;400368: 4eb900400622
-LAB_40036E:
-	TST.B	LAB_A4838D		;40036e: 4a390044f6f7
-	BNE.W	LAB_400810		;400374: 6600049a
-	TST.B	LAB_A483DA		;400378: 4a390044f744
-	BEQ.W	LAB_400810		;40037e: 67000490
-	TST.B	LAB_A4839A		;400382: 4a390044f703
-	BNE.W	LAB_400810		;400388: 66000486
-	TST.B	LAB_A483D8		;40038c: 4a390044f742
-	BNE.W	LAB_4007D6		;400392: 66000442
+;LAB_4002F4:
+;
+;	MOVE.L	A0,-(A7)		;4002f4: 2f08
+;	LEA	6(A7),A0		;4002f6: 41ef0006
+;	MOVEA.L	(A0),A0			;4002fa: 2050
+;  MOVE.L D0,-(A7)
+;  MOVE.l A0,D0
+;  SWAP D0
+;  CMP.W #$00f8,D0
+;  BMI.S notKSROM
+;  CMP.W #$0100,D0
+;  BPL.S notKSROM
+;  MOVE.L (A7)+,D0
+;  MOVE.L (A7)+,A0
+;  RTE
+;
+;notKSROM:
+;  MOVE.L (A7)+,D0
+;	CMPA.L	#$00f80000,A0		;4002fc: b1fc00f80000
+;	BLS.W	LAB_400314		;400302: 63000010
+;	CMPI.L	#$51c9ffe8,(A0)		;400306: 0c9051c9ffe8
+;	BNE.W	LAB_400314		;40030c: 66000006
+;	BSR.W	SUB_4005EE		;400310: 610002dc
+;LAB_400314:
+;	MOVEA.L	(A7)+,A0		;400314: 205f
+;	TST.B	LAB_A483CC		;400316: 4a390044f736
+;	BEQ.W	LAB_40032C		;40031c: 6700000e
+;	CMPI.L	#$00000120,2(A7)	;400320: 0caf000001200002
+;	BNE.S	LAB_40032C			;400328: 67000bc0
+;  JMP AREntry2
+;LAB_40032C:
+;	TST.B	LAB_A48391		;40032c: 4a390044f6fb
+;	BEQ.W	LAB_400348		;400332: 67000014
+;	CMPI.L	#$00000080,2(A7)	;400336: 0caf000000800002
+;	BNE.W	LAB_400348		;40033e: 66000008
+;	JMP	LAB_A25432		;400342: 4ef90041aec2
+;LAB_400348:
+;	TST.B	LAB_A481E5		;400348: 4a390044f54f
+;	BEQ.W	LAB_40036E		;40034e: 6700001e
+;	CMPI.L	#$00000180,2(A7)	;400352: 0caf000001800002
+;	BEQ.W	LAB_40070E		;40035a: 670003b2
+;	TST.B	LAB_A48336		;40035e: 4a390044f6a0
+;	BEQ.W	LAB_40036E		;400364: 67000008
+;	JSR	SUB_400622		;400368: 4eb900400622
+;LAB_40036E:
+;	TST.B	LAB_A4838D		;40036e: 4a390044f6f7
+;	BNE.W	LAB_400810		;400374: 6600049a
+;	TST.B	LAB_A483DA		;400378: 4a390044f744
+;	BEQ.W	LAB_400810		;40037e: 67000490
+;	TST.B	LAB_A4839A		;400382: 4a390044f703
+;	BNE.W	LAB_400810		;400388: 66000486
+;	TST.B	LAB_A483D8		;40038c: 4a390044f742
+;	BNE.W	LAB_4007D6		;400392: 66000442
 LAB_400396:
 	MOVEM.L	D0-D1/A0-A1,SaveCpuRegs	;400396: 48f903030044f208
 	LEA	EXT_BFD100,A0		;40039e: 41f900bfd100
@@ -36554,73 +36613,73 @@ LAB_400606:
 	JSR	setActivateMode		;40061a: 4eb90040134e
 LAB_400620:
 	RTS				;400620: 4e75
-SUB_400622:
-	BSR.W	SUB_400670		;400622: 6100004c
-	SF	LAB_A48336		;400626: 51f90044f6a0
-	MOVE.L	LAB_400666(PC),EXT_180.W ;40062c: 21fa00380180
-	MOVE.L	LAB_40066A(PC),EXT_184.W ;400632: 21fa00360184
-	MOVE.L	LAB_40066E(PC),EXT_188.W ;400638: 21fa00340188
-	MOVE.L	A6,-(A7)		;40063e: 2f0e
-	MOVEA.L	EXT_4.W,A6		;400640: 2c780004
-	LEA	-444(A6),A6		;400644: 4deefe44
-	CMPI.L	#$00000180,2(A6)	;400648: 0cae000001800002
-	BEQ.W	LAB_400662		;400650: 67000010
-	MOVE.L	2(A6),EXT_18C.W		;400654: 21ee0002018c
-	MOVE.L	#$00000180,2(A6)	;40065a: 2d7c000001800002
-LAB_400662:
-	MOVEA.L	(A7)+,A6		;400662: 2c5f
-	RTS				;400664: 4e75
-LAB_400666:
-	DC.L	$00390000		;400666
-LAB_40066A:
-	DC.L	$00bfd100		;40066a
-LAB_40066E:
-	DC.W	$60f6			;40066e
-SUB_400670:
-	CMPI.W	#$0004,LAB_A4822A	;400670: 0c7900040044f594
-	BNE.W	LAB_40070C		;400678: 66000092
-	MOVEM.L	D0-D1/A0,-(A7)		;40067c: 48e7c080
-	LEA	EXT_BFD100,A0		;400680: 41f900bfd100
-	MOVE.B	EXT_BFD100,-(A7)	;400686: 1f3900bfd100
-	MOVE.B	#$7f,(A0)		;40068c: 10bc007f
-	MOVE.B	#$07,(A0)		;400690: 10bc0007
-	BCLR	#1,(A0)			;400694: 08900001
-	BCLR	#0,(A0)			;400698: 08900000
-	NOP				;40069c: 4e71
-	NOP				;40069e: 4e71
-	BSET	#0,(A0)			;4006a0: 08d00000
-	JSR	SUB_A1FB40		;4006a4: 4eb900414b86
-	BSET	#1,(A0)			;4006aa: 08d00001
-	BCLR	#0,(A0)			;4006ae: 08900000
-	NOP				;4006b2: 4e71
-	NOP				;4006b4: 4e71
-	BSET	#0,(A0)			;4006b6: 08d00000
-	JSR	SUB_A1FB40		;4006ba: 4eb900414b86
-	MOVE.B	#$ff,(A0)		;4006c0: 10bc00ff
-	MOVE.B	#$87,(A0)		;4006c4: 10bc0087
-	MOVE.B	#$ff,(A0)		;4006c8: 10bc00ff
-	MOVEQ	#6,D0			;4006cc: 7006
-	MOVEQ	#3,D1			;4006ce: 7203
-LAB_4006D0:
-	BTST	D1,DriveControlPrefsValueLo ;4006d0: 03390044f591
-	BEQ.W	LAB_4006EA		;4006d6: 67000012
-	BCLR	D0,(A0)			;4006da: 0190
-	BTST	#2,EXT_BFE001		;4006dc: 0839000200bfe001
-	BNE.W	LAB_4006FA		;4006e4: 66000014
-	BSET	D0,(A0)			;4006e8: 01d0
-LAB_4006EA:
-	SUBQ.W	#1,D0			;4006ea: 5340
-	DBF	D1,LAB_4006D0		;4006ec: 51c9ffe2
-	CLR.W	LAB_A4822A		;4006f0: 42790044f594
-	BRA.W	LAB_400702		;4006f6: 6000000a
-LAB_4006FA:
-	MOVE.W	D1,LAB_A4822A		;4006fa: 33c10044f594
-	BSET	D0,(A0)			;400700: 01d0
-LAB_400702:
-	MOVE.B	(A7)+,EXT_BFD100	;400702: 13df00bfd100
-	MOVEM.L	(A7)+,D0-D1/A0		;400708: 4cdf0103
-LAB_40070C:
-	RTS				;40070c: 4e75
+;SUB_400622:
+;	BSR.W	SUB_400670		;400622: 6100004c
+;	SF	LAB_A48336		;400626: 51f90044f6a0
+;	MOVE.L	LAB_400666(PC),EXT_180.W ;40062c: 21fa00380180
+;	MOVE.L	LAB_40066A(PC),EXT_184.W ;400632: 21fa00360184
+;	MOVE.L	LAB_40066E(PC),EXT_188.W ;400638: 21fa00340188
+;	MOVE.L	A6,-(A7)		;40063e: 2f0e
+;	MOVEA.L	EXT_4.W,A6		;400640: 2c780004
+;	LEA	-444(A6),A6		;400644: 4deefe44
+;	CMPI.L	#$00000180,2(A6)	;400648: 0cae000001800002
+;	BEQ.W	LAB_400662		;400650: 67000010
+;	MOVE.L	2(A6),EXT_18C.W		;400654: 21ee0002018c
+;	MOVE.L	#$00000180,2(A6)	;40065a: 2d7c000001800002
+;LAB_400662:
+;	MOVEA.L	(A7)+,A6		;400662: 2c5f
+;	RTS				;400664: 4e75
+;LAB_400666:
+;	DC.L	$00390000		;400666
+;LAB_40066A:
+;	DC.L	$00bfd100		;40066a
+;LAB_40066E:
+;	DC.W	$60f6			;40066e
+;SUB_400670:
+;	CMPI.W	#$0004,LAB_A4822A	;400670: 0c7900040044f594
+;	BNE.W	LAB_40070C		;400678: 66000092
+;	MOVEM.L	D0-D1/A0,-(A7)		;40067c: 48e7c080
+;	LEA	EXT_BFD100,A0		;400680: 41f900bfd100
+;	MOVE.B	EXT_BFD100,-(A7)	;400686: 1f3900bfd100
+;	MOVE.B	#$7f,(A0)		;40068c: 10bc007f
+;	MOVE.B	#$07,(A0)		;400690: 10bc0007
+;	BCLR	#1,(A0)			;400694: 08900001
+;	BCLR	#0,(A0)			;400698: 08900000
+;	NOP				;40069c: 4e71
+;	NOP				;40069e: 4e71
+;	BSET	#0,(A0)			;4006a0: 08d00000
+;	JSR	SUB_A1FB40		;4006a4: 4eb900414b86
+;	BSET	#1,(A0)			;4006aa: 08d00001
+;	BCLR	#0,(A0)			;4006ae: 08900000
+;	NOP				;4006b2: 4e71
+;	NOP				;4006b4: 4e71
+;	BSET	#0,(A0)			;4006b6: 08d00000
+;	JSR	SUB_A1FB40		;4006ba: 4eb900414b86
+;	MOVE.B	#$ff,(A0)		;4006c0: 10bc00ff
+;	MOVE.B	#$87,(A0)		;4006c4: 10bc0087
+;	MOVE.B	#$ff,(A0)		;4006c8: 10bc00ff
+;	MOVEQ	#6,D0			;4006cc: 7006
+;	MOVEQ	#3,D1			;4006ce: 7203
+;LAB_4006D0:
+;	BTST	D1,DriveControlPrefsValueLo ;4006d0: 03390044f591
+;	BEQ.W	LAB_4006EA		;4006d6: 67000012
+;	BCLR	D0,(A0)			;4006da: 0190
+;	BTST	#2,EXT_BFE001		;4006dc: 0839000200bfe001
+;	BNE.W	LAB_4006FA		;4006e4: 66000014
+;	BSET	D0,(A0)			;4006e8: 01d0
+;LAB_4006EA:
+;	SUBQ.W	#1,D0			;4006ea: 5340
+;	DBF	D1,LAB_4006D0		;4006ec: 51c9ffe2
+;	CLR.W	LAB_A4822A		;4006f0: 42790044f594
+;	BRA.W	LAB_400702		;4006f6: 6000000a
+;LAB_4006FA:
+;	MOVE.W	D1,LAB_A4822A		;4006fa: 33c10044f594
+;	BSET	D0,(A0)			;400700: 01d0
+;LAB_400702:
+;	MOVE.B	(A7)+,EXT_BFD100	;400702: 13df00bfd100
+;	MOVEM.L	(A7)+,D0-D1/A0		;400708: 4cdf0103
+;LAB_40070C:
+;	RTS				;40070c: 4e75
 LAB_40070E:
 	MOVEM.L	D1/A0-A1,-(A7)		;40070e: 48e740c0
 	LEA	TrackDiskName,A1	;400712: 43f900419a99
@@ -37156,13 +37215,23 @@ LAB_400EC4:
   endc
 
 NMI_Entry:
-  ifd arhardware
-    ORI.W	#$0000,ChipOverlay
-    btst.b #1,FreezeState
-    bne.w SoftBoot
+  ifd arhardware  
+    MOVE.B D0,-(A7)  
+    MOVE.B FreezeState,D0
+    AND.B #3,D0
+    CMP.B #3,D0
+    BEQ.W SoftBoot
 
+    ;btst.b #1,FreezeState
+    ;bne.w SoftBoot
+
+    MOVE.B (A7)+,D0
+
+    btst.b #1,FreezeState
+    bne x
+    
     btst.b #0,FreezeState
-    beq.s nmi
+    beq nmi
     tst.b exceptionsActive
     beq.s nmi1
     CMPI.L	#$124,2(A7)
@@ -37189,13 +37258,16 @@ nmi2:
 nmi3:
     cmp.l #$156,2(a7)
     bne.s x
-    add.l #6,a7
+    JSR getCACR
+    MOVE.W vbrflag,D0
+    ADD.W D0,D0
+    ADD.W #6,D0
+    lea (a7,d0.w),a7
     jsr DoArTrace
     rte
 nmi:
 	JSR	NMI_Entry2
 	RTE
-  move.b #0,FreezeState
 x:
 	TST.B	LAB_A48216		;4000d0: 4a390044f580
 	BEQ.W	LAB_400106		;4000d6: 6700002e
@@ -37254,7 +37326,7 @@ LAB_4001B4:
 	MOVE.B	(A7)+,$E00(A4)		;4001b4: 195f0e00
 	MOVEM.L	SaveCpuRegs,D0-D1/A0/A4-A5 ;4001b8: 4cf931030044f208
 LAB_4001C0:
-
+  JSR setActivateMode
 	RTE
   endc
 
@@ -37271,6 +37343,11 @@ checksum:
   ds.b $440000-*
   endc
 arramstart:
+
+cpuAddrSize:
+  DS.W  1
+vbrflag
+  DS.W  1
 
 firstInitDone:
   DS.W  1
