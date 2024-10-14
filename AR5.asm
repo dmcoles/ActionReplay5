@@ -2,9 +2,9 @@
 ; IRA V2.11 (Jun 19 2024) (c)1993-1995 Tim Ruehsen
 ; (c)2009-2024 Frank Wille, (c)2014-2019 Nicolas Bastien
 
-;dbg=1
+dbg=1
 ;pistorm=1
-arhardware=1
+;arhardware=1
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -225,6 +225,7 @@ bltafwm	EQU	$44
 bltcpth	EQU	$48
 bltcon0	EQU	$40
 bltsize	EQU	$58
+lisaid  EQU $7C
 cop1lch	EQU	$80
 bplcon0	EQU	$100
 bplcon1 EQU $102
@@ -706,6 +707,9 @@ LAB_A10D7A:
 setActivateMode:
 	MOVE.W	D0,-(A7)
 	CLR.W	newActivateMode
+  CMP.B #$13,LAB_A484DB
+  BNE.S LAB_A10DD2
+
 	TST.B	BootSelectPrefs
 	BMI.S	LAB_A10D94
 	BSET	#0,newActivateModeLo
@@ -1210,7 +1214,7 @@ LAB_A11406:
   MOVE.W	$106(A6),SaveBplCon3
   MOVE.W	$10c(A6),SaveBplCon4
 	MOVE.L	$108(A6),SaveBpl1Mod
-  MOVE.L	$1fc(A6),SaveFmode
+  MOVE.W	$1fc(A6),SaveFmode
 	MOVE.L	$8E(A6),SaveDiwStart
 	MOVE.L	$92(A6),SaveDdfStrt
   MOVE.W  $1e4(A6),SaveDiwHigh
@@ -1245,68 +1249,118 @@ LAB_A119F6:
   ifd arhardware
 	MOVE.L	SaveCop1Lch,cop1lch(A5)
   endc
+  MOVE.W  lisaid(a5),D1
+  CMP.B   #$FC,D1
+  BEQ.S   .valid
+  CMP.B   #$F8,D1
+  BEQ.S   .valid
+  MOVE.W  #$FF,D1
+.valid  
+
 	MOVE.W	SaveDiwStart,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A2A
+  endc
 	MOVE.W	D0,$8E(A5)
 LAB_A11A2A:
 	MOVE.W	SaveDiwStop,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A36
+  endc
 	MOVE.W	D0,$90(A5)
 LAB_A11A36:
+  BTST #1,D1      ;ecs
+	BNE.S	LAB_A11A36_1
 	MOVE.W	SaveDiwHigh,D0
-	BEQ.S	LAB_A11A36_1
-	MOVE.W	D0,$1e4(A5)
+  ifnd arhardware
+  ;BNE.S LAB_A11A36_1
+  endc
+	;MOVE.W	D0,$1e4(A5)
 LAB_A11A36_1:
 	MOVE.W	SaveDdfStrt,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A42
+  endc
 	MOVE.W	D0,$92(A5)
 LAB_A11A42:
 	MOVE.W	SaveDdfStop,D0
-	BEQ.S	LAB_A11A4E
+	ifnd arhardware
+  BEQ.S	LAB_A11A4E
+  endc
 	MOVE.W	D0,$94(A5)
 LAB_A11A4E:
+
 	MOVE.W	SaveColor00,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A5A
+  endc
 	MOVE.W	D0,$180(A5)
 LAB_A11A5A:
 	MOVE.W	SaveColor01,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A66
+  endc
 	MOVE.W	D0,$182(A5)
 LAB_A11A66:
 	MOVE.W	SaveBplCon0,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A72
+  endc
 	MOVE.W	D0,$100(A5)
 LAB_A11A72:
 	MOVE.W	SaveBplCon1,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A7E
+  endc
 	MOVE.W	D0,$102(A5)
 LAB_A11A7E:
 	MOVE.W	SaveBplCon2,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A7E_1
+  endc
 	MOVE.W	D0,$104(A5)
 LAB_A11A7E_1:
+  BTST #2,D1      ;aga
+	BNE.S	LAB_A11A7E_2
 	MOVE.W	SaveBplCon3,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A7E_2
+  endc
 	MOVE.W	D0,$106(A5)
 LAB_A11A7E_2:
+  BTST #2,D1      ;aga
+	BNE.S	LAB_A11A7E_3
 	MOVE.W	SaveBplCon4,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A7E_3
+  endc
 	MOVE.W	D0,$10c(A5)
 LAB_A11A7E_3:
+  BTST #2,D1      ;aga
+	BNE.S	LAB_A11A7E_4
 	MOVE.W	SaveFmode,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A7E_4
+  endc
 	MOVE.W	D0,$1fc(A5)
 LAB_A11A7E_4:
+;ecs agnus
 	MOVE.W	SaveBeamCon0,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A8A
+  endc
 	MOVE.W	D0,$1dc(A5)
 LAB_A11A8A:
 	MOVE.W	SaveBpl1Mod,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11A96
+  endc
 	MOVE.W	D0,$108(A5)
 LAB_A11A96:
 	MOVE.W	SaveBpl2Mod,D0
+  ifnd arhardware
 	BEQ.S	LAB_A11AA2
+  endc
 	MOVE.W	D0,$10A(A5)
 LAB_A11AA2:
 	MOVE.L	Int3Save,AUTO_INT3.W
@@ -1459,15 +1513,22 @@ MakeMempeekerDisplay:
 	MOVEM.L	D0-D4/A0/A3-A5,-(A7)
 	LEA	EXT_DFF000,A5
 	SF	LAB_A489F0
-  MOVE.W CopyBplCon3,bplcon3(a5)
-  MOVE.W CopyBplCon4,D1
-	ANDI.W	#$ff00,D1
-  MOVE.W D1,bplcon4(a5)
+  MOVE.W  lisaid(a5),D2
+  CMP.B   #$FC,D2
+  BEQ.S   .valid
+  CMP.B   #$F8,D2
+  BEQ.S   .valid
+  MOVE.W  #$FF,D2
+.valid  
+ 
+  BTST #2,D2      ;aga
+  BNE.S   .skip1
   MOVE.W CopyFmode,fmode(a5)
-
+  MOVE.W CopyBplCon3,bplcon3(a5)
+  MOVE.W #$11,bplcon4(a5)
+.skip1
   MOVE.W	CopyDiwStart,diwstrt(a5)
   MOVE.W	CopyDiwStop,diwstop(a5)
-  MOVE.W  CopyDiwHigh,diwhigh(a5)
   MOVE.W	CopyDdfStrt,ddfstrt(a5)
   MOVE.W	CopyDdfStop,ddfstop(a5)
   MOVE.W	CopyBplMod1,bpl1mod(a5)
@@ -1480,14 +1541,14 @@ MakeMempeekerDisplay:
 LAB_A117EE:
 	MOVE.L	(A4)+,(A3)+
 	DBF	D0,LAB_A117EE
-	MOVEQ	#5,D0
+	MOVEQ	#7,D0
 	LEA	CopyBpl1Pth,A4
 	LEA	$E0(A5),A3
 	BTST	#2,CopyBplCon0Lo
 	BEQ.S	LAB_A11818
 	BTST	#7,4(A5)
 	BNE.S	LAB_A11818
-	LEA	LAB_A480AE,A4
+	LEA	bpl1Work,A4
 LAB_A11818:
 	MOVE.L	(A4)+,(A3)+
 	DBF	D0,LAB_A11818
@@ -1502,8 +1563,10 @@ LAB_A11818:
 LAB_A1183A:
   MOVE.W D0,bplcon0(a5)
 	MOVE.W	CopyBplCon2,D0
-	ANDI.W	#$0400,D0
-	ORI.W	#$0024,D0
+  ANDI.W	#$ffc0,D0
+  
+	;ANDI.W	#$0400,D0
+	;ORI.W	#$0024,D0
   MOVE.W D0,bplcon2(a5)
 	CMPI.B	#$80,picViewerMode
 	BEQ.S	LAB_A11866
@@ -2459,6 +2522,10 @@ commandTable:
 	DS.B	1
 	DC.L	CMD_FA
 
+	DC.B	"FC",0
+	DS.B	1
+	DC.L	CMD_FC
+
 	DC.B	"FR",0
 	DS.B	1
 	DC.L	CMD_FR
@@ -3310,6 +3377,18 @@ CMD_INTERRUPTS:
 CMD_FA:
 	JSR	FindAddressingOpcode
 	BRA.W	PrintReady
+
+CMD_FC:
+	SF	LAB_A480CA
+	ST	LAB_A483C9
+  LEA onz(pc),A1
+  MOVE.L (a1)+,stringWorkspace
+  MOVE.l #4,D0
+  BRA srch
+
+onz:
+  DC.B " ONz",0
+
 CMD_FS:
 	ST	LAB_A480CA
 	BRA.S	LAB_A133B6
@@ -3321,6 +3400,7 @@ LAB_A133B6:
 	ST	LAB_A483C9
 	TST.W	D0
 	BEQ.W	PrintWTF
+srch:
 	MOVE.W	D0,-(A7)
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -3630,7 +3710,7 @@ LAB_A1361E:
 	DC.W	$ffff
 SUB_A1375E:
 	MOVEM.L	D6/A1,-(A7)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVEQ	#0,D6
 LAB_A1376A:
 	BSR.W	SUB_A160B6
@@ -4767,7 +4847,7 @@ MemWriteString:
 	MOVEA.L	D0,A0
 	CLR.L	D0
 	SUBQ.B	#1,D1
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 LAB_A15262:
 	MOVE.B	(A1)+,D0
 	BSR.W	memSafeReadByte2
@@ -6252,7 +6332,7 @@ LAB_A1675A:
 	DBF	D0,LAB_A1675A
 	MOVE.L	SaveColor00,SaveColor
 	LEA	RegSnoopBpl1Pt,A0
-	MOVEQ	#5,D0
+	MOVEQ	#7,D0
 	LEA	CopyBpl1Pth,A1
 LAB_A16778:
 	MOVE.L	(A0)+,(A1)+
@@ -6315,13 +6395,18 @@ LAB_A16812:
 	BRA.S	LAB_A16806
 SUB_A16826:
 	MOVEM.L	D0-D4/A0-A1,-(A7)
-	CLR.W	CopyFmode
+	;CLR.W	CopyFmode
 	CLR.W	CopyDiwHigh
-	CLR.W	CopyBplCon4
+	;CLR.W	CopyBplCon4
+  ifd arhardware
+  MOVE.L CopyCop1lc,copperPos
+  else
 	BSR.W	SUB_A167A0
-	LEA	RegSnoop,A1
 	MOVEA.L	copperPos,A0
 	MOVE.L	A0,CopyCop1lc
+  endc
+  
+	LEA	RegSnoop,A1
 	MOVE.L	$84(A1),CopyCop2lc
 	MOVE.L	#$00002000,D4
 	SF	LAB_A480AA
@@ -6407,7 +6492,7 @@ LAB_A16946:
 	MOVE.W	D2,0(A1,D3.W)
 	BRA.W	LAB_A1688E
 LAB_A16968:
-	CMPI.W	#$010a,D2
+	CMPI.W	#$010c,D2
 	BHI.S	LAB_A1698A
 	CMPI.W	#$0102,D2
 	BLT.S	LAB_A1698A
@@ -6492,11 +6577,11 @@ LAB_A16A5A:
 LAB_A16A6C:
 	BRA.W	LAB_A1688E
 LAB_A16A70:
-	MOVEQ	#5,D0
+	MOVEQ	#7,D0
 	MOVEQ	#0,D1
 	MOVE.W	CopyBplMod1,D1
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A1
+	LEA	bpl1Work,A1
 LAB_A16A86:
 	MOVE.L	(A0)+,D2
 	ADD.L	D1,D2
@@ -7232,7 +7317,7 @@ LAB_A173E6:
 	RTS
 StringSearchRelative:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
-	LEA	currentFilename,A5
+	LEA	stringWorkspace,A5
 	LEA	EscapePressed,A6
 	MOVE.L	LAB_A4820A,D6
 	CLR.L	D1
@@ -7326,7 +7411,7 @@ SUB_A174E0:
 	MOVE.B	LAB_A480CA,D4
 	LEA	EXT_4E80,A6
 	SUBQ.W	#1,D6
-	LEA	currentFilename,A0
+	LEA	stringWorkspace,A0
 LAB_A17506:
 	TST.B	(A5)
 	BNE.W	LAB_A175C0
@@ -7462,7 +7547,7 @@ LAB_A1764A:
 	MOVEM.L	D0-D5,-(A7)
 	JSR	ReadParameter(PC)
 	MOVE.L	D0,D1
-	MOVE.W	#$0025,D0
+	MOVE.W	#$0025,D0 ; %
 	BSR.W	PrintChar
 	MOVE.W	#$001f,D2
 LAB_A17660:
@@ -7485,10 +7570,10 @@ LAB_A17676:
 	TST.L	D1
 	BPL.S	LAB_A1769E
 	NEG.L	D1
-	MOVE.W	#$002d,D0
+	MOVE.W	#$002d,D0   ; -
 	JSR	PrintChar(PC)
 LAB_A1769E:
-	MOVE.W	#$0021,D0
+	MOVE.W	#$0021,D0   ;!
 	JSR	PrintChar(PC)
 	CLR.L	D0
 	BSR.W	SUB_A1A3FA
@@ -7524,8 +7609,8 @@ LAB_A176D8:
 	JSR	PrintCR(PC)
 	MOVEM.L	(A7)+,D0-D5
 	RTS
-EqualsHexText:
 
+EqualsHexText:
 	DC.B	" = $",0
 EqualsText:
 
@@ -7938,7 +8023,7 @@ MemFill:
 	BCS.W	PrintWTF
 	SUB.L	D2,D1
 	MOVEA.L	D2,A0
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	MOVEQ	#0,D4
 LAB_A17BF8:
 	TST.B	(A3)
@@ -8155,6 +8240,8 @@ LAB_4080B8:
 	MOVEM.L	(A7),D0-D7/A0-A6	;4080be: 4cd77fff
 	MOVE.L	A1,BUS_ERROR.W		;4080c2: 21c90008
 LAB_4080C6:
+  CMP.B #$13,LAB_A484DB
+  BNE.S LAB_408104
 	MOVE.W	LAB_A4822E,D0		;4080c6: 30390044f598
 	MOVE.W	memoryControlPrefsValue,D1 ;4080cc: 32390044f596
 	ANDI.W	#$0008,D0		;4080d2: 02400008
@@ -9231,9 +9318,9 @@ CMD_PC:
 memPeeker:
 	SF	LAB_A480CA
 SUB_A18AD6:
-	CLR.W	CopyFmode
+	;CLR.W	CopyFmode
 	CLR.W	CopyDiwHigh
-	CLR.W	CopyBplCon4
+	;CLR.W	CopyBplCon4
 	CLR.W	memPeekerBitplaneLocks
 	CLR.W	memPeekerColorReg
 	MOVE.W	#$ffff,memPeekerBlackFlag
@@ -9356,8 +9443,8 @@ LAB_A18C9C:
 	BEQ.W	memPeekKey7
 	CMPI.W	#$0038,D0
 	BEQ.W	memPeekKey8
-	CMPI.W	#$0039,D0
-	BEQ.W	memPeekKey9
+	;CMPI.W	#$0039,D0
+	;BEQ.W	memPeekKey9
 	CMPI.W	#$0043,D0
 	BEQ.W	memPeekKeyC
 	CMPI.W	#$0058,D0
@@ -9432,7 +9519,13 @@ LAB_A18C9C:
 	BSR.W	SUB_A16826
 	BRA.W	LAB_A19028
 memPeekKeyF3:
-	CMPI.W	#$0093,D0
+	CMPI.W	#F4Key,D0
+	BEQ.W	memPeekKeyF4
+	CMPI.W	#F5Key,D0
+	BEQ.W	memPeekKeyF5
+	CMPI.W	#F6Key,D0
+	BEQ.W	memPeekKeyF6
+	CMPI.W	#F10Key,D0
 	BEQ.W	memPeekKeyF10
 	BRA.W	LAB_A19C8E
 memPeekKeyG:
@@ -9450,9 +9543,9 @@ memPeekKeyG:
 	BNE.S	LAB_A18E5A
 	LSR.W	#1,D0
 LAB_A18E5A:
-	LEA	LAB_A480AE,A0
+	LEA	bpl1Work,A0
 	LEA	CopyBpl1Pth,A1
-	MOVEQ	#5,D1
+	MOVEQ	#7,D1
 LAB_A18E68:
 	MOVE.L	(A1)+,D2
 	ADD.L	D0,D2
@@ -9482,7 +9575,7 @@ memPeekKeyW:
 	BEQ.W	LAB_A19C8E
 	CLR.W	memPeekerBlackFlag
 	BRA.W	LAB_A19C8E
-memPeekKey7:
+memPeekKeyF4:
 	LEA	SaveColor,A0
 	MOVE.W	memPeekerColorReg,D1
 	ADD.W	D1,D1
@@ -9502,7 +9595,7 @@ LAB_A18EFE:
 	BSR.W	SUB_A192C2
 	BSR.W	Delay
 	BRA.W	LAB_A19C8E
-memPeekKey8:
+memPeekKeyF5:
 	LEA	SaveColor,A0
 	MOVE.W	memPeekerColorReg,D1
 	ADD.W	D1,D1
@@ -9522,7 +9615,7 @@ LAB_A18F44:
 	BSR.W	SUB_A192C2
 	BSR.W	Delay
 	BRA.W	LAB_A19C8E
-memPeekKey9:
+memPeekKeyF6:
 	LEA	SaveColor,A0
 	MOVE.W	memPeekerColorReg,D1
 	ADD.W	D1,D1
@@ -9572,7 +9665,7 @@ memPeekKeyHelp:
 	BNE.W	LAB_A19C8E
   LEA LAB_A442F6,A1
 	LEA	EXT_100,A0
-  MOVE.W	#$015e,D0
+  MOVE.W	#$01b0-1,D0
 LAB_A19022:
   MOVE.L (A0),(A1)+
 	CLR.L	(A0)+
@@ -9796,7 +9889,7 @@ memPeekKeyDel:
 
   LEA LAB_A442F6,A1
 	LEA	EXT_100,A0
-  MOVE.W	#$015e,D0
+  MOVE.W	#$01b0-1,D0
 restorePeekRam:
   MOVE.L (A1)+,(A0)+
 	DBF	D0,restorePeekRam
@@ -9997,8 +10090,8 @@ LAB_A195F0:
 	LSR.W	#3,D0
 	MULU	LAB_A480DE,D0
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#4,D1
+	LEA	bpl1Work,A2
+	MOVEQ	#6,D1
 	MOVE.L	D3,-(A7)
 	MOVE.L	(A0)+,D2
 	MOVE.L	(A2)+,D3
@@ -10034,48 +10127,50 @@ LAB_A1965E:
 memPeekKey1:
 	BSET	#1,memPeekerBitplaneLocks
 	TST.B	ShiftKey
-	BEQ.S	LAB_A1967E
+	BEQ.W	LAB_A1971E
 	BCLR	#1,memPeekerBitplaneLocks
-LAB_A1967E:
-	BSR.W	SUB_A190BC
-	BRA.W	LAB_A19C8E
+	BRA.W	LAB_A1971E
 memPeekKey2:
 	BSET	#2,memPeekerBitplaneLocks
 	TST.B	ShiftKey
-	BEQ.S	LAB_A1969E
+	BEQ.W	LAB_A1971E
 	BCLR	#2,memPeekerBitplaneLocks
-LAB_A1969E:
-	BSR.W	SUB_A190BC
-	BRA.W	LAB_A19C8E
+	BRA.W	LAB_A1971E
 memPeekKey3:
 	BSET	#3,memPeekerBitplaneLocks
 	TST.B	ShiftKey
-	BEQ.S	LAB_A196BE
+	BEQ.W	LAB_A1971E
 	BCLR	#3,memPeekerBitplaneLocks
-LAB_A196BE:
-	BSR.W	SUB_A190BC
-	BRA.W	LAB_A19C8E
+	BRA.W	LAB_A1971E
 memPeekKey4:
 	BSET	#4,memPeekerBitplaneLocks
 	TST.B	ShiftKey
-	BEQ.S	LAB_A196DE
+	BEQ.S	LAB_A1971E
 	BCLR	#4,memPeekerBitplaneLocks
-LAB_A196DE:
-	BSR.W	SUB_A190BC
-	BRA.W	LAB_A19C8E
+	BRA.W	LAB_A1971E
 memPeekKey5:
 	BSET	#5,memPeekerBitplaneLocks
 	TST.B	ShiftKey
-	BEQ.S	LAB_A196FE
+	BEQ.S	LAB_A1971E
 	BCLR	#5,memPeekerBitplaneLocks
-LAB_A196FE:
-	BSR.W	SUB_A190BC
-	BRA.W	LAB_A19C8E
+	BRA.S	LAB_A1971E
 memPeekKey6:
 	BSET	#6,memPeekerBitplaneLocks
 	TST.B	ShiftKey
 	BEQ.S	LAB_A1971E
 	BCLR	#6,memPeekerBitplaneLocks
+  BRA.S	LAB_A1971E
+memPeekKey7:
+	BSET	#7,memPeekerBitplaneLocks
+	TST.B	ShiftKey
+	BEQ.S	LAB_A1971E
+	BCLR	#7,memPeekerBitplaneLocks
+  BRA.S	LAB_A1971E
+memPeekKey8:
+	BSET	#0,memPeekerBitplaneLocks
+	TST.B	ShiftKey
+	BEQ.S	LAB_A1971E
+	BCLR	#0,memPeekerBitplaneLocks
 LAB_A1971E:
 	BSR.W	SUB_A190BC
 	BRA.W	LAB_A19C8E
@@ -10098,7 +10193,7 @@ memPeekKeyPlus:
 	SUBQ.W	#1,D1
 	LSL.W	#2,D1
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
+	LEA	bpl1Work,A2
 	MOVE.L	0(A0,D1.W),4(A0,D1.W)
 	MOVE.L	0(A2,D1.W),4(A2,D1.W)
 	ADDI.W	#$1000,D0
@@ -10156,12 +10251,16 @@ memPeekKeyEquals:
 	MOVE.L	D0,CopyBpl4Pth
 	MOVE.L	D0,CopyBpl5Pth
 	MOVE.L	D0,CopyBpl6Pth
-	MOVE.L	LAB_A480AE,D0
-	MOVE.L	D0,LAB_A480B2
-	MOVE.L	D0,LAB_A480B6
-	MOVE.L	D0,LAB_A480BA
-	MOVE.L	D0,LAB_A480BE
-	MOVE.L	D0,LAB_A480C2
+  MOVE.L	D0,CopyBpl7Pth
+  MOVE.L	D0,CopyBpl8Pth
+	MOVE.L	bpl1Work,D0
+	MOVE.L	D0,bpl2Work
+	MOVE.L	D0,bpl3Work
+	MOVE.L	D0,bpl4Work
+	MOVE.L	D0,bpl5Work
+	MOVE.L	D0,bpl6Work
+  MOVE.L	D0,bpl7Work
+  MOVE.L	D0,bpl8Work
 	BSR.W	SUB_A190BC
 	BRA.W	LAB_A19C8E
 memPeekKeyM:
@@ -10221,8 +10320,8 @@ LAB_A19932:
 	BRA.W	LAB_A19C8E
 memPeekKeyLeft:
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 	MOVEQ	#1,D1
 LAB_A1994A:
 	BTST	D1,memPeekerBitplaneLocks
@@ -10238,8 +10337,8 @@ LAB_A19956:
 	BRA.W	LAB_A19C8E
 memPeekKeyRight:
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 	MOVEQ	#1,D1
 LAB_A19978:
 	BTST	D1,memPeekerBitplaneLocks
@@ -10271,8 +10370,8 @@ LAB_A199C2:
 	RTS
 memPeekKeyUp:
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 	MOVEQ	#1,D1
 	MOVEQ	#0,D2
 	MOVEQ	#0,D3
@@ -10330,8 +10429,8 @@ LAB_A19A5A:
 	BRA.W	LAB_A19C8E
 memPeekKeyF:
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 	MOVEQ	#1,D1
 	MOVEQ	#0,D2
 	MOVE.B	CopyDiwStopLo,D2
@@ -10372,8 +10471,8 @@ LAB_A19AD8:
 	BRA.W	LAB_A19C8E
 memPeekKeyDown:
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 	MOVEQ	#1,D1
 	MOVEQ	#0,D2
 	MOVEQ	#0,D3
@@ -10518,8 +10617,8 @@ LAB_A19C8E:
 	BSR.S	SUB_A19C28
 	BSR.W	SUB_A1926C
 	LEA	CopyBpl1Pth,A0
-	LEA	LAB_A480AE,A2
-	MOVEQ	#5,D0
+	LEA	bpl1Work,A2
+	MOVEQ	#7,D0
 LAB_A19CAA:
 	ANDI.L	#$001fffff,(A0)+
 	ANDI.L	#$001fffff,(A2)+
@@ -10536,7 +10635,7 @@ LAB_A19CBA:
 
   LEA LAB_A442F6,A1
 	LEA	EXT_100,A0
-  MOVE.W	#$015e,D0
+  MOVE.W	#$01b0-1,D0
 restorePeekRam2:
   MOVE.L (A1)+,(A0)+
 	DBF	D0,restorePeekRam2
@@ -10545,7 +10644,7 @@ restorePeekRam2:
 LAB_A19CDE:
 	SF	picViewerMode
 	MOVE.W	#$0020,EXT_DFF096
-	;BSR.W	SwapChipRam1
+	BSR.W	SwapChipRam1
 
 	LEA	EXT_DFF144,A5
 	CLR.L	(A5)
@@ -10570,11 +10669,11 @@ LAB_A19CDE:
 	JSR	Print6DigitHex
 	BRA.W	SUB_A173DC
 PicHeightText:
-
 	DC.B	"picture heigth: !",0
-CopperPosText:
 
+CopperPosText:
 	DC.B	"Copper Position :",0
+  
 SUB_A19D6C:
 	MOVE.W	D0,LAB_A481F4
 	MOVE.W	D1,LAB_A481F6
@@ -13812,7 +13911,7 @@ SUB_A1C7B6:
 	LEA	AsmCommandsTable(PC),A0
 LAB_A1C7C4:
 	MOVE.W	D1,D2
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 LAB_A1C7CC:
 	CMPI.B	#$07,(A0)
 	BLS.S	LAB_A1C7E0
@@ -13840,7 +13939,7 @@ SUB_A1C7FE:
 	MOVE.L	D0,D1
 	MOVEQ	#0,D0
 	MOVEQ	#0,D2
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	BSR.W	SUB_A160B6
 	MOVE.W	#$ffff,D2
 	TST.B	LAB_A47F49
@@ -14625,8 +14724,8 @@ LAB_A1D308:
 	MOVE.L	(A1)+,(A0)+
 	DBF	D0,LAB_A1D308
 	LEA	CopyBpl1Pth,A0
-	LEA	currentFilename,A1
-	MOVEQ	#5,D0
+	LEA	stringWorkspace,A1
+	MOVEQ	#7,D0
 LAB_A1D31C:
 	MOVE.L	(A0)+,(A1)+
 	DBF	D0,LAB_A1D31C
@@ -14641,7 +14740,7 @@ LAB_A1D33A:
 	MOVE.L	(A0)+,(A1)+
 	DBF	D0,LAB_A1D33A
 	MOVEQ	#5,D0
-	LEA	currentFilename,A0
+	LEA	stringWorkspace,A0
 	LEA	EXT_DFF0E0,A1
 LAB_A1D34E:
 	MOVE.L	(A0)+,(A1)+
@@ -17034,7 +17133,7 @@ LAB_A1EDFA:
 	RTS
 SUB_A1EE00:
 	MOVEM.L	D3/D6/A1,-(A7)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	SUB_A1EE6C
 	MOVE.L	D1,D3
 	MOVE.L	D1,D6
@@ -18171,7 +18270,7 @@ SUB_412F72:
 	LEA	EXT_7C000,A0		;412fb2: 41f90007c000
 LAB_412FB8:
 	JSR	SUB_A1F9DE		;412fb8: 4eb900414a1c
-	LEA	currentFilename,A1	;412fbe: 43f90044f2c8
+	LEA	stringWorkspace,A1	;412fbe: 43f90044f2c8
 	MOVE.B	currDriveNo,-(A7)	;412fc4: 1f390044f5b2
 	MOVE.L	D1,D0			;412fca: 2001
 	BSR.W	SaveFileInit		;412fcc: 6100328e
@@ -20666,7 +20765,7 @@ CMD_DIR:
 	MOVEQ	#-1,D6
 LAB_A20906:
 	BSR.W	SUB_A2231A
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	MOVE.B	currDriveNo,-(A7)
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
@@ -21049,7 +21148,7 @@ LAB_A20E36:
 	MOVE.L	D0,(A1)+
 	CLR.L	(A1)+
 	ST	TrackBufferModified
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	MOVE.W	LAB_A48304,D0
 	MOVE.W	D0,D1
 	TST.W	D0
@@ -21253,7 +21352,7 @@ LAB_A21090:
 	MOVEA.L	A1,A2
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
 	BSR.S	SaveFileInit
@@ -21832,7 +21931,7 @@ CMD_DELETE:
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
 	MOVE.B	currDriveNo,-(A7)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.L	D1,D0
 	MOVEA.L	A1,A2
 	BSR.W	SUB_A236E2
@@ -22238,7 +22337,7 @@ CMD_LM:
 	MOVEA.L	D0,A2
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	LoadFile
@@ -22663,7 +22762,7 @@ CMD_CD:
 	BSR.W	SUB_A1F9DE
 	TST.W	D0
 	BEQ.S	LAB_A2206E
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	BSR.S	SUB_A22080
 	BMI.S	LAB_A22072
 LAB_A2206E:
@@ -22826,7 +22925,7 @@ CMD_MAKEDIR:
 	BEQ.W	LAB_A21070
 	LEA	EXT_70000,A0
 	BSR.W	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	BSR.S	SUB_A22240
 	MOVE.W	D0,D1
 	BSR.W	SUB_A1FA3E
@@ -22921,7 +23020,7 @@ LAB_A22340:
 	MOVEM.L	D1-D2/A1,-(A7)
 	MOVEQ	#0,D1
 	MOVEQ	#0,D2
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 LAB_A2234E:
 	JSR	SUB_A17338
 	TST.B	LAB_A47F49
@@ -23162,7 +23261,7 @@ LAB_A22746:
 	BSR.W	SUB_A1F9DE
 	MOVE.L	D1,D0
 	MOVE.L	D1,D4
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	BSR.W	SaveFileInit
 	BMI.W	LAB_A227F0
 	LEA	LAB_A480CA,A2
@@ -23352,7 +23451,7 @@ LAB_A22AA6:
 	MOVE.L	(A7)+,AUTO_INT2
 	TST.L	D0
 	BMI.S	LAB_A22AF0
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.B	#$2e,0(A1,D4.W)
 	ADDQ.W	#1,D6
 	MOVE.W	D6,D0
@@ -23382,7 +23481,7 @@ LAB_A22B04:
 	BSR.W	SUB_A1F9DE
 	MOVE.L	D1,D0
 	MOVE.W	D0,D4
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	BSR.W	LoadFile
 	BMI.W	LAB_A22CDC
 	MOVE.W	#$0100,EXT_DFF096
@@ -23604,7 +23703,7 @@ LAB_A22EE2:
 	MOVEQ	#-8,D0
 	BRA.S	LAB_A22F34
 LAB_A22EFA:
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.B	#$2e,0(A1,D4.W)
 	MOVE.W	D6,D0
 	ADDI.B	#$30,D0
@@ -23871,7 +23970,7 @@ LAB_A23286:
 LAB_A23296:
 	TST.W	D0
 	BEQ.W	LAB_A21070
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.L	A1,LAB_A48306
 	MOVE.W	D0,LAB_A48304
 	MOVE.W	#$0001,LAB_A480AC
@@ -25322,7 +25421,7 @@ SUB_41A28A:
 LAB_41A2EE:
 	BSR.W	SUB_A1F9DE		;41a2ee: 6100a72c
 	MOVE.L	D1,D0			;41a2f2: 2001
-	LEA	currentFilename,A1	;41a2f4: 43f90044f2c8
+	LEA	stringWorkspace,A1	;41a2f4: 43f90044f2c8
 	BSR.W	SaveFileInit		;41a2fa: 6100bf60
 	BMI.W	LAB_41A32E		;41a2fe: 6b00002e
 	BSR.W	MakeSVXHeader		;41a302: 61000044
@@ -26272,7 +26371,7 @@ CMD_TYPE:
 	BEQ.W	LAB_A21070
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE(PC)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	LoadFile
 	BMI.S	LAB_A258A2
@@ -26527,7 +26626,7 @@ LAB_A25B2E:
 	MOVEA.L	A1,A2
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	SaveFileInit
@@ -27175,7 +27274,7 @@ CMD_LSTICK:
 LAB_A2638A:
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE(PC)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	LoadFile
 	BMI.S	LAB_A263DE
@@ -27221,7 +27320,7 @@ LAB_A2644A:
 	MOVE.L	D0,D2
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE(PC)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	SaveFileInit
@@ -27298,7 +27397,7 @@ LAB_A2653C:
 	ST	LAB_A483C9
 	TST.W	D0
 	BEQ.W	LAB_A21070
-	LEA	currentFilename,A0
+	LEA	stringWorkspace,A0
 	BSR.S	SUB_A26514
 	JSR	PrintReady
 	RTS
@@ -27396,7 +27495,7 @@ fileDialog:
 	DS.B	1
 	DS.W	1
 SUB_A266E4:
-	CLR.B	currentFilename
+	CLR.B	stringWorkspace
 SUB_A266EA:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
 	MOVE.L	LAB_A480DE,-(A7)
@@ -27409,7 +27508,7 @@ SUB_A266EA:
 	JSR	DrawPrefsPage
 	MOVE.L	#$00240016,cursorX
 	MOVE.L	A0,-(A7)
-	LEA	currentFilename,A0
+	LEA	stringWorkspace,A0
 	JSR	PrintText
 	MOVEA.L	(A7)+,A0
 	CLR.W	LAB_A4841C
@@ -27471,7 +27570,7 @@ LAB_A267FA:
 	MOVEQ	#$4F,D3
 	MOVE.L	#$00240016,D7
 	MOVE.L	A1,-(A7)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	SUB_A26C42
 	TST.B	(A1)
 	MOVEM.L	(A7)+,A1
@@ -27483,7 +27582,7 @@ LAB_A26828:
 	MOVEQ	#$4F,D3
 	MOVE.L	#$00240016,D7
 	MOVE.L	A1,-(A7)
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	SUB_A26C64
 	TST.B	(A1)
 	MOVEM.L	(A7)+,A1
@@ -27526,11 +27625,11 @@ LAB_A268AE:
 	BMI.S	LAB_A268F8
 	MOVE.L	D0,D1
 	LEA	5(A1),A1
-	LEA	currentFilename,A3
+	LEA	stringWorkspace,A3
 LAB_A268BE:
 	MOVE.B	(A1)+,(A3)+
 	BNE.S	LAB_A268BE
-	LEA	currentFilename,A3
+	LEA	stringWorkspace,A3
 	CLR.B	$2B(A3)
 	EXG	A3,A0
 	MOVE.L	#$00240016,cursorX
@@ -27597,7 +27696,7 @@ LAB_A269B2:
 	BRA.W	LAB_A268F8
 LAB_A269C0:
 	MOVEQ	#0,D0
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	MOVEQ	#-1,D0
 LAB_A269CA:
 	ADDQ.L	#1,D0
@@ -29790,7 +29889,7 @@ LAB_A28DAE:
 	JSR	SUB_A1F9DE
 	MOVEQ	#0,D0
 	MOVE.W	D1,D0
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	LoadFile
 	BPL.S	LAB_A28DE4
 LAB_A28DD4:
@@ -29926,7 +30025,7 @@ LAB_A28F98:
 	DBF	D1,LAB_A28F98
 	MOVE.W	LAB_A480D6,D0
 	SUBQ.W	#1,D0
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 LAB_A28FAC:
 	MOVE.B	(A1)+,(A0)+
 	DBF	D0,LAB_A28FAC
@@ -29976,7 +30075,7 @@ LAB_A29012:
 	MOVE.W	D0,LAB_A48442
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A480D6,D0
 	JSR	SaveFileInit
@@ -31246,7 +31345,7 @@ LAB_A29EEA:
 	LEA	$1B0(A1),A1
 	MOVE.B	D1,(A1)+
 	SUBQ.W	#1,D1
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 LAB_A29F12:
 	MOVE.B	(A2)+,(A1)+
 	DBF	D1,LAB_A29F12
@@ -31277,7 +31376,7 @@ CMD_RENAME:
 	MOVEA.L	A0,A6
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVEA.L	A1,A2
 	MOVE.W	D1,D0
 	JSR	SUB_A236E2
@@ -31310,7 +31409,7 @@ CMD_RENAME:
 	MOVEQ	#0,D0
 	BRA.W	LAB_A2A0DE
 LAB_A29FFA:
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVEM.L	D1,-(A7)
 	MOVE.L	D5,D1
@@ -31369,7 +31468,7 @@ LAB_A2A08A:
 	LEA	$1B0(A1),A2
 	MOVE.B	D0,(A2)+
 	SUBQ.W	#1,D0
-	LEA	currentFilename,A3
+	LEA	stringWorkspace,A3
 LAB_A2A0CA:
 	MOVE.B	(A3)+,(A2)+
 	DBF	D0,LAB_A2A0CA
@@ -31446,7 +31545,7 @@ LAB_420C92:
 	BEQ.W	LAB_420EB2		;420c9e: 67000212
 	LEA	EXT_5000.W,A0		;420ca2: 41f85000
 	JSR	SUB_A1F9DE		;420ca6: 4eb900414a1c
-	LEA	currentFilename,A1	;420cac: 43f90044f2c8
+	LEA	stringWorkspace,A1	;420cac: 43f90044f2c8
 	MOVE.W	D1,D0			;420cb2: 3001
 	MOVE.B	currDriveNo,-(A7)	;420cb4: 1f390044f5b2
 	JSR	LoadFile		;420cba: 4eb900417246
@@ -31650,7 +31749,7 @@ LAB_420FFE:
 	MOVE.W	LAB_A480DA,D2		;421014: 34390044f444
 SUB_42101A:
 	MOVEM.L	A0-A1,-(A7)		;42101a: 48e700c0
-	LEA	currentFilename,A0	;42101e: 41f90044f2c8
+	LEA	stringWorkspace,A0	;42101e: 41f90044f2c8
 LAB_421024:
 	MOVE.B	(A1)+,(A0)+		;421024: 10d9
 	BNE.S	LAB_421024		;421026: 66fc
@@ -31706,7 +31805,7 @@ LoadPrefs:
 	MOVE.W	#$0100,EXT_DFF096	;421052: 33fc010000dff096
 	TST.W	D0			;42105a: 4a40
 	BEQ.W	LAB_4210BC		;42105c: 6700005e
-	LEA	currentFilename,A1	;421060: 43f90044f2c8
+	LEA	stringWorkspace,A1	;421060: 43f90044f2c8
 	JSR	LoadFile		;421066: 4eb900417246
 	BMI.W	LAB_4210BC		;42106c: 6b00004e
 	LEA	EXT_1000.W,A2		;421070: 45f81000
@@ -31767,7 +31866,7 @@ SavePrefs:
 	MOVE.W	#$0100,EXT_DFF096	;421130: 33fc010000dff096
 	TST.W	D0			;421138: 4a40
 	BEQ.W	LAB_42119A		;42113a: 6700005e
-	LEA	currentFilename,A1	;42113e: 43f90044f2c8
+	LEA	stringWorkspace,A1	;42113e: 43f90044f2c8
 	JSR	SaveFileInit		;421144: 4eb90041625c
 	BMI.W	LAB_42119A		;42114a: 6b00004e
 	MOVEQ	#4,D1			;42114e: 7204
@@ -31846,7 +31945,7 @@ CMD_COPY:
 LAB_A2A20C:
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.W	D1,D6
 	MOVE.W	D6,D0
 	MOVEA.L	A1,A2
@@ -31861,7 +31960,7 @@ LAB_A2A23A:
 	MOVE.B	(A3)+,(A2)+
 	DBF	D2,LAB_A2A23A
 	MOVE.W	D6,D0
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	LoadFile
 	BMI.W	LAB_A2A31C
 	MOVE.L	LAB_A4831E,D0
@@ -31880,10 +31979,10 @@ LAB_A2A23A:
 	TST.W	D1
 	BEQ.W	LAB_A2A31C
 	MOVE.W	D6,D0
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	JSR	getDirBlock
 	BMI.S	LAB_A2A2CE
-	LEA	currentFilename,A2
+	LEA	stringWorkspace,A2
 	LEA	0(A2,D6.W),A2
 	LEA	SaveColor,A3
 	MOVEQ	#0,D3
@@ -31901,7 +32000,7 @@ LAB_A2A2C8:
 LAB_A2A2CE:
 	MOVE.W	D6,D0
 LAB_A2A2D0:
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	JSR	SaveFileInit
 	BPL.S	LAB_A2A300
 LAB_A2A2DE:
@@ -32102,7 +32201,9 @@ HelpText:
 	DC.B	"addressing opcode     - fa address (start end)",$D,"       faq: Fa"
 	DC.B	"stsearch for adr addressing opcode - faq adr (start end)",$D,"    "
 	DC.B	"    fr: Search for relative-string           - fr string(,sta"
-	DC.B	"rt end)",$D,"        fs: Search string (not casesensitive)    - fs"
+	DC.B	"rt end)",$D
+  DC.B  "        fc: Search for copylock code             - fc (start end)",$D
+  DC.B  "        fs: Search string (not casesensitive)    - fs"
 	DC.B	" string(,start end)",$D,"         g: Restart program at address   "
 	DC.B	"        - g (address)",$D,"     trans: Copy memoryblock           "
 	DC.B	"          - trans start end dest",$D,"        ws: Write string to "
@@ -32119,7 +32220,7 @@ HelpText:
 	DC.B	"         - w (register)",$D,"         y: Show/edit memory as binar"
 	DC.B	"y           - y address",$D,"        ys: Show/set datawidth for th"
 	DC.B	"e y command - ys (bytes)",$D,"         ?: Calculator              "
-	DC.B	"             - ? (+|-|*|/ value)",$D,$A
+	DC.B	"             - ? (+|-|*|/ value)",$D
 	DC.B	"Number formats:",$D,"---------------",$D,"hexadecimal:  $12ab or 12ab",$D,$D
 	DC.B	"decimal:      -!15 , !880",$D,$D,"binary:       %001110101 , -%101",$D,$D
 	DC.B	"register:     \d0,..,\d7,\a0,..,\a7,\pc,\sp(=usp) \b(=Dmon-Bu"
@@ -32287,22 +32388,10 @@ MemPeekerText:
 	DC.B	"SHIFT 6 - Unlock plane 6"
 	DC.B	$0d
 
-	DC.B	"      7 - Red color plus"
+	DC.B	"      7 - Lock plane 7"
 	DC.B	$0d
 
-	DC.B	"SHIFT 7 - Red color minus"
-	DC.B	$0d
-
-	DC.B	"      8 - Blue color plus"
-	DC.B	$0d
-
-	DC.B	"SHIFT 8 - Blue color minus"
-	DC.B	$0d
-
-	DC.B	"      9 - Green color plus"
-	DC.B	$0d
-
-	DC.B	"SHIFT 9 - Green color minus"
+	DC.B	"SHIFT 8 - Unlock plane 8"
 	DC.B	$0d
 
 	DC.B	"      + - 1 bitplane plus"
@@ -32318,6 +32407,24 @@ MemPeekerText:
 	DC.B	$0d
 
 	DC.B	"    F2  - Random colors"
+	DC.B	$0d
+
+	DC.B	"    F3 - Red color plus"
+	DC.B	$0d
+
+	DC.B	"SHIFT F3 - Red color minus"
+	DC.B	$0d
+
+	DC.B	"    F4 - Blue color plus"
+	DC.B	$0d
+
+	DC.B	"SHIFT F4 - Blue color minus"
+	DC.B	$0d
+
+	DC.B	"    F5 - Green color plus"
+	DC.B	$0d
+
+	DC.B	"SHIFT F5 - Green color minus"
 	DC.B	$0d
 
 	DC.B	"   F10  - Set chosen picture into current program"
@@ -35699,7 +35806,7 @@ LAB_A30F62:
 	MOVE.L	D0,D3
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1F9DE
-	LEA	currentFilename,A1
+	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVE.B	currDriveNo,-(A7)
 	JSR	LoadFile
@@ -36394,59 +36501,60 @@ SoftBoot:
 ;.1:
   JMP LAB_407C6C
 
-;LAB_4002F4:
-;
-;	MOVE.L	A0,-(A7)		;4002f4: 2f08
-;	LEA	6(A7),A0		;4002f6: 41ef0006
-;	MOVEA.L	(A0),A0			;4002fa: 2050
-;  MOVE.L D0,-(A7)
-;  MOVE.l A0,D0
-;  SWAP D0
-;  CMP.W #$00f8,D0
-;  BMI.S notKSROM
-;  CMP.W #$0100,D0
-;  BPL.S notKSROM
-;  MOVE.L (A7)+,D0
-;  MOVE.L (A7)+,A0
-;  RTE
-;
-;notKSROM:
-;  MOVE.L (A7)+,D0
-;	CMPA.L	#$00f80000,A0		;4002fc: b1fc00f80000
-;	BLS.W	LAB_400314		;400302: 63000010
-;	CMPI.L	#$51c9ffe8,(A0)		;400306: 0c9051c9ffe8
-;	BNE.W	LAB_400314		;40030c: 66000006
-;	BSR.W	SUB_4005EE		;400310: 610002dc
-;LAB_400314:
-;	MOVEA.L	(A7)+,A0		;400314: 205f
-;	TST.B	LAB_A483CC		;400316: 4a390044f736
-;	BEQ.W	LAB_40032C		;40031c: 6700000e
-;	CMPI.L	#$00000120,2(A7)	;400320: 0caf000001200002
-;	BNE.S	LAB_40032C			;400328: 67000bc0
-;  JMP AREntry2
-;LAB_40032C:
-;	TST.B	LAB_A48391		;40032c: 4a390044f6fb
-;	BEQ.W	LAB_400348		;400332: 67000014
-;	CMPI.L	#$00000080,2(A7)	;400336: 0caf000000800002
-;	BNE.W	LAB_400348		;40033e: 66000008
-;	JMP	LAB_A25432		;400342: 4ef90041aec2
-;LAB_400348:
-;	TST.B	LAB_A481E5		;400348: 4a390044f54f
-;	BEQ.W	LAB_40036E		;40034e: 6700001e
-;	CMPI.L	#$00000180,2(A7)	;400352: 0caf000001800002
-;	BEQ.W	LAB_40070E		;40035a: 670003b2
-;	TST.B	LAB_A48336		;40035e: 4a390044f6a0
-;	BEQ.W	LAB_40036E		;400364: 67000008
-;	JSR	SUB_400622		;400368: 4eb900400622
-;LAB_40036E:
-;	TST.B	LAB_A4838D		;40036e: 4a390044f6f7
-;	BNE.W	LAB_400810		;400374: 6600049a
-;	TST.B	LAB_A483DA		;400378: 4a390044f744
-;	BEQ.W	LAB_400810		;40037e: 67000490
-;	TST.B	LAB_A4839A		;400382: 4a390044f703
-;	BNE.W	LAB_400810		;400388: 66000486
-;	TST.B	LAB_A483D8		;40038c: 4a390044f742
-;	BNE.W	LAB_4007D6		;400392: 66000442
+LAB_4002F4:
+  MOVE.B (A7)+,D0
+
+	MOVE.L	A0,-(A7)		;4002f4: 2f08
+	LEA	6(A7),A0		;4002f6: 41ef0006
+	MOVEA.L	(A0),A0			;4002fa: 2050
+  MOVE.L D0,-(A7)
+  MOVE.l A0,D0
+  SWAP D0
+  CMP.W #$00f8,D0
+  BMI.S notKSROM
+  CMP.W #$0100,D0
+  BPL.S notKSROM
+  MOVE.L (A7)+,D0
+  MOVE.L (A7)+,A0
+  RTE
+
+notKSROM:
+  MOVE.L (A7)+,D0
+	CMPA.L	#$00f80000,A0		;4002fc: b1fc00f80000
+	BLS.W	LAB_400314		;400302: 63000010
+	CMPI.L	#$51c9ffe8,(A0)		;400306: 0c9051c9ffe8
+	BNE.W	LAB_400314		;40030c: 66000006
+	BSR.W	SUB_4005EE		;400310: 610002dc
+LAB_400314:
+	MOVEA.L	(A7)+,A0		;400314: 205f
+	TST.B	LAB_A483CC		;400316: 4a390044f736
+	BEQ.W	LAB_40032C		;40031c: 6700000e
+	CMPI.L	#$00000120,2(A7)	;400320: 0caf000001200002
+	BNE.S	LAB_40032C			;400328: 67000bc0
+  JMP AREntry2
+LAB_40032C:
+	TST.B	LAB_A48391		;40032c: 4a390044f6fb
+	BEQ.W	LAB_400348		;400332: 67000014
+	CMPI.L	#$00000080,2(A7)	;400336: 0caf000000800002
+	BNE.W	LAB_400348		;40033e: 66000008
+	JMP	LAB_A25432		;400342: 4ef90041aec2
+LAB_400348:
+	TST.B	LAB_A481E5		;400348: 4a390044f54f
+	BEQ.W	LAB_40036E		;40034e: 6700001e
+	CMPI.L	#$00000180,2(A7)	;400352: 0caf000001800002
+	BEQ.W	LAB_40070E		;40035a: 670003b2
+	TST.B	LAB_A48336		;40035e: 4a390044f6a0
+	BEQ.W	LAB_40036E		;400364: 67000008
+	JSR	SUB_400622		;400368: 4eb900400622
+LAB_40036E:
+	TST.B	LAB_A4838D		;40036e: 4a390044f6f7
+	BNE.W	LAB_400810		;400374: 6600049a
+	TST.B	LAB_A483DA		;400378: 4a390044f744
+	BEQ.W	LAB_400810		;40037e: 67000490
+	TST.B	LAB_A4839A		;400382: 4a390044f703
+	BNE.W	LAB_400810		;400388: 66000486
+	TST.B	LAB_A483D8		;40038c: 4a390044f742
+	BNE.W	LAB_4007D6		;400392: 66000442
 LAB_400396:
 	MOVEM.L	D0-D1/A0-A1,SaveCpuRegs	;400396: 48f903030044f208
 	LEA	EXT_BFD100,A0		;40039e: 41f900bfd100
@@ -36613,73 +36721,73 @@ LAB_400606:
 	JSR	setActivateMode		;40061a: 4eb90040134e
 LAB_400620:
 	RTS				;400620: 4e75
-;SUB_400622:
-;	BSR.W	SUB_400670		;400622: 6100004c
-;	SF	LAB_A48336		;400626: 51f90044f6a0
-;	MOVE.L	LAB_400666(PC),EXT_180.W ;40062c: 21fa00380180
-;	MOVE.L	LAB_40066A(PC),EXT_184.W ;400632: 21fa00360184
-;	MOVE.L	LAB_40066E(PC),EXT_188.W ;400638: 21fa00340188
-;	MOVE.L	A6,-(A7)		;40063e: 2f0e
-;	MOVEA.L	EXT_4.W,A6		;400640: 2c780004
-;	LEA	-444(A6),A6		;400644: 4deefe44
-;	CMPI.L	#$00000180,2(A6)	;400648: 0cae000001800002
-;	BEQ.W	LAB_400662		;400650: 67000010
-;	MOVE.L	2(A6),EXT_18C.W		;400654: 21ee0002018c
-;	MOVE.L	#$00000180,2(A6)	;40065a: 2d7c000001800002
-;LAB_400662:
-;	MOVEA.L	(A7)+,A6		;400662: 2c5f
-;	RTS				;400664: 4e75
-;LAB_400666:
-;	DC.L	$00390000		;400666
-;LAB_40066A:
-;	DC.L	$00bfd100		;40066a
-;LAB_40066E:
-;	DC.W	$60f6			;40066e
-;SUB_400670:
-;	CMPI.W	#$0004,LAB_A4822A	;400670: 0c7900040044f594
-;	BNE.W	LAB_40070C		;400678: 66000092
-;	MOVEM.L	D0-D1/A0,-(A7)		;40067c: 48e7c080
-;	LEA	EXT_BFD100,A0		;400680: 41f900bfd100
-;	MOVE.B	EXT_BFD100,-(A7)	;400686: 1f3900bfd100
-;	MOVE.B	#$7f,(A0)		;40068c: 10bc007f
-;	MOVE.B	#$07,(A0)		;400690: 10bc0007
-;	BCLR	#1,(A0)			;400694: 08900001
-;	BCLR	#0,(A0)			;400698: 08900000
-;	NOP				;40069c: 4e71
-;	NOP				;40069e: 4e71
-;	BSET	#0,(A0)			;4006a0: 08d00000
-;	JSR	SUB_A1FB40		;4006a4: 4eb900414b86
-;	BSET	#1,(A0)			;4006aa: 08d00001
-;	BCLR	#0,(A0)			;4006ae: 08900000
-;	NOP				;4006b2: 4e71
-;	NOP				;4006b4: 4e71
-;	BSET	#0,(A0)			;4006b6: 08d00000
-;	JSR	SUB_A1FB40		;4006ba: 4eb900414b86
-;	MOVE.B	#$ff,(A0)		;4006c0: 10bc00ff
-;	MOVE.B	#$87,(A0)		;4006c4: 10bc0087
-;	MOVE.B	#$ff,(A0)		;4006c8: 10bc00ff
-;	MOVEQ	#6,D0			;4006cc: 7006
-;	MOVEQ	#3,D1			;4006ce: 7203
-;LAB_4006D0:
-;	BTST	D1,DriveControlPrefsValueLo ;4006d0: 03390044f591
-;	BEQ.W	LAB_4006EA		;4006d6: 67000012
-;	BCLR	D0,(A0)			;4006da: 0190
-;	BTST	#2,EXT_BFE001		;4006dc: 0839000200bfe001
-;	BNE.W	LAB_4006FA		;4006e4: 66000014
-;	BSET	D0,(A0)			;4006e8: 01d0
-;LAB_4006EA:
-;	SUBQ.W	#1,D0			;4006ea: 5340
-;	DBF	D1,LAB_4006D0		;4006ec: 51c9ffe2
-;	CLR.W	LAB_A4822A		;4006f0: 42790044f594
-;	BRA.W	LAB_400702		;4006f6: 6000000a
-;LAB_4006FA:
-;	MOVE.W	D1,LAB_A4822A		;4006fa: 33c10044f594
-;	BSET	D0,(A0)			;400700: 01d0
-;LAB_400702:
-;	MOVE.B	(A7)+,EXT_BFD100	;400702: 13df00bfd100
-;	MOVEM.L	(A7)+,D0-D1/A0		;400708: 4cdf0103
-;LAB_40070C:
-;	RTS				;40070c: 4e75
+SUB_400622:
+	BSR.W	SUB_400670		;400622: 6100004c
+	SF	LAB_A48336		;400626: 51f90044f6a0
+	MOVE.L	LAB_400666(PC),EXT_180.W ;40062c: 21fa00380180
+	MOVE.L	LAB_40066A(PC),EXT_184.W ;400632: 21fa00360184
+	MOVE.L	LAB_40066E(PC),EXT_188.W ;400638: 21fa00340188
+	MOVE.L	A6,-(A7)		;40063e: 2f0e
+	MOVEA.L	EXT_4.W,A6		;400640: 2c780004
+	LEA	-444(A6),A6		;400644: 4deefe44
+	CMPI.L	#$00000180,2(A6)	;400648: 0cae000001800002
+	BEQ.W	LAB_400662		;400650: 67000010
+	MOVE.L	2(A6),EXT_18C.W		;400654: 21ee0002018c
+	MOVE.L	#$00000180,2(A6)	;40065a: 2d7c000001800002
+LAB_400662:
+	MOVEA.L	(A7)+,A6		;400662: 2c5f
+	RTS				;400664: 4e75
+LAB_400666:
+	DC.L	$00390000		;400666
+LAB_40066A:
+	DC.L	$00bfd100		;40066a
+LAB_40066E:
+	DC.W	$60f6			;40066e
+SUB_400670:
+	CMPI.W	#$0004,LAB_A4822A	;400670: 0c7900040044f594
+	BNE.W	LAB_40070C		;400678: 66000092
+	MOVEM.L	D0-D1/A0,-(A7)		;40067c: 48e7c080
+	LEA	EXT_BFD100,A0		;400680: 41f900bfd100
+	MOVE.B	EXT_BFD100,-(A7)	;400686: 1f3900bfd100
+	MOVE.B	#$7f,(A0)		;40068c: 10bc007f
+	MOVE.B	#$07,(A0)		;400690: 10bc0007
+	BCLR	#1,(A0)			;400694: 08900001
+	BCLR	#0,(A0)			;400698: 08900000
+	NOP				;40069c: 4e71
+	NOP				;40069e: 4e71
+	BSET	#0,(A0)			;4006a0: 08d00000
+	JSR	SUB_A1FB40		;4006a4: 4eb900414b86
+	BSET	#1,(A0)			;4006aa: 08d00001
+	BCLR	#0,(A0)			;4006ae: 08900000
+	NOP				;4006b2: 4e71
+	NOP				;4006b4: 4e71
+	BSET	#0,(A0)			;4006b6: 08d00000
+	JSR	SUB_A1FB40		;4006ba: 4eb900414b86
+	MOVE.B	#$ff,(A0)		;4006c0: 10bc00ff
+	MOVE.B	#$87,(A0)		;4006c4: 10bc0087
+	MOVE.B	#$ff,(A0)		;4006c8: 10bc00ff
+	MOVEQ	#6,D0			;4006cc: 7006
+	MOVEQ	#3,D1			;4006ce: 7203
+LAB_4006D0:
+	BTST	D1,DriveControlPrefsValueLo ;4006d0: 03390044f591
+	BEQ.W	LAB_4006EA		;4006d6: 67000012
+	BCLR	D0,(A0)			;4006da: 0190
+	BTST	#2,EXT_BFE001		;4006dc: 0839000200bfe001
+	BNE.W	LAB_4006FA		;4006e4: 66000014
+	BSET	D0,(A0)			;4006e8: 01d0
+LAB_4006EA:
+	SUBQ.W	#1,D0			;4006ea: 5340
+	DBF	D1,LAB_4006D0		;4006ec: 51c9ffe2
+	CLR.W	LAB_A4822A		;4006f0: 42790044f594
+	BRA.W	LAB_400702		;4006f6: 6000000a
+LAB_4006FA:
+	MOVE.W	D1,LAB_A4822A		;4006fa: 33c10044f594
+	BSET	D0,(A0)			;400700: 01d0
+LAB_400702:
+	MOVE.B	(A7)+,EXT_BFD100	;400702: 13df00bfd100
+	MOVEM.L	(A7)+,D0-D1/A0		;400708: 4cdf0103
+LAB_40070C:
+	RTS				;40070c: 4e75
 LAB_40070E:
 	MOVEM.L	D1/A0-A1,-(A7)		;40070e: 48e740c0
 	LEA	TrackDiskName,A1	;400712: 43f900419a99
@@ -37217,21 +37325,31 @@ LAB_400EC4:
 NMI_Entry:
   ifd arhardware  
     MOVE.B D0,-(A7)  
+
+	MOVE.B	#$13,LAB_A484DB		;407c98: 13fc00130044f845
+	CMPI.B	#$f8,EXT_F80005
+  BEQ.S .k2
+	CMPI.B	#$f8,EXT_FC0005		;407ca0: 0c3900f800fc0005
+	BNE.W	.k3		;407ca8: 6600000a
+.k2
+	MOVE.B	#$20,LAB_A484DB		;407cac: 13fc00200044f845
+.k3
+
     MOVE.B FreezeState,D0
     AND.B #3,D0
     CMP.B #3,D0
     BEQ.W SoftBoot
 
-    ;btst.b #1,FreezeState
-    ;bne.w SoftBoot
+    CMP.B #0,D0
+    BEQ.W nmi
 
+    CMP.B #$13,LAB_A484DB
+    BNE.S .n13
+ 
+    CMP.B #2,D0
+    BEQ.W LAB_4002F4
     MOVE.B (A7)+,D0
 
-    btst.b #1,FreezeState
-    bne x
-    
-    btst.b #0,FreezeState
-    beq nmi
     tst.b exceptionsActive
     beq.s nmi1
     CMPI.L	#$124,2(A7)
@@ -37240,6 +37358,11 @@ NMI_Entry:
     BLS.W	nmi1
     jsr ExceptionEntry
     rte
+
+.n13:
+    MOVE.B (A7)+,D0
+    BRA.W LAB_4001C0
+
 nmi1:
     tst.b breakpointsActive
     beq.s nmi2
@@ -37266,6 +37389,7 @@ nmi3:
     jsr DoArTrace
     rte
 nmi:
+  MOVE.B (A7)+,D0
 	JSR	NMI_Entry2
 	RTE
 x:
@@ -37628,7 +37752,7 @@ trainerContinueAddress:
 	DS.L	1
 trainerWorkspacePtr:
 	DS.L	1
-currentFilename:
+stringWorkspace:
 	DS.L	$14
 AronFlag:
 	DS.L	1
@@ -37705,6 +37829,11 @@ CopyBpl5Pth:
 	DS.L	1
 CopyBpl6Pth:
 	DS.L	1
+CopyBpl7Pth:
+	DS.L	1
+CopyBpl8Pth:
+	DS.L	1
+;these must be kept in this order
 CopyBplCon0:
 	DC.B	$10
 CopyBplCon0Lo:
@@ -37714,16 +37843,17 @@ CopyBplCon1:
 CopyBplCon1Lo:
 	DS.B	1
 CopyBplCon2:
-	DS.L	1
+	DS.W	1
 CopyBplCon3:
-	DS.W	1
-CopyBplCon4:
-	DS.W	1
-CopyBeamCon0:
 	DS.W	1
 CopyBplMod1:
 	DS.W	1
 CopyBplMod2:
+	DS.W	1
+CopyBplCon4:
+	DS.W	1
+;until here
+CopyBeamCon0:
 	DS.W	1
 CopySpr0Pt:
 	DS.L	8
@@ -37753,18 +37883,24 @@ LAB_A480AB:
 	DS.B	1
 LAB_A480AC:
 	DS.W	1
-LAB_A480AE:
+bpl1Work:
 	DS.L	1
-LAB_A480B2:
+bpl2Work:
 	DS.L	1
-LAB_A480B6:
+bpl3Work:
 	DS.L	1
-LAB_A480BA:
+bpl4Work:
 	DS.L	1
-LAB_A480BE:
+bpl5Work:
 	DS.L	1
-LAB_A480C2:
-	DS.L	2
+bpl6Work:
+	DS.L	1
+bpl7Work:
+	DS.L	1
+bpl8Work:
+	DS.L	1
+LAB_A480C6
+	DS.L	1
 LAB_A480CA:
 	DS.B	1
 LAB_A480CB:
