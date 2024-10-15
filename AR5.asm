@@ -1,10 +1,8 @@
+;Action Replay 5
 
-; IRA V2.11 (Jun 19 2024) (c)1993-1995 Tim Ruehsen
-; (c)2009-2024 Frank Wille, (c)2014-2019 Nicolas Bastien
-
-dbg=1
+;dbg=1
 ;pistorm=1
-;arhardware=1
+arhardware=1
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -1524,7 +1522,8 @@ MakeMempeekerDisplay:
   BTST #2,D2      ;aga
   BNE.S   .skip1
   MOVE.W CopyFmode,fmode(a5)
-  MOVE.W CopyBplCon3,bplcon3(a5)
+  ;MOVE.W CopyBplCon3,bplcon3(a5)
+  MOVE.W #0,bplcon3(a5)
   MOVE.W #$11,bplcon4(a5)
 .skip1
   MOVE.W	CopyDiwStart,diwstrt(a5)
@@ -1710,6 +1709,13 @@ LAB_A11B24:
 	MOVEM.L	(A7)+,D1/A0
 	RTS
 getKeymap:
+  MOVE.B ShiftKey,-(A7)
+  TST.B IgnoreShift
+  BEQ.S .noignore
+
+  CLR.B ShiftKey
+.noignore:
+
 	TST.B	keymap
 	BEQ.S	LAB_A11B44
   CMP.B #1,keymap
@@ -1731,6 +1737,7 @@ LAB_A11B44:
 	BEQ.S	LAB_A11B54
 	LEA	keymapUpperDE(PC),A0
 LAB_A11B54:
+  MOVE.B (A7)+,ShiftKey
 	RTS
 keymapDE:
 	DC.L	$60313233,$34353637,$383930df,$005c0030
@@ -6300,7 +6307,11 @@ LAB_A166BC:
 	MOVEM.L	(A7)+,D0-D1
 	RTS
 SUB_A166C8:
+  ifd arhardware
+    MOVE.L SaveCop1Lch,copperPos
+  else
 	MOVE.L	#$0000041e,copperPos
+  endc
 	MOVE.W	LAB_A480AC,-(A7)
 	MOVE.W	#$0001,LAB_A480AC
 	BSR.S	SUB_A166EC
@@ -6399,12 +6410,13 @@ SUB_A16826:
 	CLR.W	CopyDiwHigh
 	;CLR.W	CopyBplCon4
   ifd arhardware
-  MOVE.L CopyCop1lc,copperPos
+  MOVE.L SaveCop1Lch,A0
+  MOVE.L A0,copperPos
   else
 	BSR.W	SUB_A167A0
 	MOVEA.L	copperPos,A0
-	MOVE.L	A0,CopyCop1lc
   endc
+	MOVE.L	A0,CopyCop1lc
   
 	LEA	RegSnoop,A1
 	MOVE.L	$84(A1),CopyCop2lc
@@ -7875,7 +7887,7 @@ LAB_A17A26:
 	BSR.W	SUB_A1359C
 	DBF	D2,LAB_A17A26
   MOVE.W cpuAddrSize,D2
-  ADD.W #2,D2
+  ADD.W #3,D2
   MOVE.W	D2,cursorX
 	;MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
@@ -9423,7 +9435,9 @@ LAB_A18C86:
 	ADDQ.B	#1,CopyDiwStop
 	ADDQ.W	#1,LAB_A480DE
 LAB_A18C9C:
+  ST.B IgnoreShift
 	BSR.W	GetKeyCode
+  SF.B IgnoreShift
 	MOVE.W	KeyCode,D0
 	JSR	UpperCaseChar(PC)
 	BEQ.W	LAB_A19C8E
@@ -37722,6 +37736,8 @@ ShiftKey:
 EscapePressed:
 	DS.B	1
 EscapeDisabled:
+  DS.B  1
+IgnoreShift
   DS.B  1
   even
 CurrentPage:
