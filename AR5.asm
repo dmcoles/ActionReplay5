@@ -314,9 +314,12 @@ SECSTRT_0:
  DC.L NMI_Entry
 
 RomEntry:
-  TST.W firstInitDone
-  BNE RomEntry_2
-  MOVE.W #-1,firstInitDone
+  CMP.L #BRON_TAG,LAB_A481D2
+  BEQ RomEntry_2
+  ;TST.W firstInitDone
+  ;BNE RomEntry_2
+  
+  ;MOVE.W #-1,firstInitDone
 	JMP	ArEntry1
 RomEntry_2:
 	JMP	AREntry2
@@ -705,7 +708,7 @@ LAB_A10D7A:
 setActivateMode:
 	MOVE.W	D0,-(A7)
 	CLR.W	newActivateMode
-  CMP.B #$13,LAB_A484DB
+  CMP.B #$13,kickstartVersion
   BNE.S LAB_A10DD2
 
 	TST.B	BootSelectPrefs
@@ -1229,6 +1232,31 @@ LAB_A11486:
 	MOVE.W	#$8300,$96(A5)
 	RTS
 
+BplCountToBplCon:
+  ADD.W D0,D0
+  MOVE.W bplConValues(PC,D0),D0
+  RTS
+bplConValues:
+  DC.W 0,$1000,$2000,$3000,$4000,$5000,$6000,$7000,$0010
+  
+GetLisaId:
+    MOVEM.L D1-D2,-(A7)
+    move.w $dff07c,d0    
+    moveq  #31-1,d2
+    and.w  #$ff,d0
+check_loop:
+    move.w $dff07C,d1
+    and.w  #$ff,d1
+    cmp.b  d0,d1
+    bne.b  not_ECS
+    dbf    d2,check_loop
+    or.b   #$f0,d0
+    MOVEM.L (A7)+,D1-D2
+    rts
+not_ECS:
+    move.w  #$ff,d0
+    MOVEM.L (A7)+,D1-D2
+    rts
 RestoreDisplay1:
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$0300,$96(A5)
@@ -1247,13 +1275,8 @@ LAB_A119F6:
   ifd arhardware
 	MOVE.L	SaveCop1Lch,cop1lch(A5)
   endc
-  MOVE.W  lisaid(a5),D1
-  CMP.B   #$FC,D1
-  BEQ.S   .valid
-  CMP.B   #$F8,D1
-  BEQ.S   .valid
-  MOVE.W  #$FF,D1
-.valid
+  JSR GetLisaId
+  MOVE.W D0,D1
 
 	MOVE.W	SaveDiwStart,D0
   ifnd arhardware
@@ -1554,7 +1577,7 @@ LAB_A11818:
 	MOVE.W	CopyBplCon0,D0
 	ANDI.W	#$fe75,D0
 	MOVE.W	D0,D1
-	ANDI.W	#$7000,D1
+	ANDI.W	#$7010,D1
 	BNE.S	LAB_A1183A
 	BTST	#4,D0
 	BNE.S	LAB_A1183A
@@ -2830,7 +2853,12 @@ LAB_A12BE0:
 	LEA	BitplanesHeaderText(PC),A0
 	BSR.W	PrintText
 	MOVE.W	CopyBplCon0,D1
-	ANDI.W	#$7000,D1
+	ANDI.W	#$7010,D1
+  BTST #4,D0
+  BEQ.S .1
+  ADD.W #$8000,D0
+  BCLR #4,D0
+.1:
 	ROL.W	#4,D1
 	TST.W	D1
 	BEQ.S	LAB_A12C5C
@@ -2971,38 +2999,38 @@ LAB_A12D9C:
 	DBF	D3,LAB_A12D9C
 	JSR	PrintReady
 	RTS
+
 DisplayWinHeaderText:
-
 	DC.B	"DIWSTRT DIWSTOP DDFSTRT DDFSTOP",$D,0
+
 BitplanesHeaderText:
-
 	DC.B	"BITPLANES",$D,0
+
 ColorsHeaderText:
-
 	DC.B	"COLORS",$D,0
+
 SpritesHeaderText:
-
 	DC.B	"SPRITES",$D,0
+
 DisplayHeaderText:
-
 	DC.B	"BPLCON0 BPLCON1 BPLCON2 DMACON INTREQ",$D,0
+
 DisplayHeader2Text:
-
 	DC.B	"BPL1MOD BPL2MOD BLTCON0 BLTCON1 DSKSYNC",$D,0
+
 LAB_A12E77:
-
 	DC.B	"     ",0
+
 LAB_A12E7D:
-
 	DC.B	"   ",0
+
 LAB_A12E81:
-
 	DC.B	"clxcon   INTENA   ADKCON  TDF0  TDF1  TDF2  TDF3",$D,0
+
 AudioHeaderText:
-
 	DC.B	"AUDADR   AUDLEN   AUDPER   AUDVOL",$D,0
-LAB_A12ED6:
 
+LAB_A12ED6:
 	DC.B	"****",0,0
 CMD_TILDE:
 	MOVE.L	DefaultAddress,D0
@@ -8066,18 +8094,18 @@ LAB_407C6C:
 	LEA	EXT_40000,A7
 	JMP	(A3)
 LAB_407C98:
-	MOVE.B	#$13,LAB_A484DB
+	MOVE.B	#$13,kickstartVersion
 	CMPI.B	#$f8,EXT_F80005
   BEQ.S .k2
 	CMPI.B	#$f8,EXT_FC0005
 	BNE.W	LAB_407CB4
 .k2
-	MOVE.B	#$20,LAB_A484DB
+	MOVE.B	#$20,kickstartVersion
 LAB_407CB4:
 	LEA	StackEnd,A7
 	MOVE.L	D0,-(A7)
 	MOVE.L	A3,D0
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BHI.W	LAB_407CD0
 	ORI.L	#$00fc0000,D0
 LAB_407CD0:
@@ -8113,7 +8141,7 @@ LAB_407D40:
 	MOVE.W	D1,memoryControlPrefsValue
   BSR ARInit
   JSR setActivateMode
-  MOVE.W #-1,firstInitDone
+  ;MOVE.W #-1,firstInitDone
 	MOVEA.L	EXT_F80004,A7
 	JMP	(A7)
 LAB_407E64:
@@ -8252,7 +8280,7 @@ LAB_4080B8:
 	MOVEM.L	(A7),D0-D7/A0-A6
 	MOVE.L	A1,BUS_ERROR.W
 LAB_4080C6:
-  CMP.B #$13,LAB_A484DB
+  CMP.B #$13,kickstartVersion
   BNE.S LAB_408104
 	MOVE.W	LAB_A4822E,D0
 	MOVE.W	memoryControlPrefsValue,D1
@@ -8378,7 +8406,7 @@ ArEntry1:
 
 	CLR.L	AronFlag
 	MOVEM.L	D0-D7/A0-A6,SaveEntryRegs
-	MOVE.B	#$30,LAB_A484DB
+	MOVE.B	#$30,kickstartVersion
 	MOVE.L	D0,-(A7)
 	MOVE.L	EXT_F80004,D0
 	ANDI.L	#$ffff0000,D0
@@ -8418,7 +8446,7 @@ LAB_A17C96:
 LAB_A17DDE:
 	MOVEM.L	SaveEntryRegs,D0-D7/A0-A6
 	;MOVE.W	#$ffff,ignoreExceptions
-   MOVE.W #-1,firstInitDone
+   ;MOVE.W #-1,firstInitDone
 	JMP	AREntry2
 
 SUB_A17DF4:
@@ -9156,17 +9184,34 @@ SUB_A188AE:
 	MOVE.L	EXT_4.W,D0
 	BCLR	#0,D0
 	EXG	D0,A1
-	MOVE.L	$2A(A1),D0
+	;MOVE.L	$2A(A1),D0
+  LEA $2A(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
-	MOVE.L	$2E(A1),D0
+
+	;MOVE.L	$2E(A1),D0
+  LEA $2E(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
-	MOVE.L	$32(A1),D0
+
+	;MOVE.L	$32(A1),D0
+  LEA $32(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
-	MOVE.L	$222(A1),D0
+
+	;MOVE.L	$222(A1),D0
+  LEA $222(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
-	MOVE.L	$226(A1),D0
+
+	;MOVE.L	$226(A1),D0
+  LEA $226(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
-	MOVE.L	$22A(A1),D0
+
+	;MOVE.L	$22A(A1),D0
+  LEA $22A(A1),A0
+  JSR memSafeReadLong
 	BNE.S	LAB_A188EE
 LAB_A188EC:
 	MOVEQ	#0,D0
@@ -9338,6 +9383,8 @@ SUB_A18AD6:
 	MOVE.W	#$ffff,memPeekerBlackFlag
 	SF	memPeekerHelpFlag
 	SF	memPeekerDdfMode
+  JSR GetLisaId
+  MOVE.W D0,lisaIdValue
 	CLR.W	D0
 	CLR.W	D1
 	BSR.W	SUB_A19D6C
@@ -9391,6 +9438,16 @@ LAB_A18BCA:
 	MOVE.W	D0,LAB_A480DE
 	BSR.W	SwapChipRam1
 	ST	picViewerMode
+  MOVE.W CopyBplCon0,D0
+  AND.W #$7010,D0
+  BTST #4,D0
+  BEQ.S .1
+  ADD.W #$8000,D0
+  BCLR #4,D0
+.1:  
+  ROL.W #4,D0
+  MOVE.W D0,bitplaneCount
+    
 	MOVEQ	#0,D0
 memPeekMainLoop:
 	CLR.W	LAB_A481D6
@@ -9723,10 +9780,12 @@ SUB_A190BC:
 	TST.B	memPeekerHelpFlag
 	BEQ.S	LAB_A1912E
 	MOVEQ	#1,D3
-	MOVE.W	CopyBplCon0,D4
-	ANDI.W	#$7000,D4
-	BEQ.S	LAB_A1912E
-	ROL.W	#4,D4
+	;MOVE.W	CopyBplCon0,D4
+	;ANDI.W	#$7000,D4
+	;BEQ.S	LAB_A1912E
+	;ROL.W	#4,D4
+  MOVE.W bitplaneCount,D4
+  BEQ.S	LAB_A1912E
 	MOVE.W	D4,D2
 	SUBQ.W	#1,D2
 	LEA	CopyBpl1Pth,A0
@@ -9852,9 +9911,10 @@ SUB_A19296:
 	MOVEQ	#4,D1
 	MOVE.W	#$0017,LAB_A481F4
 	MOVE.W	#$0005,LAB_A481F6
-	MOVE.W	CopyBplCon0,D0
-	ANDI.W	#$7000,D0
-	ROL.W	#4,D0
+	;MOVE.W	CopyBplCon0,D0
+	;ANDI.W	#$7000,D0
+	;ROL.W	#4,D0
+  MOVE.W bitplaneCount,D0
 	BSR.W	SUB_A19E50
 	MOVEM.L	(A7)+,D0-D1
 	RTS
@@ -10197,23 +10257,43 @@ LAB_A1973C:
 	BSR.W	SUB_A190BC
 	BRA.W	LAB_A19C8E
 memPeekKeyPlus:
-	MOVE.W	CopyBplCon0,D0
-	MOVE.W	D0,D2
-	ANDI.W	#$7000,D0
-	CMPI.W	#$6000,D0
-	BEQ.W	LAB_A19C8E
-	MOVE.W	D0,D1
-	ROL.W	#4,D1
-	SUBQ.W	#1,D1
+	;MOVE.W	CopyBplCon0,D0
+	;MOVE.W	D0,D2
+	;ANDI.W	#$7000,D0
+	;CMPI.W	#$6000,D0
+	;BEQ.W	LAB_A19C8E
+	;MOVE.W	D0,D1
+	;ROL.W	#4,D1
+	;SUBQ.W	#1,D1
+  MOVE.W #6,D2
+  CMP.W #$f8,lisaIdValue
+  BNE.S .2
+  MOVE.W #8,D2
+.2:
+  
+  MOVE.W bitplaneCount,D0
+  CMP.W D2,D0
+  BEQ.W	LAB_A19C8E
+
+	MOVE.W	CopyBplCon0,D2
+  
+  MOVE.W D0,D1
 	LSL.W	#2,D1
 	LEA	CopyBpl1Pth,A0
 	LEA	bpl1Work,A2
 	MOVE.L	0(A0,D1.W),4(A0,D1.W)
 	MOVE.L	0(A2,D1.W),4(A2,D1.W)
-	ADDI.W	#$1000,D0
-	CMPI.W	#$5000,D0
+  
+	ADDQ.W	#1,D0
+  MOVE.W D0,bitplaneCount
+  CMP.W #$f8,lisaIdValue
+  BEQ.S .1
+  
+	CMPI.W	#5,D0
 	BEQ.S	LAB_A197A6
-	ANDI.W	#$8fff,D2
+.1:
+  JSR BplCountToBplCon
+	ANDI.W	#$8fef,D2
 	OR.W	D0,D2
 LAB_A19788:
 	MOVE.W	D2,CopyBplCon0
@@ -10224,21 +10304,37 @@ LAB_A19788:
 	BSR.W	SUB_A19224
 	BRA.W	LAB_A19C8E
 LAB_A197A6:
-	ANDI.W	#$0fff,D2
+	ANDI.W	#$0fef,D2
 	ORI.W	#$5000,D2
 	BRA.S	LAB_A19788
 memPeekKeyMinus:
-	MOVE.W	CopyBplCon0,D0
-	MOVE.W	D0,D1
-	ANDI.W	#$7000,D0
-	CMPI.W	#$1000,D0
-	BEQ.W	LAB_A19C8E
-	SUBI.W	#$1000,D0
-	MOVE.W	D0,D2
-	ROL.W	#4,D2
+	;MOVE.W	CopyBplCon0,D0
+	;MOVE.W	D0,D1
+	;ANDI.W	#$7000,D0
+	;CMPI.W	#$1000,D0
+	;BEQ.W	LAB_A19C8E
+	;SUBI.W	#$1000,D0
+	;MOVE.W	D0,D2
+	;ROL.W	#4,D2
+	;CMPI.W	#$5000,D0
+	;BEQ.S	LAB_A19810
+
+  MOVE.W bitplaneCount,D0
+  MOVE.W	CopyBplCon0,D1
+  CMP.W #1,D0
+  BEQ.W	LAB_A19C8E
+  SUB.W #1,D0
+  MOVE.W D0,bitplaneCount
+  JSR BplCountToBplCon
+
+  CMP.W #$f8,lisaIdValue
+  BEQ.S .1
+ 
 	CMPI.W	#$5000,D0
 	BEQ.S	LAB_A19810
-	ANDI.W	#$8fff,D1
+.1:
+  
+	ANDI.W	#$8fef,D1
 	OR.W	D0,D1
 LAB_A197D8:
 	MOVE.W	D1,CopyBplCon0
@@ -10255,7 +10351,7 @@ LAB_A19808:
 	MOVE.L	$30(A0,D3.W),D0
 	MOVE.W	0(A0,D3.W),D0
 LAB_A19810:
-	ANDI.W	#$03ff,D1
+	ANDI.W	#$03ef,D1
 	ORI.W	#$5000,D1
 	BRA.S	LAB_A197D8
 memPeekKeyEquals:
@@ -10371,9 +10467,10 @@ LAB_A19984:
 	BRA.W	LAB_A19C8E
 SUB_A19996:
 	LEA	CopyBpl1Pth,A0
-	MOVE.W	CopyBplCon0,D0
-	ANDI.W	#$7000,D0
-	ROL.W	#4,D0
+	;MOVE.W	CopyBplCon0,D0
+	;ANDI.W	#$7000,D0
+	;ROL.W	#4,D0
+  MOVE.W bitplaneCount,D0
 	SUBQ.W	#2,D0
 	BMI.S	LAB_A199C2
 	MOVE.L	(A0)+,D1
@@ -10549,8 +10646,8 @@ Delay:
 	MOVE.L	D0,-(A7)
 	MOVE.B	#$00,EXT_BFE801
 LAB_A19BA0:
-	TST.B	EXT_BFE801
-	BEQ.S	LAB_A19BA0
+	CMP.B	#2,EXT_BFE801
+	BNE.S	LAB_A19BA0
 	MOVE.L	(A7)+,D0
 	RTS
 SUB_A19BAC:
@@ -10794,8 +10891,8 @@ LAB_A19E64:
 	MOVEM.L	(A7)+,D0-D3
 LAB_A19E84:
 	RTS
-LAB_A19E86:
 
+LAB_A19E86:
 	DC.B	"1: 000000 MODE:        HIRES     ",$D,"2: 000000 DDFSTRT END  0000"
 	DC.B	" 0000 ",$D,"3: 000000 MODULO:      0000      ",$D,"4: 000000 WIDTH HEIG"
 	DC.B	"HT 0000 0000 ",$D,"5: 000000 COLOR VALUE  0000 0000 ",$D,"6: 000000 PLA"
@@ -12320,7 +12417,7 @@ PrintInterrupts:
 	BRA.S	LAB_A1B2FC
 
 LAB_40B89E:
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.W	LAB_40B9CE
 	BRA.W	LAB_40B8B0
 LAB_40B8AE:
@@ -15647,7 +15744,7 @@ LAB_A1D8E8:
 	DBF	D5,LAB_A1D8E8
 	MOVEM.L	(A7)+,D0-D6/A0
 	RTS
-SUB_A1D900:
+drawSelectedHighlight:
 	MOVEM.L	D0-D7/A0,-(A7)
 	MOVE.W	#$0280,D4
 	MULU	D1,D4
@@ -15677,7 +15774,7 @@ LAB_A1D938:
 	DBF	D6,LAB_A1D932
 	MOVEM.L	(A7)+,D0-D7/A0
 	RTS
-SUB_A1D956:
+drawDisabledHighlight:
 	MOVEM.L	D0-D7/A0,-(A7)
 	MOVE.W	#$0280,D4
 	MULU	D1,D4
@@ -15952,7 +16049,7 @@ LAB_A1DD18:
 	BTST	#7,EXT_BFE001
 	BEQ.S	LAB_A1DD18
 	BRA.S	LAB_A1DCC4
-SUB_A1DD24:
+highlightPrefsBox:
 	MOVEM.L	D0-D3/A0,-(A7)
 LAB_A1DD28:
 	TST.W	D0
@@ -15969,10 +16066,10 @@ LAB_A1DD2E:
 	BRA.S	LAB_A1DD28
 LAB_A1DD40:
 	MOVEM.W	(A0),D0-D3
-	BSR.W	SUB_A1D900
+	BSR.W	drawSelectedHighlight
 	MOVEM.L	(A7)+,D0-D3/A0
 	RTS
-SUB_A1DD4E:
+disablePrefsBox:
 	MOVEM.L	D0-D3/A0,-(A7)
 LAB_A1DD52:
 	TST.W	D0
@@ -15989,7 +16086,7 @@ LAB_A1DD58:
 	BRA.S	LAB_A1DD52
 LAB_A1DD6A:
 	MOVEM.W	(A0),D0-D3
-	BSR.W	SUB_A1D956
+	BSR.W	drawDisabledHighlight
 	MOVEM.L	(A7)+,D0-D3/A0
 	RTS
 CMD_CODE:
@@ -16054,471 +16151,422 @@ LAB_A1DE2C:
 	RTS
 PrefsSettingPage1:
 	DC.L	$000b0003,$00110003
-
 	DC.B	"No Fast",0
+  
 	DC.L	$00150003,$001b0003
-	DC.B	$20
+	DC.B	" 0.5MB",0,0
 
-	DC.B	"0.5MB",0
-	DS.B	1
 	DC.L	$001f0003,$00250003
-
 	DC.B	"Maximum",0
+
 	DC.L	$000b0005,$00110005
-
 	DC.B	"0.5MB",0
+
 	DC.L	$00150005,$001b0005
-
 	DC.B	"Maximum",0
+
 	DC.L	$00040009,$00070009
-
 	DC.B	" On",0
+
 	DC.L	$00220009,$00250009
-
 	DC.B	"Add",0
+
 	DC.L	$0004000e,$0008000e
-
 	DC.B	"NoRes",0
+
 	DC.L	$000c000e,$0010000e
-
 	DC.B	"Test1",0
+
 	DC.L	$0014000e,$0018000e
-
 	DC.B	"Test2",0
+
 	DC.L	$001e000e,$0024000e
-
 	DC.B	"Blanker",0
+
 	DC.L	$00130011,$001b0011
+	DC.B	" BACKGND",0,0
 
-	DC.B	" BACKGND",0
-	DS.B	1
 	DC.L	$001e0011,$00260011
+	DC.B	" FOREGND",0,0
 
-	DC.B	" FOREGND",0
-	DS.B	1
 	DC.L	$00070013,$00070013
-
 	DC.B	"0",0
+
 	DC.L	$00090013,$00090013
-
 	DC.B	"1",0
+
 	DC.L	$000b0013,$000b0013
-
 	DC.B	"2",0
+
 	DC.L	$000d0013,$000d0013
-
 	DC.B	"3",0
+
 	DC.L	$000f0013,$000f0013
-
 	DC.B	"4",0
+
 	DC.L	$00110013,$00110013
-
 	DC.B	"5",0
+
 	DC.L	$00130013,$00130013
-
 	DC.B	"6",0
+
 	DC.L	$00150013,$00150013
-
 	DC.B	"7",0
+
 	DC.L	$00170013,$00170013
-
 	DC.B	"8",0
+
 	DC.L	$00190013,$00190013
-
 	DC.B	"9",0
+
 	DC.L	$001b0013,$001b0013
-
 	DC.B	"A",0
+
 	DC.L	$001d0013,$001d0013
-
 	DC.B	"B",0
+
 	DC.L	$001f0013,$001f0013
-
 	DC.B	"C",0
+
 	DC.L	$00210013,$00210013
-
 	DC.B	"D",0
+
 	DC.L	$00230013,$00230013
-
 	DC.B	"E",0
+
 	DC.L	$00250013,$00250013
-
 	DC.B	"F",0
+
 	DC.L	$00070015,$00070015
-
 	DC.B	"0",0
+
 	DC.L	$00090015,$00090015
-
 	DC.B	"1",0
+
 	DC.L	$000b0015,$000b0015
-
 	DC.B	"2",0
+
 	DC.L	$000d0015,$000d0015
-
 	DC.B	"3",0
+
 	DC.L	$000f0015,$000f0015
-
 	DC.B	"4",0
+
 	DC.L	$00110015,$00110015
-
 	DC.B	"5",0
+
 	DC.L	$00130015,$00130015
-
 	DC.B	"6",0
+
 	DC.L	$00150015,$00150015
-
 	DC.B	"7",0
+
 	DC.L	$00170015,$00170015
-
 	DC.B	"8",0
+
 	DC.L	$00190015,$00190015
-
 	DC.B	"9",0
+
 	DC.L	$001b0015,$001b0015
-
 	DC.B	"A",0
+
 	DC.L	$001d0015,$001d0015
-
 	DC.B	"B",0
+
 	DC.L	$001f0015,$001f0015
-
 	DC.B	"C",0
+
 	DC.L	$00210015,$00210015
-
 	DC.B	"D",0
+
 	DC.L	$00230015,$00230015
-
 	DC.B	"E",0
+
 	DC.L	$00250015,$00250015
-
 	DC.B	"F",0
+
 	DC.L	$00070017,$00070017
-
 	DC.B	"0",0
+
 	DC.L	$00090017,$00090017
-
 	DC.B	"1",0
+
 	DC.L	$000b0017,$000b0017
-
 	DC.B	"2",0
-	DC.L	$000d0017,$000d0017
 
+  DC.L	$000d0017,$000d0017
 	DC.B	"3",0
+
 	DC.L	$000f0017,$000f0017
-
 	DC.B	"4",0
+
 	DC.L	$00110017,$00110017
-
 	DC.B	"5",0
+
 	DC.L	$00130017,$00130017
-
 	DC.B	"6",0
+
 	DC.L	$00150017,$00150017
-
 	DC.B	"7",0
+
 	DC.L	$00170017,$00170017
-
 	DC.B	"8",0
+
 	DC.L	$00190017,$00190017
-
 	DC.B	"9",0
+
 	DC.L	$001b0017,$001b0017
-
 	DC.B	"A",0
+
 	DC.L	$001d0017,$001d0017
-
 	DC.B	"B",0
+
 	DC.L	$001f0017,$001f0017
-
 	DC.B	"C",0
-	DC.L	$00210017,$00210017
 
+  DC.L	$00210017,$00210017
 	DC.B	"D",0
+
 	DC.L	$00230017,$00230017
-
 	DC.B	"E",0
-	DC.L	$00250017,$00250017
 
+  DC.L	$00250017,$00250017
 	DC.B	"F",0
+
 	DC.L	$00300003,$00330003
-
 	DC.B	" On",0
+
 	DC.L	$002e000f,$00350011
+	DC.B	"  Next            Page",0,0
 
-	DC.B	"  Next            Page",0
-	DS.B	1
 	DC.L	$002e0014,$00350016
-
 	DC.B	"           Ok",0
+
 	DC.L	$003e0002,$00410002
+	DC.B	"100%",0,0
 
-	DC.B	"100%",0
-	DS.B	1
 	DC.L	$003e0004,$00410004
+	DC.B	" 90%",0,0
 
-	DC.B	" 90%",0
-	DS.B	1
 	DC.L	$003e0006,$00410006
+	DC.B	" 80%",0,0
 
-	DC.B	" 80%",0
-	DS.B	1
 	DC.L	$003e0008,$00410008
+	DC.B	" 70%",0,0
 
-	DC.B	" 70%",0
-	DS.B	1
 	DC.L	$003e000a,$0041000a
+	DC.B	" 60%",0,0
 
-	DC.B	" 60%",0
-	DS.B	1
 	DC.L	$003e000c,$0041000c
+	DC.B	" 50%",0,0
 
-	DC.B	" 50%",0
-	DS.B	1
 	DC.L	$003e000e,$0041000e
+	DC.B	" 40%",0,0
 
-	DC.B	" 40%",0
-	DS.B	1
 	DC.L	$003e0010,$00410010
+	DC.B	" 30%",0,0
 
-	DC.B	" 30%",0
-	DS.B	1
 	DC.L	$003e0012,$00410012
+	DC.B	" 20%",0,0
 
-	DC.B	" 20%",0
-	DS.B	1
 	DC.L	$003e0014,$00410014
+	DC.B	" 10%",0,0
 
-	DC.B	" 10%",0
-	DS.B	1
 	DC.L	$003e0016,$00410016
+	DC.B	"  0%",0,0
 
-	DC.B	"  0%",0
-	DS.B	1
 	DC.L	$00470002,$004a0002
+	DC.B	"100%",0,0
 
-	DC.B	"100%",0
-	DS.B	1
 	DC.L	$00470004,$004a0004
+	DC.B	" 90%",0,0
 
-	DC.B	" 90%",0
-	DS.B	1
 	DC.L	$00470006,$004a0006
+	DC.B	" 80%",0,0
 
-	DC.B	" 80%",0
-	DS.B	1
 	DC.L	$00470008,$004a0008
+	DC.B	" 70%",0,0
 
-	DC.B	" 70%",0
-	DS.B	1
 	DC.L	$0047000a,$004a000a
+  DC.B	" 60%",0,0
 
-	DC.B	" 60%",0
-	DS.B	1
 	DC.L	$0047000c,$004a000c
+	DC.B	" 50%",0,0
 
-	DC.B	" 50%",0
-	DS.B	1
 	DC.L	$0047000e,$004a000e
+	DC.B	" 40%",0,0
 
-	DC.B	" 40%",0
-	DS.B	1
 	DC.L	$00470010,$004a0010
+	DC.B	" 30%",0,0
 
-	DC.B	" 30%",0
-	DS.B	1
 	DC.L	$00470012,$004a0012
+	DC.B	" 20%",0,0
 
-	DC.B	" 20%",0
-	DS.B	1
 	DC.L	$00470014,$004a0014
+	DC.B	" 10%",0,0
 
-	DC.B	" 10%",0
-	DS.B	1
 	DC.L	$00470016,$004a0016
+	DC.B	"  0%",0,0
 
-	DC.B	"  0%",0
-	DS.B	1
-	DC.L	$80100009,$00150009,$00008018,$0009001d
-	DC.L	$00090000,$00300008,$00330008
-
+	DC.L	$80100009,$00150009,$00008018,$0009001d,$00090000
+  
+  DC.L  $00300008,$00330008
 	DC.B	" On",0
+
 	DC.L	$00010001,$0027000a
-
 	DC.B	" Memory Control",0
+
 	DC.L	$80030003,$00070005
-
 	DC.B	"Fast:     Chip:",0
+
 	DC.L	$80010007,$000a000b
-
 	DC.B	" ClearMem",0
+
 	DC.L	$800c0007,$00270008
+	DC.B	" External Memory",0,0
 
-	DC.B	" External Memory",0
-	DS.B	1
 	DC.L	$800e0009,$00180009
-
 	DC.B	"$       -$",0
+
 	DC.L	$0001000c,$0027000f
-
 	DC.B	" Module Interna",0
+
 	DC.L	$00010011,$00270017
+	DC.B	" Color Control",0,0
 
-	DC.B	" Color Control",0
-	DS.B	1
 	DC.L	$80040013,$00040017
-
 	DC.B	"R G B",0
+
 	DC.L	$002a0001,$00380004
+	DC.B	"   Megastick",0,0
 
-	DC.B	"   Megastick",0
-	DS.B	1
 	DC.L	$002a0006,$00380009
-
 	DC.B	"   Autoconfig",0
-	DC.L	$003b0001,$004d0017,$0000803c,$0002003c
-	DC.W	$0018
 
-	DC.B	"Player 1",0
-	DS.B	1
+	DC.L	$003b0001,$004d0017,$0000803c
+  DC.W  $0002
+
+	DC.L	$003c0018
+	DC.B	"Player 1",0,0
+
 	DC.L	$804c0002,$004c0018
+	DC.B	"Player 2",0,0
 
-	DC.B	"Player 2",0
-	DS.B	1
 	DC.L	$80440005,$00440018
-
 	DC.B	"A u t o f i r e",0
-	DS.W	1
+  DS.W	1
 PrefsSettingPage2:
 	DC.L	$000f0005,$00110005
-
 	DC.B	"Off",0
+
 	DC.L	$00030003,$00050003
-
 	DC.B	"DF0",0
+
 	DC.L	$00090003,$000b0003
-
 	DC.B	"DF1",0
+
 	DC.L	$000f0003,$00110003
-
 	DC.B	"DF2",0
+
 	DC.L	$00150003,$00170003
-
 	DC.B	"DF3",0
+
 	DC.L	$00030005,$000a0005
+	DC.B	"Variable",0,0
 
-	DC.B	"Variable",0
-	DS.B	1
 	DC.L	$0006000a,$0009000a
-
 	DC.B	" On",0
-	DC.L	$0010000a,$0017000a,$00000006,$000e0009
-	DC.W	$000e
 
-	DC.B	"DF0:",0
-	DS.B	1
+	DC.L	$0010000a,$0017000a
+  DC.W  $0000
+
+  DC.L  $0006000e,$0009000e
+	DC.B	"DF0:",0,0
+
 	DC.L	$00060010,$00090010
+	DC.B	"DF1:",0,0
 
-	DC.B	"DF1:",0
-	DS.B	1
 	DC.L	$00060012,$00090012
+	DC.B	"DF2:",0,0
 
-	DC.B	"DF2:",0
-	DS.B	1
 	DC.L	$00060014,$00090014
+	DC.B	"DF3:",0,0
 
-	DC.B	"DF3:",0
-	DS.B	1
 	DC.L	$0010000e,$0017000e,$00000010,$00100017
 	DC.L	$00100000,$00100012,$00170012,$00000010
-	DC.L	$00140017,$00140000,$00270003,$002a0003
+	DC.L	$00140017,$00140000
+  
+  DC.L  $00270003,$002a0003
+	DC.B	"DF0:",0,0
 
-	DC.B	"DF0:",0
-	DS.B	1
 	DC.L	$002f0003,$00320003
+	DC.B	"DF1:",0,0
 
-	DC.B	"DF1:",0
-	DS.B	1
 	DC.L	$00270005,$002a0005
+	DC.B	"DF2:",0,0
 
-	DC.B	"DF2:",0
-	DS.B	1
 	DC.L	$002f0005,$00320005
+	DC.B	"DF3:",0,0
 
-	DC.B	"DF3:",0
-	DS.B	1
 	DC.L	$001e000a,$0022000a
+	DC.B	"Find",0,0
 
-	DC.B	"Find",0
-	DS.B	1
 	DC.L	$0026000a,$002a000a
+	DC.B	"Kill",0,0
 
-	DC.B	"Kill",0
-	DS.B	1
 	DC.L	$002e000a,$0032000a
+	DC.B	"Boot",0,0
 
-	DC.B	"Boot",0
-	DS.B	1
 	DC.L	$001e000f,$0025000f
+	DC.B	"Resident",0,0
 
-	DC.B	"Resident",0
-	DS.B	1
 	DC.L	$001e0013,$00250015
+	DC.B	"          Load",0,0
 
-	DC.B	"          Load",0
-	DS.B	1
 	DC.L	$002a0013,$00310015
+	DC.B	"          Save",0,0
 
-	DC.B	"          Save",0
-	DS.B	1
 	DC.L	$00360013,$003d0015
+	DC.B	"  Next            Page",0,0
 
-	DC.B	"  Next            Page",0
-	DS.B	1
 	DC.L	$00420013,$00490015
-
 	DC.B	"           Ok",0
+
 	DC.L	$002a000f,$0031000f
+	DC.B	"No Click",0,0
 
-	DC.B	"No Click",0
-	DS.B	1
 	DC.L	$003a0003,$00410003
+	DC.B	"Resident",0,0
 
-	DC.B	"Resident",0
-	DS.B	1
 	DC.L	$003a0008,$00420008
-
 	DC.B	"Faststart",0
+
 	DC.L	$00010001,$00190006
-
 	DC.B	" BootSelector",0
+
 	DC.L	$00010008,$00190015
-
 	DC.B	" BootBlockCoder",0
+
 	DC.L	$8002000c,$000a000c
-
 	DC.B	"DiskCoder",0
+
 	DC.L	$001c0001,$00340006
-
 	DC.B	" DriveControl",0
+
 	DC.L	$801e0003,$00230003
+	DC.B	"On/Off",0,0
 
-	DC.B	"On/Off",0
-	DS.B	1
 	DC.L	$001c0008,$0034000b
+	DC.B	" VirusTest",0,0
 
-	DC.B	" VirusTest",0
-	DS.B	1
 	DC.L	$001c000d,$00340010
+	DC.B	" Safe Disk",0,0
 
-	DC.B	" Safe Disk",0
-	DS.B	1
 	DC.L	$00370001,$00440004
-
 	DC.B	"   Setmap D",0
-	DC.L	$00370006,$00450009
 
-	DC.B	" Burst Nibbler",0
-	DS.B	1
+	DC.L	$00370006,$00450009
+  DC.B	" Burst Nibbler",0,0
 	DS.W	1
 DoPrefs:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
@@ -16889,7 +16937,7 @@ LAB_A1EA96:
 	CMPI.W	#$0017,D0
 	BNE.S	LAB_A1EACA
 ; Safe disk - resident
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BHI.S	LAB_A1EACA
 	SF	LAB_A483D6
 	NOT.B	SaveDiskResidentPrefsFlag
@@ -16901,7 +16949,7 @@ LAB_A1EACA:
 	CMPI.W	#$001c,D0
 	BNE.S	LAB_A1EAF8
 ; safe disk - noclick
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BHI.S	LAB_A1EAF8
 	BCHG	#3,LAB_A483D6
 	BNE.W	LAB_A1E8B8
@@ -16912,7 +16960,7 @@ LAB_A1EAF8:
 	CMPI.W	#$001d,D0
 	BNE.S	LAB_A1EB1E
 ; setmap d - resident
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BHI.S	LAB_A1EB1E
 	NOT.B	SetmapDPrefsFlag
 	BEQ.W	LAB_A1E8B8
@@ -16935,20 +16983,20 @@ SUB_A1EB32:
 LAB_A1EB44:
 	LSR.W	#1,D2
 	BCS.S	LAB_A1EB54
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 	EXG	D0,D1
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 	EXG	D0,D1
 LAB_A1EB54:
 	ADDQ.W	#1,D0
 	ADDQ.W	#1,D1
 	CMPI.W	#$0004,D0
 	BLS.S	LAB_A1EB44
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.S	LAB_A1EB78
 	MOVEQ	#0,D0
 LAB_A1EB6A:
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 	ADDQ.W	#1,D0
 	CMPI.W	#$0005,D0
 	BLS.S	LAB_A1EB6A
@@ -16956,14 +17004,14 @@ LAB_A1EB6A:
 LAB_A1EB78:
 	MOVEQ	#1,D0
 	ADD.W	BootSelectPrefs,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EB84:
 	MOVEQ	#$10,D0
 	MOVE.W	DriveControlPrefsValue,D2
 LAB_A1EB8C:
 	LSR.W	#1,D2
 	BCC.S	LAB_A1EB94
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EB94:
 	ADDQ.W	#1,D0
 	CMPI.W	#$0013,D0
@@ -16971,32 +17019,32 @@ LAB_A1EB94:
 	BTST	#0,VirusCheckerSettingsPrefs
 	BEQ.S	LAB_A1EBAC
 	MOVEQ	#$14,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EBAC:
 	BTST	#1,VirusCheckerSettingsPrefs
 	BEQ.S	LAB_A1EBBC
 	MOVEQ	#$15,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EBBC:
 	BTST	#2,VirusCheckerSettingsPrefs
 	BEQ.S	LAB_A1EBCC
 	MOVEQ	#$16,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EBCC:
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.S	LAB_A1EBDC
 	MOVEQ	#$17,D0
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 LAB_A1EBDC:
 	TST.B	SaveDiskResidentPrefsFlag
 	BEQ.S	LAB_A1EBEA
 	MOVEQ	#$17,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EBEA:
 	TST.B	BootblockCoderPrefsFlag
 	BEQ.S	LAB_A1EBF8
 	MOVEQ	#6,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EBF8:
 	MOVE.L	BootblockCoderValue,D0
 	MOVE.L	#$0010000a,cursorX
@@ -17009,7 +17057,7 @@ LAB_A1EC20:
 	TST.B	(A1)+
 	BEQ.S	LAB_A1EC2A
 	MOVE.W	D1,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EC2A:
 	MOVE.L	(A2)+,D0
 	MOVE.L	D2,cursorX
@@ -17019,27 +17067,27 @@ LAB_A1EC2A:
 	CMPI.W	#$000b,D1
 	BLS.S	LAB_A1EC20
 	MOVEQ	#$1C,D0
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.S	LAB_A1EC50
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 LAB_A1EC50:
 	BTST	#3,LAB_A483D6
 	BEQ.S	LAB_A1EC5E
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EC5E:
 	MOVEQ	#$1D,D0
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.S	LAB_A1EC6E
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 LAB_A1EC6E:
 	TST.B	SetmapDPrefsFlag
 	BEQ.S	LAB_A1EC7A
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EC7A:
 	MOVEQ	#$1E,D0
 	TST.B	BurstNibblerFastStartPrefsFlag
 	BEQ.S	LAB_A1EC88
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EC88:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
@@ -17052,14 +17100,14 @@ SUB_A1EC8E:
 LAB_A1ECA0:
 	LSR.W	#1,D1
 	BCS.S	LAB_A1ECA8
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 LAB_A1ECA8:
 	ADDQ.W	#1,D0
 	DBF	D2,LAB_A1ECA0
 	BTST	#0,D1
 	BNE.S	LAB_A1ECBA
 	ADDQ.W	#1,D0
-	JSR	SUB_A1DD4E(PC)
+	JSR	disablePrefsBox(PC)
 LAB_A1ECBA:
 	MOVEQ	#2,D2
 	MOVE.W	memoryControlPrefsValue,D1
@@ -17067,22 +17115,22 @@ LAB_A1ECBA:
 LAB_A1ECC4:
 	LSR.W	#1,D1
 	BCC.S	LAB_A1ECCC
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ECCC:
 	ADDQ.W	#1,D0
 	DBF	D2,LAB_A1ECC4
 	BTST	#0,D1
 	BNE.S	LAB_A1ECDE
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 	BRA.S	LAB_A1ECE4
 LAB_A1ECDE:
 	ADDQ.W	#1,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ECE4:
 	BTST	#1,D1
 	BEQ.S	LAB_A1ECF0
 	MOVEQ	#5,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ECF0:
 	MOVE.L	LAB_A483AA,D0
 	MOVE.L	#$000f0009,cursorX
@@ -17093,77 +17141,77 @@ LAB_A1ECF0:
 	TST.B	ExtMemAddPrefsFlag
 	BEQ.S	LAB_A1ED2A
 	MOVEQ	#6,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ED2A:
 	TST.B	NoresPrefsFlag
 	BEQ.S	LAB_A1ED38
 	MOVEQ	#7,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ED38:
 	BTST	#0,TestPrefsFlag
 	BEQ.S	LAB_A1ED48
 	MOVEQ	#8,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ED48:
 	BTST	#2,TestPrefsFlag
 	BEQ.S	LAB_A1ED58
 	MOVEQ	#9,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ED58:
 	TST.B	BlankerPrefsFlag
 	BEQ.S	LAB_A1ED66
 	MOVEQ	#$A,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1ED66:
 	TST.B	LAB_A480CA
 	BNE.S	LAB_A1ED7C
 	MOVEQ	#$B,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	LEA	ArBgCol,A1
 	BRA.S	LAB_A1ED88
 LAB_A1ED7C:
 	MOVEQ	#$C,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	LEA	ArFgCol,A1
 LAB_A1ED88:
 	MOVE.W	(A1),D1
 	MOVEQ	#$2D,D0
 	ANDI.W	#$000f,D1
 	ADD.W	D1,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	MOVEQ	#$1D,D0
 	MOVE.W	(A1),D1
 	LSR.W	#4,D1
 	ANDI.W	#$000f,D1
 	ADD.W	D1,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	MOVEQ	#$D,D0
 	MOVE.W	(A1),D1
 	LSR.W	#8,D1
 	ANDI.W	#$000f,D1
 	ADD.W	D1,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	TST.B	MegaStickPrefsFlag
 	BEQ.S	LAB_A1EDC4
 	MOVEQ	#$3D,D0
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EDC4:
 	MOVEQ	#$40,D0
 	MOVEQ	#$64,D1
 	SUB.W	P1AutoFirePrefsSetting,D1
 	DIVU	#$000a,D1
 	ADD.W	D1,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	MOVEQ	#$4B,D0
 	MOVEQ	#$64,D1
 	SUB.W	P2AutoFirePrefsSetting,D1
 	DIVU	#$000a,D1
 	ADD.W	D1,D0
-	BSR.W	SUB_A1DD24
+	BSR.W	highlightPrefsBox
 	MOVEQ	#$58,D0
 	TST.B	AutoConfigPrefsFlag
 	BNE.S	LAB_A1EDFA
-	JSR	SUB_A1DD24(PC)
+	JSR	highlightPrefsBox(PC)
 LAB_A1EDFA:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
@@ -24028,7 +24076,7 @@ LAB_A232E4:
 	JSR	SUB_A166C8
 LAB_A232F4:
 	MOVE.W	CopyBplCon0,D0
-	ANDI.W	#$7000,D0
+	ANDI.W	#$7010,D0
 	BNE.S	LAB_A23312
 	LEA	NoBitplanesText(PC),A0
 	JSR	PrintText
@@ -24043,9 +24091,10 @@ LAB_A23312:
 	BSR.W	SUB_A1FA3E
 	BMI.W	PrintDiskOpResult
 	RTS
-NoBitplanesText:
 
+NoBitplanesText:
 	DC.B	"Sorry no Bitplanes!",$D,0,0
+
 SUB_A23348:
 	MOVEM.L	D6/A1,-(A7)
 	MOVE.W	CopyBplCon0,D0
@@ -24288,9 +24337,10 @@ LAB_A235FE:
 LAB_A23600:
 	MOVE.W	D7,(A1)+
 	CLR.L	(A1)+
-	MOVE.W	CopyBplCon0,D0
-	LSR.W	#8,D0
-	LSR.W	#4,D0
+	;MOVE.W	CopyBplCon0,D0
+	;LSR.W	#8,D0
+	;LSR.W	#4,D0
+  MOVE.W bitplaneCount,D0
 	ANDI.W	#$0007,D0
 	CMPI.W	#$0032,D6
 	BNE.S	LAB_A2361A
@@ -27837,7 +27887,7 @@ SUB_A26B2A:
 LAB_A26B36:
 	BTST	D1,DrivesConnectedLo
 	BNE.S	LAB_A26B44
-	JSR	SUB_A1DD4E
+	JSR	disablePrefsBox
 LAB_A26B44:
 	SUBQ.W	#1,D0
 	DBF	D1,LAB_A26B36
@@ -27893,7 +27943,7 @@ LAB_A26BD0:
 	BNE.S	LAB_A26BF8
 	MOVE.W	D2,D0
 	LEA	fileDialog(PC),A0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A26BF8:
 	TST.B	(A1)+
 	BNE.S	LAB_A26BF8
@@ -28255,7 +28305,7 @@ SUB_A27084:
 	MOVE.W	#$8100,EXT_DFF096
 	RTS
 CMD_SAFEDISK:
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BLS.S	LAB_A270AE
 	LEA	WrongTDiskText(PC),A0
 	JSR	PrintText
@@ -29692,7 +29742,7 @@ SUB_A289BA:
 	TST.L	LAB_A4843E
 	BNE.S	LAB_A289D2
 	MOVEQ	#$68,D0
-	JSR	SUB_A1DD4E
+	JSR	disablePrefsBox
 LAB_A289D2:
 	MOVEM.L	(A7)+,D0/A0
 	RTS
@@ -29794,37 +29844,37 @@ LAB_A28B18:
 	BHI.S	LAB_A28B48
 	BCHG	#0,LAB_A480CA
 	MOVEQ	#$62,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	MOVEQ	#$60,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	MOVEQ	#$61,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	BRA.W	LAB_A28A76
 LAB_A28B48:
 	CMPI.W	#$0063,D0
 	BHI.S	LAB_A28B60
 	BCHG	#2,LAB_A480CA
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	BRA.W	LAB_A28A76
 LAB_A28B60:
 	CMPI.W	#$0065,D0
 	BHI.S	LAB_A28B82
 	BCHG	#1,LAB_A480CA
 	MOVEQ	#$65,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	MOVEQ	#$64,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	BRA.W	LAB_A28A76
 LAB_A28B82:
 	MOVE.W	D0,LAB_A480CC
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	JSR	SUB_A2924E
 	BPL.S	LAB_A28B9C
 	LEA	LAB_A28C47(PC),A0
 	BRA.S	LAB_A28BB4
 LAB_A28B9C:
 	MOVE.W	LAB_A480CC,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	BRA.W	LAB_A28A76
 LAB_A28BAC:
 	JSR	SUB_A1DB1E
@@ -29833,7 +29883,7 @@ LAB_A28BB4:
 	MOVE.L	A0,-(A7)
 	LEA	LAB_A283D0(PC),A0
 	MOVE.W	LAB_A480CC,D0
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	MOVEA.L	(A7)+,A0
 LAB_A28BC8:
 	JSR	SUB_A283B8(PC)
@@ -30327,7 +30377,7 @@ LAB_A29338:
 	BHI.S	LAB_A2934C
 	BCHG	D0,LAB_A480CF
 LAB_A29344:
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 	BRA.S	LAB_A29310
 LAB_A2934C:
 	CMPI.W	#$0003,D0
@@ -30670,42 +30720,42 @@ SUB_A296F0:
 	MOVEQ	#0,D0
 	BTST	#0,LAB_A480CE
 	BEQ.S	LAB_A29720
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A29720:
 	MOVEQ	#1,D0
 	BTST	#1,LAB_A480CE
 	BEQ.S	LAB_A29732
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A29732:
 	MOVEQ	#2,D0
 	BTST	#2,LAB_A480CE
 	BEQ.S	LAB_A29744
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A29744:
 	MOVEQ	#3,D0
 	BTST	#0,LAB_A480D7
 	BEQ.S	LAB_A29756
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A29756:
 	MOVEQ	#4,D0
 	BTST	#0,LAB_A480D6
 	BEQ.S	LAB_A29768
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A29768:
 	MOVEQ	#5,D0
 	BTST	#6,LAB_A480CE
 	BEQ.S	LAB_A2977A
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A2977A:
 	MOVEQ	#6,D0
 	BTST	#7,LAB_A480CE
 	BEQ.S	LAB_A2978C
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A2978C:
 	MOVEQ	#7,D0
 	BTST	#3,LAB_A480CE
 	BEQ.S	LAB_A2979E
-	JSR	SUB_A1DD24
+	JSR	highlightPrefsBox
 LAB_A2979E:
 	MOVEQ	#0,D2
 	MOVEQ	#0,D3
@@ -31308,7 +31358,7 @@ LAB_A29E16:
 	RTS
 SUB_A29E2E:
 	MOVEM.L	A0/A2-A3/A6,-(A7)
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BEQ.S	LAB_A29E42
 	LEA	KickVerText(PC),A1
 	BRA.S	LAB_A29E50
@@ -37012,7 +37062,7 @@ LAB_400A2E:
 	TST.W	D0
 	BNE.W	LAB_4009BC
 LAB_400A4C:
-	CMPI.B	#$13,LAB_A484DB
+	CMPI.B	#$13,kickstartVersion
 	BHI.W	LAB_400C48
 	TST.B	BootblockCoderPrefsFlag
 	BEQ.W	LAB_400A8C
@@ -37352,13 +37402,13 @@ NMI_Entry:
   ifd arhardware
     MOVE.B D0,-(A7)
 
-	MOVE.B	#$13,LAB_A484DB
+	MOVE.B	#$13,kickstartVersion
 	CMPI.B	#$f8,EXT_F80005
   BEQ.S .k2
 	CMPI.B	#$f8,EXT_FC0005
 	BNE.W	.k3
 .k2
-	MOVE.B	#$20,LAB_A484DB
+	MOVE.B	#$20,kickstartVersion
 .k3
 
     MOVE.B FreezeState,D0
@@ -37369,7 +37419,7 @@ NMI_Entry:
     CMP.B #0,D0
     BEQ.W nmi
 
-    CMP.B #$13,LAB_A484DB
+    CMP.B #$13,kickstartVersion
     BNE.S .n13
 
     CMP.B #2,D0
@@ -37499,8 +37549,8 @@ cpuAddrSize:
 vbrflag
   DS.W  1
 
-firstInitDone:
-  DS.W  1
+;firstInitDone:
+;  DS.W  1
 VgaModeFlag:
 	DS.W	1
 LAB_A35698:
@@ -38475,7 +38525,7 @@ LAB_A484D6:
 	DS.L	1
 BurstNibblerFastStartPrefsFlag:
 	DS.B	1
-LAB_A484DB:
+kickstartVersion:
 	DS.B	1
 FastFileSystemFlag1:
 	DS.B	1
@@ -38495,6 +38545,10 @@ LAB_A489EA:
 	DS.W	1
 copperPos:
 	DS.L	1
+bitplaneCount:
+  DS.W  1
+lisaIdValue:
+  DS.W  1
 LAB_A489F0:
 	DS.W	1
 ;LAB_A489F2:
