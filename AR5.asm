@@ -377,8 +377,10 @@ LAB_A103FA:
 	ORI.W	#$8000,4(A7)
 LAB_A10400:
 	RTS
+
 versionText:
 	DC.B	"*>Action Replay 5<* (c)2024 REbEL / QUARTEX",$D,0,0
+
 KeyboardIntHandler:
 	BRA.W	KeyboardInt
 VBlankIntHandler:
@@ -663,12 +665,13 @@ LAB_A10CB8:
 	JSR	PrintText
 	JSR	PrintReady
 	RTS
+
 TBufferRestoredText:
-
 	DC.B	"Trackbuffer restored",$D,0
-NoTBufferText:
 
+NoTBufferText:
 	DC.B	"No trackbuffer allocated",$D,0
+
 TBuffRestoreQuiet:
 	MOVEM.L	D1/A0-A1,-(A7)
 	TST.B	TBufferAllocated
@@ -2048,9 +2051,10 @@ LAB_A12216:
 	BSR.W	Print6DigitHex
 	BSR.W	PrintReady
 	RTS
-currentCopperText:
 
+currentCopperText:
 	DC.B	$D,"Current Copper 0: ",0
+
 ;CMD_IMODE:
 ;	BSR.W	ReadParameter
 ;	TST.B	ParamFound
@@ -2090,8 +2094,8 @@ currentCopperText:
 ;imode4Text:
 ;
 ;	DC.B	"-> Level 7 Int./button -+-  ']' on keypad disables montitor ",0
-commandTable:
 
+commandTable:
 	DC.B	"INTERRUPTS",0
 	DS.B	1
 	DC.L	CMD_INTERRUPTS
@@ -2721,8 +2725,8 @@ commandTable:
 
 	DC.B	"|",0
 	DC.L	CMD_BAR
+
 	DC.B	$a7,00
-LAB_A12A24:
 	DC.L	CMD_A7CHAR
 
 	DC.B	"&",0
@@ -2731,6 +2735,7 @@ LAB_A12A24:
 	DC.B	"^",0
 	DC.L	CMD_UPARROW
 	DS.W	1
+
 CMD_X:
 	TST.B	TBufferAllocated
 	BEQ.S	LAB_A12A58
@@ -2745,12 +2750,13 @@ LAB_A12A58:
   JSR WaitNoKeypress
 	ADDQ.W	#4,A7
 	RTS
+
 resetTBufferText:
-
 	DC.B	"Sure to exit without resetting trackbuffer?",$D,0
-killArText:
 
+killArText:
 	DC.B	"Do you really want to kill AR-PRO?",$D,0,0
+
 CMD_KILL:
 	LEA	killArText(PC),A0
 	JSR	AskYN
@@ -3032,6 +3038,7 @@ AudioHeaderText:
 
 LAB_A12ED6:
 	DC.B	"****",0,0
+
 CMD_TILDE:
 	MOVE.L	DefaultAddress,D0
 	MOVEA.L	D0,A1
@@ -3101,8 +3108,8 @@ LAB_A12FA2:
 	MOVE.L	(A7)+,D0
 	RTS
 LAB_A12FC8:
-
 	DC.B	";=======================================",$D,0
+
 CMD_N:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -3352,53 +3359,62 @@ LAB_A1325C:
 	JSR	PrintCR
 	MOVEM.L	(A7)+,A0-A1
 	RTS
+
 LAB_A13336:
-
 	DC.B	"PC = ",0
+
 LAB_A1333C:
-
 	DC.B	" USP = ",0
+
 LAB_A13344:
-
 	DC.B	" SR = ",0
-LAB_A1334B:
 
+LAB_A1334B:
 	DC.B	" T=",0
+
 LAB_A1334F:
 	DC.B	$20
 	DC.W	$533d
 	DS.B	1
+
 LAB_A13353:
 	DC.B	$20
 	DC.W	$493d
 	DS.B	1
+
 LAB_A13357:
 	DC.B	$20
 	DC.W	$583d
 	DS.B	1
+
 LAB_A1335B:
 	DC.B	$20
 	DC.W	$4e3d
 	DS.B	1
+
 LAB_A1335F:
 	DC.B	$20
 	DC.W	$5a3d
 	DS.B	1
+
 LAB_A13363:
 	DC.B	$20
 	DC.W	$563d
 	DS.B	1
+
 LAB_A13367:
 	DC.B	$20
 	DC.W	$433d
 	DS.B	1
+
 LAB_A1336B:
 	DC.B	$44
 	DC.W	$303d
 	DS.B	1
-LAB_A1336F:
 
+LAB_A1336F:
 	DC.B	$D,"A0=",0
+
 CMD_M:
 	JSR	SUB_A30FF8
 	BSR.W	ReadParameter
@@ -3458,11 +3474,11 @@ LAB_A133F6:
 	BSR.W	SUB_A174E0
 	BRA.W	PrintReady
 SearchFromText:
-
 	DC.B	"Search from: ",0
-SearchToText:
 
+SearchToText:
 	DC.B	" to: ",0
+
 SUB_A1341C:
 	MOVEM.L	D0/A0,-(A7)
 	LEA	SearchFromText(PC),A0
@@ -4191,31 +4207,31 @@ LAB_A13D02:
 	MOVEA.L	(A7)+,A0
 	RTS
 MemoryByteText:
-
 	DC.B	"Memorybyte ",0
+
 ChangedFromText:
-
 	DC.B	" has changed from $",0
-ChangedToText:
 
+ChangedToText:
 	DC.B	" to $",0
+
 aboutText:
 	DC.B	"********************************************************************************",$D
 	DC.B	"                             ACTION REPLAY AMIGA V5",$D
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,0
+
 HeaderStarsText:
-	DC.B	$D,"************************************************************"
-	DC.B	"********************",0
+	DC.B	$D,"********************************************************************************",0
 
 BreakPointRaisedText:
 	DC.B	"Breakpoint raised at address: ",0
+
 ResidentProgramText:
-
 	DC.B	"Resident program allocated at: ",0
-DangerText:
 
+DangerText:
 	DC.B	"+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 	DC.B	"+++++++++++++++++++!  D A N G E R  !  D A N G E R  !  D A N G"
 	DC.B	" E R  !  D A N G E R  !  D A N G E R !Bootblock is messing wi"
@@ -4250,6 +4266,7 @@ AboutArText:
 	DC.B	"                       there can be only one - quartex!",$D
   DC.B  $D,0
   even
+
 memSafeReadByte1:
 	CMPA.L	#EXT_4E80,A0
 	BCC.S	LAB_A1456C
@@ -4481,22 +4498,21 @@ LAB_A14804:
 	MOVEM.L	(A7)+,D0-D2/D6/A0-A1
 	RTS
 CopperEndText:
-
 	DC.B	" ;end of copperlist",0
+
 CopperMoveText:
-
 	DC.B	" MOVE #$",0
+
 CopperWaitText:
-
 	DC.B	" WAIT ($",0
+
 CopperSkipText:
-
 	DC.B	" SKIP ($",0
+
 DCLText:
-
 	DC.B	"dc.l ",0,0
-ChipRegsText:
 
+ChipRegsText:
 	DC.B	"bltddat",0
 	DC.B	"dmaconr",0
 	DC.B	"vposr",0
@@ -4753,6 +4769,7 @@ ChipRegsText:
 	DC.B	"unused",0
 	DC.B	"fmode AGA",0
 	DC.B	"no-op",0,0
+
 CMD_COMMA:
 	MOVEM.L	D0-D1/A0,-(A7)
 	BSR.W	ReadParameter
@@ -4910,8 +4927,8 @@ LAB_A152A6:
 	MOVE.L	(A7)+,D0
 	RTS
 CurrentOffsetText:
-
 	DC.B	"Current offset: ",0,0
+
 SUB_A152BC:
 	MOVEM.L	D0-D1,-(A7)
 	BCS.S	LAB_A152CC
@@ -5906,14 +5923,10 @@ LAB_A161C4:
 	LEA	WrongOpnrText(PC),A0
 	BSR.W	PrintText
 	BRA.S	LAB_A161BE
+
 BranchTypes:
-
-	DC.B	"T",0
-	DS.B	1
-
-	DC.B	"F",0
-	DS.B	1
-
+	DC.B	"T",0,0
+	DC.B	"F",0,0
 	DC.B	"HI",0
 	DC.B	"LS",0
 	DC.B	"CC",0
@@ -5928,6 +5941,7 @@ BranchTypes:
 	DC.B	"LT",0
 	DC.B	"GT",0
 	DC.B	"LE",0
+
 SUB_A161FE:
 	MOVEM.L	D0-D1/A0,-(A7)
 	MOVE.W	(A1),D0
@@ -6192,33 +6206,35 @@ LAB_A164C4:
 	BSR.W	PrintChar
 	BRA.S	LAB_A164B6
 LAB_A164CC:
-
 	DC.B	"(A",0
+
 LAB_A164CF:
 	DC.B	$29
 	DC.W	$2b00
+
 LAB_A164D2:
 	DC.L	$2d284100
+
 LAB_A164D6:
 	DC.W	$2e53
 	DS.B	1
+
 LAB_A164D9:
-
 	DC.B	"(PC)",0
+
 LAB_A164DE:
-
 	DC.B	"(PC",0
+
 WrongOpnrText:
-
 	DC.B	"wrong opnr!",$D,0,0
-InstructionLengths:
 
+InstructionLengths:
 	DC.B	".B",0
 	DC.B	".W",0
 	DC.B	".L",0
 	DC.B	".?",0
-AsmInstructions:
 
+AsmInstructions:
 	DC.B	"ABCD",0
 	DC.B	"ADD",0
 	DC.B	"ADDA",0
@@ -6298,10 +6314,10 @@ AsmInstructions:
 	DC.B	"UNLK",0
 	DC.B	"LINEA",0
 	DC.B	"LINEF",0
-
 	DC.B	"ILLEGAL",0
 	DC.B	"MOVEC",0
 	DC.B	$ff
+
 SUB_A16676:
 	MOVEM.L	D0-D1,-(A7)
 	CMPI.W	#$0001,LAB_A47FB8
@@ -6809,10 +6825,13 @@ nores:
 LAB_A16C94:
 	BSR.W	PrintText
 	BRA.S	LAB_A16C70
+
 GermanKeymapText:
 	DC.B	$D,"Keymap is now german",$D,0
+
 UsaKeymapText:
 	DC.B	$D,"Keymap is now usa",$D,0,0
+
 UKKeymapText:
 	DC.B	$D,"Keymap is now uk",$D,0,0
 
@@ -7203,17 +7222,17 @@ LAB_A171EE:
 	NOT.B	insertmode
 	BRA.W	LAB_A16C70
 InsertModeOnText:
-
 	DC.B	"Insert mode on",$D,0
+
 OverwriteModeOnText:
-
 	DC.B	"Overwrite mode on",$D,0
+
 PrinterOnText:
-
 	DC.B	"Printerdump on",$D,0
-PrinterOffText:
 
+PrinterOffText:
 	DC.B	"Printerdump off",$D,0
+
 Cls:
 	MOVEM.L	D0/A0,-(A7)
 	CLR.L	cursorX
@@ -7440,6 +7459,7 @@ LAB_A174CA:
 LAB_A174CE:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+
 OffsetText:
 	DC.B	"  offset: ",0,0
 
@@ -7652,9 +7672,10 @@ LAB_A176D8:
 
 EqualsHexText:
 	DC.B	" = $",0
-EqualsText:
 
+EqualsText:
 	DC.B	" = ",0,0
+
 CMD_SPR:
 	MOVEM.L	D0-D3/A0-A2,-(A7)
 	BSR.W	ReadParameter
@@ -7880,11 +7901,11 @@ LAB_A17998:
 	MOVE.L	(A7)+,D0
 	RTS
 BitWidthText:
-
 	DC.B	"Current bit width: !",0
-BitsText:
 
+BitsText:
 	DC.B	"bits",$D,0,0
+
 LAB_A179DE:
 	MOVEM.L	D0/A1,-(A7)
 	BSR.W	ReadParameter
@@ -8751,14 +8772,14 @@ LAB_A181FA:
 	BSR.W	PrintValue
 	BRA.W	PrintReady
 ColorsRestoredText:
-
 	DC.B	"Cartrige colors are restored - back: $aaa  pen: $000",$D,0
+
 ColorsText:
-
 	DC.B	"Cartrige colors - back: $",0
-PenText:
 
+PenText:
 	DC.B	"  pen: $",0,0
+
 SUB_A1827E:
 	SUBQ.L	#1,A0
 	ADDQ.W	#1,D7
@@ -8957,30 +8978,30 @@ LAB_A184DA:
 LAB_A184F4:
 	RTS
 TrainerStartText:
-
 	DC.B	"Start trainer with ts-command",$D,0
+
 PossibleAddressesText:
-
 	DC.B	"Possible addresses: ",$D,0
+
 NothingFoundText:
-
 	DC.B	"Nothing found! continues from address =",0
+
 SearchedUptoText:
-
 	DC.B	"Searched up to: ",0
+
 TrainerModeActiveText:
-
 	DC.B	"Trainmode active!",$D,0
+
 FirstTrainpassText:
-
 	DC.B	"First trainpass from address =",0
+
 ChangeCounterText:
-
 	DC.B	"Change the countvalue next time!",$D,0
-TrainerFailText:
 
+TrainerFailText:
 	DC.B	"Trainermaker was not successful!",$D,"Start new train (TS) or exit"
 	DC.B	" train (TX)",$D,0
+
 LAB_A18602:
 	TST.B	trainerModeActive
 	BEQ.S	LAB_A1860E
@@ -8999,8 +9020,8 @@ LAB_A1862C:
 	MOVEA.L	(A7)+,A0
 	RTS
 TrainerInactiveText:
-
 	DC.B	"Trainmode inactive!",$D,0,0
+
 CMD_BS:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -9072,23 +9093,23 @@ LAB_A18714:
 	DBF	D3,LAB_A186FE
 	BRA.W	PrintReady
 BreakpointsAtText:
-
 	DC.B	"Breakpoints at addresses:  ",0
+
 BreakpointNotFoundText:
-
 	DC.B	"Breakpoint not found!",$D,0
+
 TooManyBreakpointsText:
-
 	DC.B	"Too many breakpoints!",$D,0
+
 BreakpointDelText:
-
 	DC.B	"Breakpoint deleted   ",$D,0
+
 BreakpointInsertedText:
-
 	DC.B	"Breakpoint inserted  ",$D,0
-BreakpointsDeletedText:
 
+BreakpointsDeletedText:
 	DC.B	"All breakpoints deleted!",$D,0
+
 SetupBreakpoints:
 	LEA	BreakpointList,A3
 	MOVEQ	#4,D3
@@ -9356,8 +9377,8 @@ PrintWTF:
 	MOVEA.L	saveSp,A7
 	BRA.W	arCommandLoop
 wtfText:
-
 	DC.B	"???",$D,0,0
+
 PrintReady:
 	MOVE.L	A0,-(A7)
 	BSR.W	SUB_A173DC
@@ -9365,9 +9386,10 @@ PrintReady:
 	BSR.W	PrintText
 	MOVEA.L	(A7)+,A0
 	RTS
-ReadyText:
 
+ReadyText:
 	DC.B	"Ready.",$D,0
+
 CMD_PC:
 	ST	LAB_A480CA
 	BSR.S	SUB_A18AD6
@@ -9937,26 +9959,26 @@ SUB_A192C2:
 	MOVEM.W	(A7)+,D0-D1/A0
 	RTS
 HiresText:
-
 	DC.B	"HIRES  ",0
+
 LoresText:
-
 	DC.B	"LORES  ",0
+
 HamText:
-
 	DC.B	"HAM    ",0
+
 HalfBrText:
-
 	DC.B	"HALF BR",0
+
 DualPFText:
-
 	DC.B	"DUAL PF",0
+
 LaceText:
-
 	DC.B	" LACE",0
-LAB_A1933E:
 
+LAB_A1933E:
 	DC.B	"     ",0
+
 memPeekKeyDel:
 	TST.B	memPeekerHelpFlag
 	BEQ.W	LAB_A19C8E
@@ -10782,6 +10804,7 @@ LAB_A19CDE:
 	MOVE.L	copperPos,D0
 	JSR	Print6DigitHex
 	BRA.W	SUB_A173DC
+
 PicHeightText:
 	DC.B	"picture heigth: !",0
 
@@ -10898,6 +10921,7 @@ LAB_A19E86:
 	DC.B	"HT 0000 0000 ",$D,"5: 000000 COLOR VALUE  0000 0000 ",$D,"6: 000000 PLA"
 	DC.B	"NES:      0000      ",$D,"7: 000000 COPPER:      0000000   ",$D,"8: 000"
 	DC.B	"000 FMODE: 00  NMODE: 0000 ",$D,$D,0
+
 LAB_A19F98:
 	DC.L	$000eaaae,$00044444,$000e2e8e,$000e262e
 	DC.L	$0008ae22,$000e8e2e,$000e8eae,$000e2648
@@ -11019,11 +11043,11 @@ LAB_A1A1C4:
 	BSR.W	PrintValue
 	BRA.W	SUB_A173DC
 WidthText:
-
 	DC.B	"Width:  x = !",0
-HeightText:
 
+HeightText:
 	DC.B	$D,"Height: y = !",0,0
+
 SUB_A1A212:
 	CMPI.W	#$006a,D0
 	BHI.S	LAB_A1A21C
@@ -11264,8 +11288,8 @@ LAB_A1A4A2:
 	DBF	D3,LAB_A1A42C
 	BRA.W	SUB_A173DC
 RemarksHeaderText:
-
 	DC.B	"name     length address maxcount player",$D,0,0
+
 remarkTypes:
 	DC.W	$000f
 
@@ -11277,7 +11301,6 @@ remarkTypes:
 	DC.B	"shield    ",0
 	DC.B	"money     ",0
 	DC.B	"bombs     ",0
-
 	DC.B	"ext-weap1 ",0
 	DC.B	"ext-weap2 ",0
 	DC.B	"level     ",0
@@ -11285,12 +11308,13 @@ remarkTypes:
 	DC.B	"keys      ",0
 	DC.B	"counter1  ",0
 	DC.B	"counter2  ",0,0
-dataSizeText:
 
+dataSizeText:
 	DC.B	"byte ",0
 	DC.B	"word ",0
 	DC.B	"long ",0
 	DC.B	"???? ",0
+
 DeleteRemark:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -11315,11 +11339,11 @@ LAB_A1A5D2:
 	BSR.W	PrintText
 	BRA.W	ShowRemarks
 CounterNotFoundText:
-
 	DC.B	"Counter not found!",$D,0
-CounterDeletedText:
 
+CounterDeletedText:
 	DC.B	"Counter deleted",$D,0,0
+
 SetRemark:
 	LEA	RemarksData,A4
 	MOVEQ	#9,D1
@@ -11391,18 +11415,18 @@ LAB_A1A6F2:
 	MOVE.W	A5,-(A7)
 	DS.B	1
 TooManyNotesText:
-
 	DC.B	"Too many notes!",$D,0
-CounterLengthText:
 
+CounterLengthText:
 	DC.B	"counterlength?",$D,"1 byte, 2 word, 3 long",$D,0
 	DC.B	"counteraddress?",$D,0
+
 MaxCountText:
-
 	DC.B	"max-count?",$D,0
-PlayerText:
 
+PlayerText:
 	DC.B	"player?",$D,0,0
+
 SUB_A1A758:
 	CLR.L	LAB_A481C8
 	CLR.L	LAB_A481CC
@@ -11487,8 +11511,8 @@ LAB_A1A81E:
 	JSR	SUB_A1F4FC
 	MOVE.W	#$0005,cursorX
 	JMP	PrintCursor
-CiaRegsTable:
 
+CiaRegsTable:
 	DC.B	"parallel port a",0
 	DC.B	"parallel port a direction",0
 	DC.B	"parallel port b",0
@@ -11513,6 +11537,7 @@ CiaRegsTable:
 	DC.B	"ext 6",0
 	DC.B	"ext 7",0
 	DC.B	"ext 8",0,0
+
 CMD_APOS:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -11772,14 +11797,14 @@ LAB_A1ACA8:
 	MOVEM.L	(A7)+,D0-D1/D6-D7/A0-A2
 	RTS
 SubFoundText:
-
 	DC.B	"SUB found at:",0
+
 NotFoundText:
-
 	DC.B	"Nothing found!",$D,0
-SubsEliminatedText:
 
+SubsEliminatedText:
 	DC.B	"SUB's eliminated",$D,0
+
 SUB_A1ACDE:
 	MOVEM.L	D0-D1/A0-A4,-(A7)
 	ifd arhardware
@@ -11906,30 +11931,31 @@ PrintTasks:
 	BSR.W	PrintText
 	MOVE.W	#$01a4,D0
 	BRA.W	LAB_A1B2FC
+
 ListOfDevicesText:
-
 	DC.B	"List of devices:",$D,0
+
 ListOfInterruptsText:
-
 	DC.B	"List of interrupts:",$D,0
+
 ListOfLibsText:
-
 	DC.B	"List of libraries:",$D,0
+
 ListOfPortsText:
-
 	DC.B	"List of ports:",$D,0
+
 ListOfResourcesText:
-
 	DC.B	"List of resources:",$D,0
+
 RunningTaskText:
-
 	DC.B	"Running task:",$D,0
+
 ReadyTasksText:
-
 	DC.B	"Ready tasks:",$D,0
-WaitingTasksText:
 
+WaitingTasksText:
 	DC.B	"Waiting tasks:",$D,0
+
 ShowMemQuick:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -11994,6 +12020,7 @@ LAB_A1AEBA:
 	BSR.W	PrintText
 	JSR	PrintAddressHex
 	BRA.W	SUB_A173DC
+
 QuickDunpText:
 	DC.B	"Quick-dump up to address: ",0
 
@@ -12085,18 +12112,19 @@ LAB_A1AFCE:
 	MOVEQ	#2,D0
 	BSR.W	PrintSpaces
 	BRA.W	LAB_A1AF58
+
 RamTesterHeaderText:
-
 	DC.B	"Ram-tester in action!",$D,"=====================",$D,0
+
 RamTesterPass1Text:
-
 	DC.B	"Pass one (ram filled with $0000)",$D,0
+
 RamTesterPass2Text:
-
 	DC.B	"Pass two (ram filled with $ffff)",$D,0
-RamTesterOkText:
 
+RamTesterOkText:
 	DC.B	"RAM's are o.k.",$D,0,0
+
 SUB_A1B068:
 	MOVEM.L	D1-D2/A0-A2,-(A7)
 	MOVE.L	EXT_4,D0
@@ -12233,6 +12261,7 @@ LAB_A1B17E:
 MemBytesFreeText:
 	DC.B	"Memorybytes free:",$D,"Chipmem    Fastmem       Totalmem",$D,0
   even
+
 printBigVal:
   MOVEM.L D0-D7,-(SP)
   MOVE.L D0,D1
@@ -12279,6 +12308,7 @@ LAB_A1B1FC:
 	JSR	PrintText
 	MOVEA.L	(A7)+,A0
 	RTS
+
 ExecbaseInvalidText:
 	DC.B	"Execbase not valid!",$D,0,0
 
@@ -12408,8 +12438,8 @@ LAB_A1B35A:
 	MOVEQ	#0,D0
 	RTS
 EmptyText:
-
 	DC.B	"empty!",$D,0
+
 PrintInterrupts:
 	LEA	ListOfInterruptsText(PC),A0
 	JSR	PrintText
@@ -12730,9 +12760,10 @@ LAB_A1B5D0:
 LAB_A1B5EA:
 	JSR	PrintAddressHex
 	BRA.W	SUB_A173DC
-SearchedUptoAddrText:
 
+SearchedUptoAddrText:
 	DC.B	"Searched up to adr: ",0,0
+
 LAB_A1B60A:
 	MOVE.L	A4,D0
 	JSR	PrintAddressHex
@@ -14108,8 +14139,8 @@ LAB_A1C860:
 	MOVE.L	D2,D0
 	MOVEM.L	(A7)+,D1-D2/D5/A1
 	RTS
-AsmCommandsTable:
 
+AsmCommandsTable:
 	DC.B	"BSR"
 	DC.B	$01
 
@@ -14468,6 +14499,7 @@ AsmCommandsTable:
 
 	DC.B	"LINEF"
 	DC.W	$01ff
+
 LAB_A1CA90:
 	DC.L	$02010001,$c1000301,$0000c108,$02070fff
 	DC.L	$d0000107,$01fcd100,$04060fff,$d0c00507
@@ -14617,8 +14649,8 @@ LAB_A1CD9C:
 LAB_A1CDC4:
 	DC.L	$0008000c,$00100014,$0018001c,$00200024
 	DC.L	$0028002c,$00640068,$006c0070,$00740078
-ExceptionsText:
 
+ExceptionsText:
 	DC.B	"List of exceptions:"
 	DC.B	$0d
 	DS.B	1
@@ -14677,6 +14709,7 @@ ExceptionsText:
 	DC.B	"List of traps"
 	DC.B	$0d
 	DS.W	1
+
 CMD_SETEXCEPT:
 	MOVEQ	#4,D0
 	LEA	EXT_100.W,A0
@@ -14713,10 +14746,10 @@ LAB_A1CFB2:
 	BRA.W	PrintReady
 	RTS
 ExceptionHandlerInsText:
-
 	DC.B	"Exceptionhandler installed!",$D,"Exceptions: 1) Address error",$D,"    "
 	DC.B	"        2) Illegal opcode",$D,"            3) Line-A",$D,"            4"
 	DC.B	") Line-F",$D,"            5) Division by zero error",$D,0
+
 SUB_A1D0A8:
   ifd arhardware
 	CMPI.L	#$00000124,SaveOldPc
@@ -14829,14 +14862,14 @@ checkARChecksum:
 LAB_A1D280:
 	RTS
 ArCorruptedText:
-
 	DC.B	$D,"Looks like your AR-PRO ROM could be corrupt!!",$D,0,0
+
 CalcChkText:
-
 	DC.B	$D,"Calculated Chk:= ",0
-OriginalChkText:
 
+OriginalChkText:
 	DC.B	$D,"Original   Chk:= ",0,0
+
 calcChecksum:
 	MOVEM.L	D1-D2/A0,-(A7)
 	LEA	STARTCRC,A0
@@ -15010,21 +15043,21 @@ LAB_A1D53A:
 	MOVE.W	#$8200,$96(A5)
 	BRA.S	LAB_A1D52E
 NotEnoughRamText:
-
 	DC.B	"Not enough extra ram available!",$D,0
-Logical1024Text:
 
+Logical1024Text:
 	DC.B	"Logical memory is more than 1024 Kb. Use preferences (F3) to "
 	DC.B	"set!",$D,0
+
 NoDataSpaceText:
-
 	DC.B	"No saving possible - no data space!",$D,0
+
 SystemErrorText:
-
 	DC.B	"System error: regsave longer than memblock!!!!!!!!",$D,0,0
-DriveCfgWarnText:
 
+DriveCfgWarnText:
 	DC.B	"Warning: drive configuration has changed!",$D,0,0
+
 CMD_LQR:
 	ST	restartFlag
 CMD_LQ:
@@ -15091,11 +15124,11 @@ LAB_A1D714:
 	ST	LAB_A481E4
 	RTS
 NoSaveQuickText:
-
 	DC.B	"No savequick-file in RAM-disk!",$D,0
-BadLoadText:
 
+BadLoadText:
 	DC.B	"No load possible - required systemconfiguration:",$D,0
+
   dc.b 128,015,247,000,031,238,000,063,216,252,240,048,097,224,098,129
   dc.b 240,195,001,129,255,002,187,222,031,240,002,194,129,138,007,195
   dc.b 000,000,160,008,059,219,216,098,001,032,193,033,064,226,100,031
@@ -16568,6 +16601,7 @@ PrefsSettingPage2:
 	DC.L	$00370006,$00450009
   DC.B	" Burst Nibbler",0,0
 	DS.W	1
+
 DoPrefs:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	JSR	SUB_A1DA38(PC)
@@ -17277,17 +17311,17 @@ LAB_A1EEA0:
 	ADDI.W	#$0030,D0
 	RTS
 ArDiskCoderText:
-
 	DC.B	"Action Replay Disk coder v1.1",$D,"=============================",$D,0
+
 DriveText:
-
 	DC.B	"drive",0
+
 CodeText:
-
 	DC.B	"code:",0
-NormalText:
 
+NormalText:
 	DC.B	"normal",0
+
 ProtectedText:
 	DC.B	"protected!",0,0
 
@@ -17806,6 +17840,7 @@ NoPrinter:
 	JSR	PrintText
 	JSR	PrintReady
 	RTS
+
 NoPrinterText:
 	DC.B	"Sorry no printer connected!",$D,0,0
 
@@ -18404,13 +18439,16 @@ LAB_41304A:
 	RTS
 LAB_413058:
 	DC.B	"Please enter now the new song name:",$D,0
+
 LAB_41307D:
 	DC.B	"Please enter now the save-filename:",$D,0
+
 LAB_4130A2:
 	DC.B	"Press space bar or left mouse button for exit",$D,$D,"songname:",$D,$D,"spe"
 	DC.B	"ed:    songpos:    maxpos:   pattpos:      counter:    break:"
 	DC.B	$D,$D,$D,$D,$D,$D,$D,"note        sampledata                          volume"
 	DC.B	"data",$D,$D,$D,"voice1:",$D,$D,"voice2:",$D,$D,"voice3:",$D,$D,"voice4:",$D,$D,0,0
+
 UNK_005:
 	MOVEM.L	D0/A0,-(A7)
 	MOVEQ	#$4F,D0
@@ -18709,10 +18747,13 @@ LAB_413596:
 LAB_413598:
 	MOVEM.L	(A7)+,D1-D3/A1-A6
 	RTS
+
 LAB_41359E:
 	DC.B	$D,"Pass 1 please wait",$D,"Address: ",0
+
 LAB_4135BC:
 	DC.B	$D,"Pass 2 please wait",$D,"Address: ",0
+
 LAB_4135DA:
 	DC.B	$D,"Pass 3 please wait",$D,"Address: ",0
 
@@ -18876,21 +18917,28 @@ LAB_4137BA:
 LAB_4137BC:
 	MOVEM.L	(A7)+,D2-D4/A0-A1
 	RTS
+
 LAB_4137C2:
 	DC.B	"Action Replay sound-tool v1.1 ",$D,"------------------------------"
 	DC.B	$D,"Now analysing (selected) Chip-memory for any sounds",$D,0
+
 LAB_413835:
 	DC.B	$D,"No song in memory found",$D,0
+
 LAB_41384F:
 	DC.B	$D,"Song located in memory at: $",0
+
 LAB_41386D:
 	DC.B	" , songtype = ",0
+
 LAB_41387C:
 	DC.B	"Soundtracker (16 samples)",$D,0
 	DC.B	"Soundtracker (32 samples)",$D,0
 	DC.B	"Noisetracker (32 samples)",$D,0
+
 LAB_4138CD:
 	DC.B	"songname:",0
+
 LAB_4138D7:
 	DC.B	"You can now:",$D,"F1 = play module , F2 = stop module , F3 = see m"
 	DC.B	"ore details , F4 = save module",$D,"F5 = rename song , F6 = show s"
@@ -19083,24 +19131,34 @@ LAB_413B7C:
 	RTS
 LAB_413C68:
 	DC.B	$D,"Scanning sound-module at:",0
+
 LAB_413C83:
 	DC.B	"songname  :",0
+
 LAB_413C8F:
 	DC.B	"samplename:",0
+
 LAB_413C9B:
 	DC.B	" lenght:",0
+
 LAB_413CA4:
 	DC.B	" vol:",0
+
 LAB_413CAA:
 	DC.B	" repeat:",0
+
 LAB_413CB3:
 	DC.B	" replen:",0
+
 LAB_413CBC:
 	DC.B	"lenght of sound    : ",0
+
 LAB_413CD2:
 	DC.B	"number of patterns : ",0
+
 LAB_413CE8:
 	DC.B	"module total lenght: ",0
+
 SUB_413CFE:
 	MOVEM.L	D0-D1/A0,-(A7)
 	TST.W	D0
@@ -19383,12 +19441,16 @@ LAB_414134:
 LAB_414146:
 	MOVEM.L	(A7)+,D0-D1/A0
 	RTS
+
 txtSamplePeriod:
 	DC.B	"sampleperiod: ",0
+
 txtSampleStart:
 	DC.B	"startsample: ",0
+
 txtSampleEnd:
 	DC.B	"endsample: ",0,0
+
 SUB_414176:
 	LEA	EXT_DFF000,A5
 	CLR.W	aud0vol(A5)
@@ -19543,6 +19605,7 @@ LAB_41438A:
 	JSR	PrintSpace
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	BRA.W	LAB_413D8A
+
 txtScanInfo:
 	DC.B	"Press:",$D,"F1 = hear sound    F2 = calculate new graphics  F3 = r"
 	DC.B	"eset start/end/freq",$D,"F4 = expand range  F5 = save sample      "
@@ -20638,9 +20701,32 @@ LAB_A202CA:
 	BTST	#6,EXT_DFF002
 	BNE.S	LAB_A202CA
 	RTS
+
+FudgeDiskOpResult:
+  CMP.W #-19,D0   ;disk full
+  BEQ.S .1
+  TST.W D0
+  RTS
+.1:
+  MOVE.W D0,diskOpResult2
+  MOVEQ #0,D0
+  RTS
+  
 PrintDiskOpResult:
 	JSR	SUB_A173DC
+
 PrintDiskOpResult2:
+  TST.W diskOpResult2
+  BEQ.S .1
+  CMP.W diskOpResult2,D0
+  BEQ.S .1
+  MOVE.W D0,-(A7)
+  MOVE.W diskOpResult2,D0
+  BSR .1
+  MOVE.W (A7)+,D0
+  BNE.S .1
+  RTS
+.1:
 	MOVEM.L	D0/A0,-(A7)
 	LEA	DiskOpResultTable(PC),A0
 	NEG.W	D0
@@ -20650,8 +20736,8 @@ PrintDiskOpResult2:
 	JSR	SUB_A173DC
 	MOVEM.L	(A7)+,D0/A0
 	RTS
-DiskOpResultTable:
 
+DiskOpResultTable:
 	DC.B	"Disk ok                      ",0
 	DC.B	"No disk in drive             ",0
 	DC.B	"Read error                   ",0
@@ -20687,6 +20773,7 @@ DiskOpResultTable:
 	DC.B	"Not enough FastMem available ",0
 	DC.B	"Not enough Exp.Mem available ",0
 	DC.B	"Not a DOS-disk               ",0
+
 SUB_A2071A:
 	BSR.W	selectDrive
 	BTST	#2,EXT_BFE001
@@ -20989,6 +21076,7 @@ LAB_A20A7C:
 LAB_A20AC6:
 	MOVEQ	#0,D0
 	BRA.S	LAB_A20A74
+
 DirOfText:
 	DC.B	"Directory of ",0
 
@@ -21149,21 +21237,22 @@ LAB_A20CF6:
 	ST	LAB_A481E4
 	TST.W	D0
 	RTS
+
 ReadyToFormatText:
-
 	DC.B	"Ready to format disk in drive DF",0
+
 AskYNText:
-
 	DC.B	": (y/n)?",$D,0
+
 FormattingText:
-
 	DC.B	"Formatting track !",0
+
 HeadText:
-
 	DC.B	", head ",0
-VerifyingText:
 
+VerifyingText:
 	DC.B	"Verifying track !",0
+
 SUB_A20D5C:
 	MOVEM.L	D1-D2/A1,-(A7)
 	ST	LAB_A4824D
@@ -21306,9 +21395,10 @@ LAB_A20F16:
 	TST.W	D0
 	MOVEM.L	(A7)+,D1-D4/A0-A2
 	RTS
-ArProText:
 
+ArProText:
 	DC.B	"Action Replay 5",0
+
 calcBitmapChecksum:
 	MOVEM.L	D0-D1/A0-A1,-(A7)
 	MOVEQ	#0,D0
@@ -21350,14 +21440,14 @@ LAB_A20F7E:
 	MOVEM.L	(A7)+,D0-D1/A0-A1
 	RTS
 ChecksumIncorrectText:
-
 	DC.B	"Checksum was correct",$D,0
+
 OldCrcText:
-
 	DC.B	"Old checksum was ",0
-NewCrcText:
 
+NewCrcText:
 	DC.B	", now is set to ",0,0
+
 LAB_A20FC6:
 	MOVEM.L	D0/A0,-(A7)
 	CMP.L	D6,D7
@@ -21410,6 +21500,7 @@ CMD_BOOTCHK:
 	BRA.W	LAB_A20FC6
 LAB_A21070:
 	JMP	PrintWTF
+
 CMD_SM:
 	SF	LAB_A483C9
 	BSR.W	SUB_A22312
@@ -21443,6 +21534,7 @@ LAB_A21090:
 	BMI.S	LAB_A210E4
 	MOVE.L	D1,D0        ;length
 	BSR.W	SaveFileData
+  JSR FudgeDiskOpResult
 	BMI.S	LAB_A210E4
 	BSR.W	CreateFileHeader
 LAB_A210E4:
@@ -21488,6 +21580,7 @@ LAB_A21156:
 	CLR.W	LAB_A48318
 	CLR.L	LAB_A48314
 	CLR.L	LAB_A48310
+  CLR.W diskOpResult2
 	MOVEQ	#0,D0
 LAB_A2116A:
 	MOVEM.L	(A7)+,D1-D2/A1-A2
@@ -22444,6 +22537,7 @@ LAB_A21BC6:
 	BSR.W	PrintDiskOpResult
 	BSR.W	SUB_A1FA3E
 	RTS
+
 LoadingFromText:
 	DC.B	"Loading from ",0
 
@@ -23404,22 +23498,22 @@ LAB_A22804:
 	MOVEQ	#0,D0
 	BRA.W	PrintDiskOpResult
 NoSaveText:
-
 	DC.B	"No saving possible: Try higher crunchrate",$D,0
-NoLoadText:
 
+NoLoadText:
 	DC.B	"WARNING: No load without cartridge possible",$D,"Try to fill $900 "
 	DC.B	"bytes in chipmem with zero (be careful)",$D,0
+
 SureToFreezeText:
-
 	DC.B	"Sure to freeze more than 1024 Kb (Y/N)?",$D,0
-InsertDiskText:
 
+InsertDiskText:
 	DC.B	"Please insert an empty formatted disk and press SPACE or ESC "
 	DC.B	"for exit!",$D,0
-NoSpaceText:
 
+NoSpaceText:
 	DC.B	"Not enough space on inserted disk! Use another!",$D,0,0
+
 SUB_A22952:
 	MOVEM.L	D6-D7/A0-A2,-(A7)
 	MOVE.L	#$000c8000,D7
@@ -23696,17 +23790,17 @@ LAB_A22D06:
 	MOVEQ	#0,D0
 	BRA.S	LAB_A22CDC
 InsertdiskNrText:
-
 	DC.B	"Insert disk with save-file nr ",0
+
 PressSpaceText:
-
 	DC.B	" and press SPACE or ESC to abort.",$D,0
+
 NoLoad2Text:
-
 	DC.B	"No load possible - required system configuration:",$D,0,0
-DriveConfigWarnText:
 
+DriveConfigWarnText:
 	DC.B	"Warning: drive configuration has changed!",$D,0,0
+
 SUB_A22DF0:
 	MOVEM.L	D6-D7/A0-A2,-(A7)
 	MOVE.L	#$000c8000,D7
@@ -23992,26 +24086,26 @@ LAB_A23196:
 	MOVEM.L	(A7)+,D0-D2/A0
 	RTS
 MemConfigsText:
-
 	DC.B	"Memoryconfiguration: ",0
+
 ChipmemText:
-
 	DC.B	" ChipMem, ",0
+
 FastMemText:
-
 	DC.B	" FastMem, ",0
+
 NoFastmemText:
-
 	DC.B	" no FastMem, ",0
+
 ActiveDrivesText:
-
 	DC.B	"Active drives: ",0
+
 ExternMemText:
-
 	DC.B	" Extern Mem",$D,0
-NoExtMemText:
 
+NoExtMemText:
 	DC.B	" no ExternalMem",$D,0
+
 SUB_A23212:
 	MOVEM.L	D0-D1/A0,-(A7)
 	LSR.L	#8,D0
@@ -24490,11 +24584,11 @@ LAB_A237A0:
 	BSR.W	PrintDiskOpResult
 	RTS
 InstallYNText:
-
 	DC.B	"Ready to install disk in drive df",0
-YNText:
 
+YNText:
 	DC.B	":? (y/n)",$D,0
+
 SUB_A237D2:
 	MOVEM.L	D1-D3/A1-A2,-(A7)
 	MOVEA.L	A1,A2
@@ -24579,9 +24673,9 @@ LAB_A23890:
 	MOVEQ	#-1,D0
 	BRA.S	LAB_A2388E
 DosLibName:
-
 	DC.B	"dos.library",0
 	DS.W	1
+
 LAB_A238A2:
 	MOVEM.L	A0-A6,-(A7)
 	MOVEA.L	EXT_4,A6
@@ -24700,6 +24794,7 @@ LAB_A23A1E:
 	JSR	-414(A6)
 	MOVE.W	#$0f44,EXT_DFF180
 	RTS
+
 VirusDefsTable:
 	DC.W	$0060
 	DC.B	$14
@@ -24720,12 +24815,13 @@ VirusDefsTable:
 	DC.B	"Found",0
 	DC.B	$01
 	DC.L	$00f05a20
+
 LAB_A23AC6:
 	DC.L	$20202020,$20202020,$20202020,$20202020
 	DC.L	$00010064
 	DC.B	$6e
-
 	DC.B	" "
+
 LAB_A23ADC:
 	DC.L	$49542044,$4f53454e,$27542048,$41564520
 	DC.L	$544f2042,$45204120,$56495255,$5320494e
@@ -24737,6 +24833,7 @@ LAB_A23ADC:
 	DC.L	$0100059b
 
 	DC.B	"STANDART: 00000000 00000000 00"
+
 LAB_A23B72:
 	DC.L	$30303030,$30302030,$30303030,$30303020
 	DC.L	$30303030,$30303030,$20303030,$30303030
@@ -24744,6 +24841,7 @@ LAB_A23B72:
 	DC.W	$05aa
 
 	DC.B	"FOUND   : "
+
 LAB_A23BA2:
 	DC.L	$20202020,$20202020,$20202020,$20202020
 	DC.L	$20202020,$20202020,$20202020,$20202020
@@ -24767,27 +24865,28 @@ LAB_A23BA2:
 
 	DC.B	"Continue",0
 	DS.W	1
+
 LAB_A23C1A:
-
 	DC.B	"NORTH-STAR VIRUS"
+
 LAB_A23C2A:
-
 	DC.B	"  SCA-VIRUS     "
+
 LAB_A23C3A:
-
 	DC.B	"  BANDIT-VIRUS  "
+
 LAB_A23C4A:
-
 	DC.B	"   DASA-VIRUS   "
+
 LAB_A23C5A:
-
 	DC.B	"SYSTEM NOT OK. !"
+
 IntuitionLibName:
-
 	DC.B	"intuition.library",0
-DosLibName2:
 
+DosLibName2:
 	DC.B	"dos.library",0,0,0
+
 PrintPagedText:
 	MOVEM.L	D0-D1/A0-A1,-(A7)
 	MOVEQ	#0,D1
@@ -24868,6 +24967,7 @@ RegOffsetText:
 
 RegNameText:
 	DC.B	" , register name: ",0
+
 SUB_A23DCA:
 	MOVEM.L	D0-D1/A0/A6,-(A7)
 	MOVEA.L	EXT_4.W,A6
@@ -25017,8 +25117,8 @@ LAB_A23F90:
 LAB_A23FA8:
 	MOVEM.L	(A7)+,D0/A0
 	RTS
-VirusNamesTable:
 
+VirusNamesTable:
 	DC.B	"No known virus in memory!",0
 	DC.B	"Traveling Jack link-virus!",$D,0
 	DC.B	"Centurion link-virus, check startup-sequence",$D,0
@@ -25038,21 +25138,22 @@ VirusNamesTable:
 	DC.B	"Byte Bandit ",0
 	DC.B	"Library has changed (maybe a virus)",$D,0
 	DC.B	"Reset-programm found which uses dos.library (maybe a virus)",$D,0
+
 VirusFoundText:
-
 	DC.B	"Virus in memory found !!!!!",$D,0
+
 VirusKilledText:
-
 	DC.B	"Virus in memory was killed (not Lamer/DiskDoctor)!",$D,0
-VirusMsgText:
 
+VirusMsgText:
 	DC.B	"If your virus is a bootblock-virus like:",$D,"SCA, Byte Bandit, By"
 	DC.B	"te Warrior, Lamer Exterminator, Gadaffi, Disk Doctor",$D,"Install "
 	DC.B	"your bootdisk and check eventually other disks.",$D,"Reboot with m"
 	DC.B	"emory-clear option!",$D,0
-VirusResetText:
 
+VirusResetText:
 	DC.B	"Virus at reset found ! ! !",$D,0
+
 TrackDiskName:
 	DC.B	"trackdisk.device",0
 
@@ -25194,12 +25295,12 @@ LAB_A244A8:
 LAB_A244B6:
 	MOVEM.L	(A7)+,D1-D5/A0-A5
 	RTS
-ExecbaseStructText:
 
+ExecbaseStructText:
 	DC.B	"Exec-base struct:",$D,"=================",$D,"offset (dec/hex)  address"
 	DC.B	"     value    name ",$D,0
-LAB_A2450E:
 
+LAB_A2450E:
 	DC.B	"struct librarynode",0
 	DC.B	$04
 
@@ -25394,6 +25495,7 @@ LAB_A2450E:
 
 	DC.B	"ubyte execbase newreserved(20)",0
 	DC.B	$04
+
 ExecbaseOffsetsTable:
 	DC.L	$00000022,$00240026,$002a002e,$00320036
 	DC.L	$003a003e,$00420046,$004a004e,$00520054
@@ -25407,6 +25509,7 @@ ExecbaseOffsetsTable:
 	DC.L	$00420046,$004e0052,$0054012c,$01420150
 	DC.L	$015e0222,$0226022a
 	DC.W	$ffff
+
 AllocTBuff:
 	MOVEM.L	D0-D2/A0,-(A7)
 	LEA	EXT_8400,A0
@@ -25481,8 +25584,10 @@ LAB_41A256:
 LAB_41A27E:
 	ADDQ.L	#4,A7
 	BRA.W	PrintDiskOpResult
+
 ALoadName:
 	DC.B	"Aload",0
+
 SUB_41A28A:
 	CLR.L	cursorX
 	MOVE.W	#$00f0,D0
@@ -25560,9 +25665,11 @@ ScanAddAnno:
 	MOVEQ	#$2E,D0
 	BSR.W	AddDataChunk
 	RTS
+
 ANNOData:
 	DC.B	"ANNO",0,0,0
 	DC.B	"(Ripped by Action Replay MK III - Amiga",0,0
+
 ScanAddATAK:
 	LEA	ATAKData(PC),A2
 	MOVEQ	#$E,D0
@@ -25771,36 +25878,37 @@ LAB_A24D64:
 	DBF	D3,LAB_A24D64
 	DBF	D0,LAB_A24D60
 	BRA.S	LAB_A24D48
+
 TBuffHoldsText:
-
 	DC.B	"Trackbuffer holds only !",0
+
 TracksText:
-
 	DC.B	" tracks. Sure to kill running program? (y/n)",$D,0
+
 MaxReadText:
-
 	DC.B	"Can only read a maximum of !",0
+
 TracksText2:
-
 	DC.B	" tracks.",$D,0
+
 BadDataText:
-
 	DC.B	" but could be read - data may be bad.",$D,0
+
 ReadingText:
-
 	DC.B	"Reading ",0
+
 DestroyingText:
-
 	DC.B	"Destroying ",0
+
 TBuffFromText:
-
 	DC.B	"Trackbuffer from: ",0
+
 TBuffToText:
-
 	DC.B	" to: ",0
-TBuffHoldingText:
 
+TBuffHoldingText:
 	DC.B	" holding !",0
+
 SUB_A24E3E:
 	MOVEM.L	D0-D1,-(A7)
 	JSR	PrintText
@@ -25924,9 +26032,10 @@ LAB_A24F9A:
 	RTS
 
 	DC.B	"Saving address must be greater than $8400",$D,0
-WritingText2:
 
+WritingText2:
 	DC.B	"Writing ",0
+
 SUB_A24FD6:
 	MOVEM.L	D1-D2/A1-A3,-(A7)
 	MOVE.W	D1,D0
@@ -25958,10 +26067,11 @@ LAB_A2502A:
 	MOVEQ	#-29,D0
 	MOVEM.L	(A7)+,D1-D2/A1-A3
 	RTS
-VerifyingText2:
 
+VerifyingText2:
 	DC.B	"Ver'ing ",0
 	DS.B	1
+
 CMD_DCOPY:
 	ST	D2
 	BRA.S	LAB_A25042
@@ -26140,15 +26250,15 @@ LAB_A25282:
 	TST.W	D0
 	RTS
 KillWarningText:
-
 	DC.B	"Running Program will be killed after copy. sure to copy? (y/n"
 	DC.B	")",$D,0
+
 InsertSourceText:
-
 	DC.B	"Please insert source disk",$D,0
-InsertDestText:
 
+InsertDestText:
 	DC.B	"Please insert destination disk",$D,0,0
+
 SUB_A25314:
 	JSR	GetKeyCode
 	TST.W	KeyCode
@@ -26159,9 +26269,9 @@ LAB_A25322:
 	BEQ.S	LAB_A25322
 	RTS
 NoFreememText:
-
 	DC.B	"Couldn't find free memory. Sure to kill running program? (y/n"
 	DC.B	")",$D,0
+
 SUB_A25372:
 	MOVEM.L	D0-D1/A0,-(A7)
 	LEA	TrackText(PC),A0
@@ -26183,12 +26293,12 @@ SUB_A25372:
 	MOVEM.L	(A7)+,D0-D1/A0
 	RTS
 TrackText:
-
 	DC.B	"track !",0
-HeadText2:
 
+HeadText2:
 	DC.B	" head ",0
 	DS.B	1
+
 SUB_A253C4:
 	MOVE.L	(A7)+,LAB_A4807A
 	CLR.W	-(A7)
@@ -26303,11 +26413,11 @@ LAB_A2555E:
 	MOVE.L	#$000003ec,D1
 	BRA.S	LAB_A25508
 NormalBBText:
-
 	DC.B	"Normal bootblock installed",$D,0
-VirusProBBText:
 
+VirusProBBText:
 	DC.B	"Virus protector installed",$D,0,0
+
 SUB_A255A2:
 	LEA	LAB_A45052,A1
 	MOVEA.L	EXT_4,A0
@@ -26324,15 +26434,16 @@ LAB_A255B6:
 LAB_A255D0:
 	BSR.S	SUB_A255A2
 	BRA.W	LAB_A254BC
+
 ExecbaseRestoredText:
-
 	DC.B	"Execbase has been restored",$D,0
+
 BBChangedText:
-
 	DC.B	$D,"Bootblock changed following:",$D,"MEMORY: (0 - $80)",$D,0
-ExecbaseText:
 
+ExecbaseText:
 	DC.B	"execbase:",$D,0
+
 LAB_A2562E:
 	LEA	BBChangedText(PC),A0
 	JSR	PrintText
@@ -26404,11 +26515,11 @@ LAB_A25718:
 	JSR	PrintReady
 	RTS
 BBCodeText:
-
 	DC.B	"Bootblockcode is now: ",0
-BBCoderDisabledText:
 
+BBCoderDisabledText:
 	DC.B	"Bootblockcoder disabled",$D,0
+
 CMD_BOOTPROT:
 	JSR	ReadParameter
 	MOVE.L	BootblockCoderValue,LAB_A480CA
@@ -26446,11 +26557,11 @@ LAB_A257C6:
 	BMI.W	PrintDiskOpResult
 	RTS
 BBCodeYNText:
-
 	DC.B	"Sure to protect bootblock in drive DF",0
-YNText2:
 
+YNText2:
 	DC.B	":? (y/n)",$D,0
+
 CMD_TYPE:
 	BSR.W	SUB_A22312
 	TST.W	D0
@@ -26625,8 +26736,8 @@ SUB_A25A1E:
 	MOVEA.L	(A7)+,A0
 	RTS
 NoFreeMemText:
-
 	DC.B	"Out of free memory error!",$D,0,0
+
 CMD_MEMCODE:
 	JSR	ReadParameter
 	TST.B	ParamFound
@@ -26794,11 +26905,11 @@ LAB_A25C48:
 	MOVEM.L	(A7)+,D1-D7/A1/A3-A6
 	RTS
 DCText:
-
 	DC.B	"DC.B "
-DataText:
 
+DataText:
 	DC.B	"DATA "
+
 LAB_A25C58:
 	MOVE.L	A2,D6
 CMD_DMON:
@@ -26822,16 +26933,16 @@ LAB_A25C66:
 	JSR	PrintReady
 	RTS
 DmonBuffStartText:
-
 	DC.B	"Disk-mon buffer  start: ",0
-DmonBuffLenText:
 
+DmonBuffLenText:
 	DC.B	$D,"Disk-mon buffer length: ",0
+
 DmonBuffEndText:
 	DC.B	$0d
-
 	DC.B	"Disk-mon buffer    end: ",0
 	DS.B	1
+
 CMD_DISKWIPE:
 	JSR	ReadParameter
 	TST.B	ParamFound
@@ -27137,12 +27248,13 @@ LAB_A25F76:
 	ST	LAB_A481E4
 	JSR	PrintReady
 	RTS
-MegaStickText:
 
+MegaStickText:
 	DC.B	"Megastickhandler: Press ESC to exit and activate Megastick-ha"
 	DC.B	"ndler",$D,$D,"Set direction and fire then press/release wanted key",$D,"T"
 	DC.B	"o clear last key code press any key without joystick directio"
 	DC.B	"n",$D,0
+
 SUB_A2603E:
 	MOVEM.L	D1/A0/A5,-(A7)
 	LEA	EXT_DFF000,A5
@@ -27257,38 +27369,42 @@ LAB_A261B0:
 	RTS
 LAB_A261B6:
 	DC.W	$0504
-Player1TExt:
 
+Player1TExt:
 	DC.B	"Player 1 ",0
+
 LAB_A261C2:
 	DC.W	$2804
-Player2Text:
 
+Player2Text:
 	DC.B	"Player 2 ",0
+
 LAB_A261CE:
 	DC.W	$170b
-Fire0Text:
 
+Fire0Text:
 	DC.B	"Fire0 ",0
+
 LAB_A261D7:
 	DC.B	$17
 	DC.B	$10
-Fire1Text:
 
+Fire1Text:
 	DC.B	"Fire1 ",0
+
 LAB_A261E0:
 	DC.W	$1706
+
 NoFireText:
-
 	DC.B	"NoFire ",0
+
 JoyAndFireText:
-
 	DC.B	"Joystick and fire position: ",$D,0
+
 NoDirText:
-
 	DC.B	"No direction or fire !",0
-StickPosTable:
 
+StickPosTable:
 	DC.B	"up-left   ",0
 	DC.B	"up        ",0
 	DC.B	"up-right  ",0
@@ -27298,9 +27414,11 @@ StickPosTable:
 	DC.B	"down-left ",0
 	DC.B	"down      ",0
 	DC.B	"down-right",0
+
 LAB_A26282:
 	DC.L	$00050005,$0005000a,$0005000f,$00280005
 	DC.L	$0028000a,$0028000f
+
 SUB_A2629A:
 	MOVEM.L	D0-D5/A0,-(A7)
 	MOVE.W	D0,cursorX
@@ -27332,12 +27450,13 @@ LAB_A262EE:
 	SF	MegaStickPrefsFlag
 	JSR	PrintReady
 	RTS
+
 MStickRemovedText:
-
 	DC.B	"Megastickhandler removed!",$D,0
-MStickAlreadyRemovedText:
 
+MStickAlreadyRemovedText:
 	DC.B	"Megastickhandler is already removed!",$D,0,0
+
 CMD_CLRSTICK:
 	LEA	LAB_A483E0,A0
 	MOVEQ	#$35,D0
@@ -27348,9 +27467,10 @@ LAB_A2634C:
 	JSR	PrintText
 	JSR	PrintReady
 	RTS
-JoyCodesClrText:
 
+JoyCodesClrText:
 	DC.B	"Joystickcodes cleared!",$D,0
+
 CMD_LSTICK:
 	BSR.W	SUB_A22312
 	TST.W	D0
@@ -27388,12 +27508,13 @@ LAB_A263DE:
 	BSR.W	PrintDiskOpResult
 	MOVE.B	(A7)+,currDriveNo
 	RTS
+
 JoyCodesLoadText:
-
 	DC.B	"Joystick codes loaded",$D,0
-BadJoyFileText:
 
+BadJoyFileText:
 	DC.B	"File is not a joystick code file",$D,0,0
+
 CMD_SSTICK:
 	SF	LAB_A483C9
 	BSR.W	SUB_A22312
@@ -27427,9 +27548,10 @@ LAB_A26486:
 	BSR.W	PrintDiskOpResult
 	MOVE.B	(A7)+,currDriveNo
 	RTS
-JoyCodesSavedText:
 
+JoyCodesSavedText:
 	DC.B	"Joystick codes saved",$D,0
+
 CMD_RESET:
 	MOVEA.L	EXT_F80004,A0
 	MOVE	#$2700,SR
@@ -27580,6 +27702,7 @@ fileDialog:
 	DC.B	"Path: ",0
 	DS.B	1
 	DS.W	1
+
 SUB_A266E4:
 	CLR.B	stringWorkspace
 SUB_A266EA:
@@ -28439,24 +28562,25 @@ LAB_A2727E:
 	JSR	SUB_A27084(PC)
 	JSR	PrintText
 	RTS
+
 MTaskNotActiveText:
-
 	DC.B	"Multitasking surface not active",$D,0
+
 NoMemText:
-
 	DC.B	"Could'nt allocate (enough?) systemmemory",$D,0
+
 AnotherPatchText:
-
 	DC.B	"Another unknown trackdisk-patch is already running",$D,0
+
 TrackPatchRemovedText:
-
 	DC.B	"Trackdiskpatch removed",$D,0
+
 WrongTDiskText:
-
 	DC.B	"Wrong Trackdisk-Version (not 33 or 34), not changed",$D,0
-ARPTSText:
 
+ARPTSText:
 	DC.B	"ARP TS_Hook",0,0,0
+
 SUB_A2736C:
 	MOVE.L	LAB_A480CA,D0
 	BEQ.S	LAB_A273DE
@@ -28491,8 +28615,8 @@ LAB_A273B0:
 LAB_A273DE:
 	RTS
 BadTDiskText:
-
 	DC.B	"Cannot access trackdisk.device - drive(s) in use:",$D,0,0
+
 SUB_A27414:
 	LEA	TdiskStatusText(PC),A0
 	JSR	PrintText
@@ -28537,27 +28661,28 @@ LAB_A27488:
 LAB_A27498:
 	JSR	PrintReady
 	RTS
+
 TdiskStatusText:
-
 	DC.B	"Trackdisk status report:",$D,0
+
 TDiskUnchangedText:
-
 	DC.B	"Trackdisk.device is running unchanged.",$D,0
+
 NoClickText:
-
 	DC.B	"Noclick installed. ",$D,0
+
 VerifiesWritesText:
-
 	DC.B	"Verifies writes. ",$D,0
+
 BugsFixedText:
-
 	DC.B	"Bugs fixed. ",$D,0
+
 ReadDamagedText:
-
 	DC.B	"Reads damaged tracks. ",$D,0
-UpdatesTksText:
 
+UpdatesTksText:
 	DC.B	"Updates Tracks.",$D,0,0
+
 SUB_A27542:
 	MOVE.L	D0,-(A7)
 	LEA	IntuitionLibName(PC),A1
@@ -28669,11 +28794,11 @@ LAB_A27702:
 	MOVEQ	#-1,D0
 	RTS
 NoIntuitionText:
-
 	DC.B	"Can't find intuition.library",$D,0
-NoProperTDiskText:
 
+NoProperTDiskText:
 	DC.B	"Can't find proper trackdisk.device",$D,0
+
 SUB_A2774A:
 	BTST	#2,LAB_A480CE
 	BNE.S	LAB_A2778E
@@ -29045,8 +29170,8 @@ LAB_A27C16:
 	JSR	PrintReady
 	RTS
 DeepTrainerListText:
-
 	DC.B	"List of deeptraineraddresses:",$D,0,0
+
 CMD_TDC:
 	MOVEQ	#0,D1
 	BRA.S	LAB_A27C44
@@ -29091,20 +29216,20 @@ LAB_A27CA8:
 	LEA	ChangeCounterText2(PC),A0
 	BRA.S	LAB_A27C5E
 NoWorkMemText:
-
 	DC.B	"No work memory",$D,0
+
 Select512KText:
-
 	DC.B	"Select only 512k chip memory",$D,0
+
 ChangeCounterText2:
-
 	DC.B	"Change now your counter",$D,0
+
 RestoreOrChangeText:
-
 	DC.B	"Restore (TDS) or change (TDC) now your counter",$D,0
-PossibleAddrsText:
 
+PossibleAddrsText:
 	DC.B	"Possible addresses: ",$D,0,0
+
 LAB_A27D54:
 	TST.W	D1
 	BEQ.W	LAB_A27E3C
@@ -29288,14 +29413,14 @@ LAB_A27F72:
 	LEA	MWSetText(PC),A0
 	BRA.S	LAB_A27F64
 NoFreMWText:
-
 	DC.B	"All memwatchpoints occupied",$D,0
+
 MWSetText:
-
 	DC.B	"Memwatchpoint set",$D,0
-CannotMWText:
 
+CannotMWText:
 	DC.B	"Cannot set memwatchpoint: trace active!",$D,0,0
+
 CMD_MD:
 	JSR	ReadParameter
 	TST.B	ParamFound
@@ -29318,11 +29443,11 @@ LAB_A28012:
 	LEA	MWDeletedText(PC),A0
 	BRA.S	LAB_A28004
 MWDeletedText:
-
 	DC.B	"Memwatchpoint deleted",$D,0
-MWNotFoundText:
 
+MWNotFoundText:
 	DC.B	"Memwatchpoint not found",$D,0
+
 CMD_MW:
 	LEA	MWListText(PC),A0
 	JSR	PrintText
@@ -29338,9 +29463,10 @@ LAB_A2807E:
 	DBF	D1,LAB_A2806C
 	JSR	PrintReady
 	RTS
-MWListText:
 
+MWListText:
 	DC.B	"List of memwatchpoints: ",0,0
+
 CMD_MDA:
 	LEA	MWAllDeletedText(PC),A0
 	JSR	PrintText
@@ -29354,9 +29480,10 @@ LAB_A280B6:
 	CLR.L	(A0)
 	JSR	PrintReady
 	RTS
-MWAllDeletedText:
 
+MWAllDeletedText:
 	DC.B	"All memwatchpoints deleted!",$D,0,0
+
 RestoreMemWatch:
 	LEA	MemWatchAddrs,A2
 	MOVEA.L	A2,A3
@@ -29730,12 +29857,14 @@ LAB_A28878:
 
 	DC.B	"NoQual:    Sh:    Al:  AlSh:    Ct:  CtSh:  CtAl:CtAlSh:",0
 	DS.B	1
-ScanningMemText:
 
+ScanningMemText:
 	DC.B	"Scanning memory for buffer, please wait."
 	DC.W	$0d00
+
 LAB_A289B4:
 	JMP	PrintWTF
+
 SUB_A289BA:
 	MOVEM.L	D0/A0,-(A7)
 	LEA	LAB_A283D0(PC),A0
@@ -29896,6 +30025,7 @@ LAB_A28BDE:
 	JSR	PrintText
 LAB_A28BE6:
 	RTS
+
 NoMemText2:
 	DC.B	"Can't alloc enough memory",$D,0
 
@@ -29904,12 +30034,14 @@ KickVerText:
 
 NoKeymapText:
 	DC.B	"Can't find default keymap",$D,0
+
 LAB_A28C35:
 	DC.B	$02
 	DC.B	$15
 
 KeymapCorruptText:
 	DC.B	"keymap corrupt",$D,0
+
 LAB_A28C47:
 	DC.B	$02
 	DC.B	$15
@@ -29925,39 +30057,41 @@ LAB_A28C85:
 	DC.B	$15
 
 	DC.B	"Status: o.k.                        ",0
-LAB_A28CAC:
 
+LAB_A28CAC:
 	DC.B	"Fatal Error - couldnot install keymap",$D,0
+
 LAB_A28CD3:
 	DC.B	$02
 	DC.B	$15
 
 	DC.B	"Failed - keymap too large"
 	DC.W	$0d00
+
 LAB_A28CF0:
-
 	DC.B	"Not enough memory to install!",$D,0
-LAB_A28D0F:
 
+LAB_A28D0F:
 	DC.B	"Keymap installed succesfully!",$D,0
+
 LAB_A28D2E:
 	DC.W	$0215
-
 	DC.B	"Disk error !",0
+
 LAB_A28D3D:
 	DC.B	$02
 	DC.B	$15
-
 	DC.B	"Keymap saved successfully"
 	DC.W	$0d00
+
 LAB_A28D5A:
 	DC.W	$0215
-
 	DC.B	"Unrecognized file structure",0
+
 LAB_A28D78:
 	DC.W	$0215
-
 	DC.B	"Filename expected",0
+
 SUB_A28D8C:
 	MOVEM.L	D1-D5/A1-A2,-(A7)
 	SF	LAB_A483C9
@@ -30806,9 +30940,10 @@ LAB_A29846:
 	CLR.B	$16(A0)
 	JSR	PrintText
 	BRA.S	LAB_A2982C
-NotUsedText:
 
+NotUsedText:
 	DC.B	"<not used>",0,0
+
 SUB_A2986A:
 	MOVE.W	D0,-(A7)
 	LSR.B	#4,D0
@@ -31405,6 +31540,7 @@ LAB_A29E9E:
 	MOVEM.L	(A7)+,A0/A2-A3/A6
 	MOVEQ	#0,D0
 	RTS
+
 ConsoleDev:
 	DC.B	"console.device",0,0
 
@@ -31448,8 +31584,8 @@ LAB_A29F38:
 	JSR	PrintDiskOpResult
 	RTS
 NewNameTooLongText:
-
 	DC.B	"New name too long!",$D,0
+
 CMD_RENAME:
 	MOVE.B	currDriveNo,-(A7)
 	SF	LAB_A483C9
@@ -31674,8 +31810,10 @@ LAB_420D4A:
 	BEQ.S	LAB_420D4A
 	MOVEQ	#0,D0
 	BRA.W	LAB_420D9E
+
 LAB_420D86:
 	DC.B	"dmonbuffer too small!",$D,0,0
+
 LAB_420D9E:
 	MOVE.B	(A7)+,currDriveNo
 	JSR	PrintDiskOpResult
@@ -32123,8 +32261,8 @@ LAB_A2A340:
 	MOVEQ	#0,D0
 	BRA.S	LAB_A2A31C
 FileTooLargeText:
-
 	DC.B	"File too large for dmon-buffer!",$D,0
+
 ShortcutsText:
 	DC.B	$D,"Shortcuts for some commands:",$D,"============================",$D,$D,"i"
 	DC.B	"nterrupts <--> int",$D,"exceptions <--> exc",$D,"normalchar <--> nchar",$D
@@ -32138,6 +32276,7 @@ ShortcutsText:
 	DC.B	$D,"nostick    <--> nst",$D,"relabel    <--> rel",$D,"rename     <--> ren",$D
 	DC.B	"delete     <--> del",$D,"lstick     <--> lst",$D,"sstick     <--> sst",$D,"s"
 	DC.B	"etmap     <--> key",$D,"trans      <--> i",$D,"comp       <--> v",$D,0
+
 HelpText:
 	DC.B	$D,"COMMANDS + SYNTAX (space for next page):",$D,"==================="
 	DC.B	"=====================",$D,$D,"Commands for system information:",$D,"-----"
@@ -32330,6 +32469,7 @@ HelpText:
 	DC.B	"dy to execute commands!",$D,"Press left mousebutton to abort print"
 	DC.B	"er output",$D,"Use cursorkeys in combination with shift too",$D,"======"
 	DC.B	"======================================",$D,$D,0
+
 MemPeekerText:
 	DC.B	$0d
 
@@ -32558,6 +32698,7 @@ MemPeekerText:
 	DC.B	"h spm command"
 	DC.B	$0d
 	DS.W	1
+
 LAB_424826:
 	DC.L	$0006ab18,$0006ab80,$0006aaf8,$0006ab00
 	DC.L	$0006ab58,$0006ac80,$0006ab08,$0006ab10
@@ -33020,12 +33161,13 @@ LAB_A2DB8A:
 LAB_A2DBA0:
 	JSR	PrintReady
 	RTS
+
 SQNoMemText:
-
 	DC.B	"No expansion memory for savequick!",$D,0
-SQMemText:
 
+SQMemText:
 	DC.B	"Savequick uses expansion memory from: ",0,0
+
 CMD_ST:
 	LEA	MemWatchAddrs,A2
 	MOVEQ	#4,D1
@@ -33057,11 +33199,11 @@ LAB_A2DC4E:
 	LEA	CantTraceText(PC),A0
 	BRA.S	LAB_A2DC40
 AlreadyActiveText:
-
 	DC.B	"Trace already active: quit modul to finish actual trace!",$D,0
-CantTraceText:
 
+CantTraceText:
 	DC.B	"Cannot trace: memwatchpoints active!",$D,0
+
 CMD_TR:
 	LEA	MemWatchAddrs,A2
 	MOVEQ	#4,D1
@@ -33231,8 +33373,8 @@ LAB_A2DEB4:
 	JSR	PrintReady
 	RTS
 ProbableAddrsText:
-
 	DC.B	"List of probable deeptraineraddresses:",$D,0
+
 BurstNibDataStart:
 	DC.L	$72a9b368,$0860a004,$0d000500,$40dcaa70
 	DC.L	$05582073,$a040b0c5,$a649a3c1,$8809b011
@@ -34985,9 +35127,10 @@ LAB_A2DEFC:
 	BNE.S	LAB_A2DEF2
 	JSR	PrintReady
 	RTS
-AsciiTabText:
 
+AsciiTabText:
 	DC.B	"ASCII-Table",$D,"===========",$D,$D,"  0 1 2 3 4 5 6 7 8 9 A B C D E F",$D,0
+
 SUB_A2DF6E:
 	JSR	PrintSpace
 	JSR	PrintSpace
@@ -35032,8 +35175,8 @@ LAB_A2DF90:
 	DC.L	$21000000,$21000001,$21000002,$22000000
 	DC.L	$30000000,$30000001,$31000000,$32000000
 	DC.L	$ffffffff
-StringsTable:
 
+StringsTable:
 	DC.B	"M68000",0
 	DC.B	"bus error",0
 	DC.B	"address error",0
@@ -35151,6 +35294,7 @@ StringsTable:
 	DC.B	"boot code returned an error",0
 	DC.B	"workbench",0
 	DC.B	"diskcopy",0,0,0
+
 SUB_A2E8D4:
 	MOVEM.L	D0-D1/D7/A0-A2,-(A7)
 	MOVE.L	D0,D7
@@ -35234,12 +35378,13 @@ LAB_A2E99E:
 	JSR	SUB_A2E9D2
 	JSR	PrintTableEntry
 	BRA.S	LAB_A2E998
+
 DeadEndText:
-
 	DC.B	"dead end",0
-RecoveryText:
 
+RecoveryText:
 	DC.B	"recovery",0
+
 SUB_A2E9D2:
 	MOVE.L	A0,-(A7)
 	LEA	LAB_A2E9E2(PC),A0
@@ -35309,8 +35454,10 @@ LAB_A2EA86:
 LAB_A2EA96:
 	JSR	PrintReady
 	RTS
+
 UnknownRegNameText:
 	DC.B	"unknown chipregname!",0,0
+
 StringMsgTable:
 	DC.L	BlitterMsgText
 	DC.L	txtChipRegDesc_dmacon
@@ -35573,8 +35720,8 @@ BlitterMsgText:
 	DC.B	"data result of blitter, dummy"
 	DC.B	$0d
 	DS.B	1
-txtChipRegDesc_dmacon:
 
+txtChipRegDesc_dmacon:
 	DC.B	"control of the dma channels",$D,"Bit Function    Description",$D,"15  s"
 	DC.B	"et/clr     Set/clr control bit",$D,"14  bbusy       Blitter busy s"
 	DC.B	"tatus bit (read only)",$D,"13  bzero       Blitter logic zero stat"
@@ -35586,24 +35733,24 @@ txtChipRegDesc_dmacon:
 	DC.B	"le",$D,"02  aud2en      Audio channel 2 DMA enable",$D,"01  aud1en     "
 	DC.B	" Audio channel 1 DMA enable",$D,"00  aud0en      Audio channel 0 D"
 	DC.B	"MA enable",$D,0
-txtChipRegDesc_vpos:
 
+txtChipRegDesc_vpos:
 	DC.B	"BIT 15,14,13,12,11,10,09,08,07,06,05,04,03,02,01,00",$D,"USE LOF  "
 	DC.B	"                                        V8",$D,0
-txtChipRegDesc_vhpos:
 
+txtChipRegDesc_vhpos:
 	DC.B	"BIT# 15,14,13,12,11,10,09,03,07,06,05,04,03,02,01,00",$D,"USE  V7 "
 	DC.B	"V6 V5 V4 V3 V2 V1 V0,H8 H7 H6 H5 H4 H3 H2 H1",$D,0
+
 txtChipRegDesc_dskdatr:
-
 	DC.B	"disk DMA data buffer",$D,0
-txtChipRegDesc_joyxdat:
 
+txtChipRegDesc_joyxdat:
 	DC.B	"mouse/joystick counter",$D,"BIT  15,14,13,12,11,10,09,08 07,06,05,"
 	DC.B	"04,03,02,01,00",$D,"MDAT Y7 Y6 Y5 Y4 Y3 Y2 Y1 Y0 X7 X6 X5 X4 X3 X2"
 	DC.B	" X1 X0",$D,0
-txtChipRegDesc_clxdat:
 
+txtChipRegDesc_clxdat:
 	DC.B	"collision detection register",$D,"BIT COLLISIONS REGISTERED",$D,"15  no"
 	DC.B	"t used",$D,"14  Sprite 4 (or 5) to sprite 6 (or 7)",$D,"13  Sprite 2 (o"
 	DC.B	"r 3) to sprite 6 (or 7)",$D,"12  Sprite 2 (or 3) to sprite 4 (or 5"
@@ -35615,8 +35762,8 @@ txtChipRegDesc_clxdat:
 	DC.B	"ld 1 to sprite 4 (or 5)",$D,"02  Playfield 1 to sprite 2 (or 3)",$D,"01"
 	DC.B	"  Playfield 1 to sprite 0 (or 1)",$D,"00  Playfield 1 to playfield"
 	DC.B	" 2",$D,0
-txtChipRegDesc_adkcon:
 
+txtChipRegDesc_adkcon:
 	DC.B	"BIT USE",$D,"15  SET/CLR   Set/clear control bit",$D,"14  PRECOMPHI",$D,"13 "
 	DC.B	" PRECOMPLO",$D,"12  MFMPREC   1=MFM, 0=GCR",$D,"11  UARTBRK   1=UART br"
 	DC.B	"eak",$D,"10  WORDSYNC  1=SYNC ON",$D,"09  MSBSYNC   1=MSBSYNC ON",$D,"08  FA"
@@ -35625,15 +35772,15 @@ txtChipRegDesc_adkcon:
 	DC.B	"a 2",$D,"04  USE0P1    ch 0 mod per of cha 1",$D,"03  USE3VN    ch 3 mo"
 	DC.B	"d nothing",$D,"02  USE2V3    ch 2 mod vol of cha 3",$D,"01  USE1V2    c"
 	DC.B	"h 1 mod vol of cha 2",$D,"00  USE0V1    ch 0 mod vol of cha 1",$D,0
-txtChipRegDesc_pot:
 
+txtChipRegDesc_pot:
 	DC.B	"BIT FUNCT   DESCRIPTION",$D,"15  OUTRY   Output enable",$D,"14  DATRY  "
 	DC.B	" I/O data",$D,"13  OUTRX   Output enable",$D,"12  DATRX   I/O data",$D,"11  "
 	DC.B	"OUTLY   Output enable",$D,"10  DATLY   I/O data",$D,"09  OUTLX   Output"
 	DC.B	" enable",$D,"08  DATLX   I/O data",$D,"07-01 0     Reserved",$D,"00  START  "
 	DC.B	" Start pots",$D,0
-txtChipRegDesc_serdata:
 
+txtChipRegDesc_serdata:
 	DC.B	"Serial port data/status",$D,"BIT SYM          FUNCTION",$D,"15  OVRUN  "
 	DC.B	"      overrun.",$D,"14  RBF          buffer full",$D,"13  TBE          "
 	DC.B	"buffer empty",$D,"12  TSRE         shift register empty",$D,"11  RXD   "
@@ -35642,14 +35789,14 @@ txtChipRegDesc_serdata:
 	DC.B	" DB6          Data bit",$D,"05  DBS          Data bit",$D,"04  DB4     "
 	DC.B	"     Data bit",$D,"03  DB3          Data bit",$D,"02  DB2          Data"
 	DC.B	" bit",$D,"01  DB1          Data bit",$D,"00  DB0          Data bit",$D,0
-txtChipRegDesc_dskbytr:
 
+txtChipRegDesc_dskbytr:
 	DC.B	"Disk data byte/status",$D,"BIT   FUNCTION  DESCRIPTION",$D,"15    DSKBY"
 	DC.B	"T    Byte ready",$D,"14    DMAON     1=Diskdma on",$D,"13    DISKWRITE "
 	DC.B	"1=Diskwrite on",$D,"12    WORDEQUAL 1=Sync found",$D,"11-08 X         N"
 	DC.B	"ot used",$D,"07-00 DATA      Disk byte data",$D,0
-txtChipRegDesc_intena:
 
+txtChipRegDesc_intena:
 	DC.B	"Interrupt bits",$D,"BIT FUNCT  LEVEL  DESCRIPTION",$D,"15  SET/CLR     "
 	DC.B	"  Set/clear control bit",$D,"14  INTEN         Master bit",$D,"13  EXTE"
 	DC.B	"R    6    External interrupt",$D,"12  DSKSYN   5    Disk sync",$D,"11  "
@@ -35661,50 +35808,50 @@ txtChipRegDesc_intena:
 	DC.B	" timers",$D,"02  SOFT     1    Software interrupt",$D,"01  DSKBLK   1  "
 	DC.B	"  Disk block finished",$D,"00  TBE      1    Serial port buffer em"
 	DC.B	"pty",$D,0
+
 txtChipRegDesc_dskpt:
-
 	DC.B	"Address of disk DMA data",$D,0
-txtChipRegDesc_dsklen:
 
+txtChipRegDesc_dsklen:
 	DC.B	"Length of disk DMA data",$D,"BIT  FUNCTION       DESCRIPTION",$D,"15   "
 	DC.B	"DMAEN          Disk DMA enable",$D,"14   WRITE          1=write",$D,"13"
 	DC.B	"-0 LENGTH         Length in words",$D,0
+
 txtChipRegDesc_refptr:
-
 	DC.B	"Refresh pointer",$D,0
-txtChipRegDesc_copcon:
 
+txtChipRegDesc_copcon:
 	DC.B	"Copper control register",$D,"BIT NAME      FUNCTION",$D,"01  CDANG     "
 	DC.B	"1=Access to blitter",$D,0
-txtChipRegDesc_serdatb:
 
+txtChipRegDesc_serdatb:
 	DC.B	"Serial port data/stop bits",$D,"BIT 15,14,13,12,11,10,09,08,07,06,"
 	DC.B	"05,04,03,02,01,00",$D,"USE  0  0  0  0  0  0  S D8 D7 D6 D5 D4 D3 "
 	DC.B	"D2 D1 D0",$D,0
-txtChipRegDesc_serper:
 
+txtChipRegDesc_serper:
 	DC.B	"Serial port period/control",$D,"BIT   SYM        FUNCTION",$D,"15    LO"
 	DC.B	"NG       1=Serial receive 9-bit word.",$D,"14-00 RATE       Baud r"
 	DC.B	"ate",$D,0
-txtChipRegDesc_joytest:
 
+txtChipRegDesc_joytest:
 	DC.B	"Write all joystick/mouse counters",$D,"BIT 15,14,13,12,11,10,09,08"
 	DC.B	" 07,06,05,04,03,02,01,00",$D,"DAT Y7 Y6 Y5 Y4 Y3 Y2 xx xx X7 X6 X5"
 	DC.B	" X4 X3 X2 xx xx",$D,0
+
 txtChipRegDesc_strequ:
-
 	DC.B	"Strobe for horizontal sync vb/equ",$D,0
+
 txtChipRegDesc_strvbl:
-
 	DC.B	"Strobe for horizontal sync vb",$D,0
+
 txtChipRegDesc_strhor:
-
 	DC.B	"Strobe for horizontal sync",$D,0
+
 txtChipRegDesc_strlong:
-
 	DC.B	"Strobe for horizontal sync long line",$D,0
-txtChipRegDesc_bltcon:
 
+txtChipRegDesc_bltcon:
 	DC.B	"Blitter control register 0",$D,"BIT BLTCON0    BLTCON1  BLTCON0   "
 	DC.B	"BLTCON1",$D,"Area mode               Line Mode",$D,"15    ASH3      BSH"
 	DC.B	"3    START3    TEXTURE3",$D,"14    ASH2      BSH2    START2    TEX"
@@ -35724,17 +35871,17 @@ txtChipRegDesc_bltcon:
 	DC.B	"LINE Line mode",$D,"START 3-0 Starting point",$D,"SIGN Sign flag",$D,"SING S"
 	DC.B	"ingle bit",$D,"SUD Up or down bit",$D,"SUL Up or left bit",$D,"AUL Always up"
 	DC.B	" or left",$D,0
+
 txtChipRegDesc_bltafwm:
-
 	DC.B	"Blitter first-word mask for A",$D,0
+
 txtChipRegDesc_bltalwm:
-
 	DC.B	"Blitter last-word mask for A",$D,0
+
 txtChipRegDesc_bltxpth:
-
 	DC.B	"Blitter address for source/destination",$D,0
-txtChipRegDesc_bltsize:
 
+txtChipRegDesc_bltsize:
 	DC.B	"Blitter start and size",$D,"BIT 15,19,13,12,11,10,09,08,07,06,05,0"
 	DC.B	"4,03,02,01,00",$D,"    h9 h8 h7 h6 h5 h4 h3 h2 h1 h0,w5 w4 w3 w2 w"
 	DC.B	"1 w0",$D,0
@@ -35747,36 +35894,36 @@ txtChipRegDesc_undef_AGA:
 
 txtChipRegDesc_bltxmod:
 	DC.B	"Blitter modulo for source/destination",$D,0
-txtChipRegDesc_unused:
 
+txtChipRegDesc_unused:
 	DC.B	"Unused!",$D,0
+
 txtChipRegDesc_bltxdat:
 	DC.B	"Blitter source data register",$D,0
 
 txtChipRegDesc_dsksync:
-
 	DC.B	"Disk sync register",$D,0
+
 txtChipRegDesc_copxlc:
-
 	DC.B	"Copper location register",$D,0
+
 txtChipRegDesc_copjmp:
-
 	DC.B	"Copper restart",$D,0
+
 txtChipRegDesc_copins:
-
 	DC.B	"Copper instruction, dummy",$D,0
-txtChipRegDesc_diw:
 
+txtChipRegDesc_diw:
 	DC.B	"Display window start/stop",$D,"BIT 15,14,13,12,11,10,09,08,07,06,0"
 	DC.B	"5,04,03,02,01,00",$D,"USE V7 V6 V5 V4 V3 V2 V1 V0 H7 H6 H5 H4 H3 H"
 	DC.B	"2 H1 H0",$D,0
-txtChipRegDesc_ddf:
 
+txtChipRegDesc_ddf:
 	DC.B	"Display data fetch start/stop",$D,"BIT 15,14,13,12,11,10,09,08,07,"
 	DC.B	"06,05,04,03,02,01,00",$D,"USE  0  0  0  0  0  0  0  0 H8 H7 H6 H5 "
 	DC.B	"H4 H3  0  0",$D,0
-txtChipRegDesc_clxcon:
 
+txtChipRegDesc_clxcon:
 	DC.B	"Collision control",$D,"BIT FUNCTION   DESCRIPTION",$D,"15  ENSP7     En"
 	DC.B	"able sprite 7/6",$D,"14  ENSP5     Enable sprite 5/4",$D,"13  ENSP3    "
 	DC.B	" Enable sprite 3/2",$D,"12  ENSP1     Enable sprite 1/0",$D,"11  ENBP6 "
@@ -35786,21 +35933,22 @@ txtChipRegDesc_clxcon:
 	DC.B	" for plane 6",$D,"04  MVBP5     Match for plane 5",$D,"03  MVBP4     Ma"
 	DC.B	"tch for plane 4",$D,"02  MVBP3     Match for plane 3",$D,"01  MVBP2    "
 	DC.B	" Match for plane 2",$D,"00  MVBP1     Match for plane 1",$D,0
+
 txtChipRegDesc_audxpt:
-
 	DC.B	"Audio channel location",$D,0
+
 txtChipRegDesc_audxlen:
-
 	DC.B	"Audio channel length",$D,0
+
 txtChipRegDesc_audxper:
-
 	DC.B	"Audio channel period",$D,0
+
 txtChipRegDesc_audxvol:
-
 	DC.B	"Audio channel volume",$D,0
-txtChipRegDesc_audxdat:
 
+txtChipRegDesc_audxdat:
 	DC.B	"Audio channel data",$D,0
+
 txtChipRegDesc_bplxpt:
 	DC.B	"Bit plane pointer",$D,0
 
@@ -35833,29 +35981,30 @@ txtChipRegDesc_bplxdatAGA:
 
 txtChipRegDesc_sprxpt:
 	DC.B	"Sprite pointer",$D,0
-txtChipRegDesc_sprxpos:
 
+txtChipRegDesc_sprxpos:
 	DC.B	"Sprite start position data",$D,"BIT   SYM      FUNCTION",$D,"15-08 SV7-"
 	DC.B	"SV0  Start vertical value",$D,"07-00 SH8-SH1  Start horizontal val"
 	DC.B	"ue",$D,0
-txtChipRegDesc_sprxctl:
 
+txtChipRegDesc_sprxctl:
 	DC.B	"Sprite vert stop position and control data",$D,"BIT   SYM       FU"
 	DC.B	"NCTION",$D,"15-08 EV7-EV0   End vertical value",$D,"07    ATT       Att"
 	DC.B	"ach bit",$D,"06-04 X",$D,"02    SV8       Start vertical MSB",$D,"01    EV8 "
 	DC.B	"      End  vertical MSB",$D,"00    SH0       Start horizontal LSB",$D
 	DC.B	0
+
 txtChipRegDesc_sprxdata:
-
 	DC.B	"Sprite image data register",$D,0
-txtChipRegDesc_color:
 
+txtChipRegDesc_color:
 	DC.B	"Color table xx",$D,"BIT 15,14,13,12,11,10,09,08,07,06,05,04,03,02,"
 	DC.B	"01,00",$D,"RGB  X  X  X  X R3 R2 B1 R0 G3 G2 G1 G0 B3 B2 B1 B0",$D,0
-txtChipRegDesc_no_op:
 
+txtChipRegDesc_no_op:
 	DC.B	"No operation",$D,0
   even
+
 checkFileSystem:
 	MOVE.L	A1,-(A7)
 	MOVEQ	#0,D0
@@ -35979,51 +36128,52 @@ LAB_A310FC:
 	DS.B	1
 RomAvoidFlag:
 	DS.B	1
+
 RobDNotActiveText:
-
 	DC.B	$D,"Rob Northen Decrypter Deactivated.",$D,0
+
 DobDActiveText:
-
 	DC.B	$D,"Rob Northen Decrypter Activated.",$D,0
+
 AvoidRomDisabledText:
-
 	DC.B	$D,"Kickstart ROM calls avoid, disabled.",$D,0
+
 AvoidRomEnabledText:
-
 	DC.B	$D,"Kickstart ROM calls avoid, enabled.",$D,0
+
 AvoidRomF8Text:
-
 	DC.B	$D,"Kickstart ROM AVOID $F80000<>$1000000",$D,0
+
 AcoitRom20Text:
-
 	DC.B	$D,"Kickstart ROM AVOID $200000<>$280000",$D,0
+
 cacheStatusText:
-
 	DC.B	$D,"Cache Status Report.",$D,0
+
 DataBurstEnabledText:
-
 	DC.B	$D,"Data Burst Enabled.",$D,0
+
 DataCacheEnabledText:
-
 	DC.B	$D,"Data Cache Enabled.",$D,0
+
 InstBurstEnabledText:
-
 	DC.B	$D,"Inst Burst Enabled.",$D,0
+
 InstCacheEnabledText:
-
 	DC.B	$D,"Inst Cache Enabled.",$D,0
+
 AllExceptionsIgnoredText:
-
 	DC.B	$D,"All Exceptions ignored.",$D,0
+
 AllExceptionsActiveText:
-
 	DC.B	$D,"All Exceptions will activate AR-PRO.",$D,0
+
 DeepMemwatchEnabledText:
-
 	DC.B	$D,"DEEP Memwatcher now enabled.",$D,0
-DeepMemwatchDisabledText:
 
+DeepMemwatchDisabledText:
 	DC.B	$D,"DEEP Memwatcher now disabled.",$D,0,0
+
 SUB_A312D2:
 	CMPA.L	#$00000420,A0
 	BEQ.W	LAB_A31698
@@ -36461,58 +36611,64 @@ LAB_A31812:
 	JMP	LAB_A1643C
 LAB_A31828:
 	JMP	LAB_A163DE
-USPText:
 
+USPText:
 	DC.B	"USP",0
+
 CCRText:
 	DC.L	$43435200
+
 SRText:
 	DC.L	$53520000
+
 CACRText:
-
 	DC.B	"CACR",0
-VBRText:
 
+VBRText:
 	DC.B	"VBR",0
+
 SFCText:
 	DC.B	$53
 	DC.W	$4643
 	DS.B	1
 DFCText:
-
 	DC.B	"DFC",0
-CAARText:
 
+CAARText:
 	DC.B	"CAAR",0
+
 MSPText:
 	DC.L	$4d535000
+
 ISPText:
 	DC.L	$49535000
+
 TCText:
-
 	DC.B	"TC",0
+
 ITT0Text:
-
 	DC.B	"ITT0",0
+
 ITT1Text:
-
 	DC.B	"ITT1",0
+
 DTT0Text:
-
 	DC.B	"DTT0",0
+
 DTT1Text:
-
 	DC.B	"DTT1",0
-MMUSRText:
 
+MMUSRText:
 	DC.B	"MMUSR",0
+
 URPText:
 	DC.B	$55
 	DC.W	$5250
 	DS.B	1
-SRPText:
 
+SRPText:
 	DC.B	"SRP",0,0
+
 SUB_A3187E:
 	MOVEM.L	A1-A3,-(A7)
 	MOVE.L	D7,D0
@@ -38548,6 +38704,8 @@ copperPos:
 bitplaneCount:
   DS.W  1
 lisaIdValue:
+  DS.W  1
+diskOpResult2
   DS.W  1
 LAB_A489F0:
 	DS.W	1
