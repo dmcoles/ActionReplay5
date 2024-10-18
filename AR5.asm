@@ -1974,6 +1974,12 @@ arCommandLoop:
   SF.B EscapeDisabled
 	CLR.W	LAB_A47F42
 	ORI.B	#$02,EXT_BFE001
+  TST.B debuggerMode
+  BEQ.S .1
+  
+  JSR debugger
+
+.1
 	TST.B	restartFlag
 	BNE.S	LAB_A12108
 	BSR.W	SUB_A120BA
@@ -1985,7 +1991,7 @@ LAB_A12160:
 	JSR	SUB_A1827E
 	MOVE.W	#$004f,D0
 	MOVEA.L	A0,A1
-	LEA	LAB_A48476,A2
+	LEA	LastCmdBuff,A2
 LAB_A12186:
 	MOVE.B	(A1)+,(A2)+
 	DBF	D0,LAB_A12186
@@ -2021,7 +2027,6 @@ LAB_A121C4:
 	EXG	D0,A2
 	ADDQ.W	#1,D0
 	ANDI.W	#$fffe,D0
-; doesnt handle 32 bit addresses!!!
 	EXG	D0,A2
 	MOVEQ	#0,D0
   MOVE.B 0(A2),D0
@@ -2057,6 +2062,257 @@ LAB_A12216:
 currentCopperText:
 	DC.B	$D,"Current Copper 0: ",0
 
+debugger:
+	JSR	Cls
+	LEA	debuggerPage(PC),A0
+	JSR	DrawPrefsPage
+  JSR DrawDebuggerFocus
+
+	LEA	SaveCpuRegs,A1
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060002,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060003,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060004,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060005,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060006,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060007,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060008,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$00060009,cursorX
+  JSR Print8DigitHex
+	MOVE.W	SaveOldSr,D0
+  MOVE.L #$0006000A,cursorX
+  JSR Print4DigitHex
+
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0002,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0003,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0004,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0005,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0006,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0007,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0008,cursorX
+  JSR Print8DigitHex
+	MOVE.L	(A1)+,D0
+  MOVE.L #$001D0009,cursorX
+  JSR Print8DigitHex
+
+	MOVE.L	SaveOldPc,D0
+  MOVE.L #$001D000A,cursorX
+  JSR Print8DigitHex
+
+redoMem:
+  MOVE.L dbgMemBase,A0
+  MOVE.L #$0037000D,D7
+  MOVE.W #10,D6
+.nextmem
+  MOVE.L D7,cursorX
+  MOVEM.L D6/D7,-(Sp)
+  MOVE.L A0,D0
+  JSR Print8DigitHex
+  JSR memSafeReadWord  
+  JSR PrintSpace
+  JSR Print4DigitHex
+  ADDQ.L #2,A0
+  JSR memSafeReadWord  
+  JSR PrintSpace
+  JSR Print4DigitHex
+  SUBQ.L #2,A0
+  JSR PrintSpace
+
+  MOVE.W #3,D7
+.chars
+  MOVE.W D7,-(Sp)
+	BSR.W	memSafeReadByte1
+  ADDQ.L #1,A0
+	ADD.B	AsciiDumpOffset1,D0
+	ANDI.W	#$00ff,D0
+	JSR	SUB_A137FC(PC)
+  JSR PrintChar
+  MOVE.W (Sp)+,D7
+  DBF D7,.chars
+  
+  MOVEM.L (Sp)+,D6/D7
+  ADDQ.L #1,D7
+  DBF D6,.nextmem
+  
+
+DebuggerCheckKeys:
+	JSR	GetKeyCode
+
+	CMPI.W	#CursorLeft,D0
+	BEQ.W	debuggerLeft
+	CMPI.W	#CursorRight,D0
+	BEQ.W	debuggerRight
+	CMPI.W	#CursorDown,D0
+	BEQ.W	debuggerDown
+	CMPI.W	#CursorUp,D0
+	BEQ.W	debuggerUp
+	CMPI.W	#F1Key,D0
+	BEQ.W	debuggerTab
+	CMPI.W	#F5Key,D0
+	BEQ.W	debuggerRun
+	CMPI.W	#F7Key,D0
+	BEQ.W	debuggerStepOver
+	CMPI.W	#F7Key,D0
+	BEQ.W	debuggerStepInto
+	CMPI.W	#F10Key,D0
+	BEQ.W	debuggerExit
+	BRA.S	DebuggerCheckKeys
+
+debuggerStepOver:
+	MOVE.L	#$00000001,TraceStepCount
+	ST	restartFlag
+	ST	TraceSkipSubs
+	RTS
+
+debuggerStepInto:
+	MOVE.L	#$00000001,TraceStepCount
+	ST	restartFlag
+	SF	TraceSkipSubs
+	RTS
+
+debuggerLeft
+  CMP.B #2,debuggerFocus
+  BNE DebuggerCheckKeys
+  
+  SUB.L #2,dbgMemBase
+  BRA redoMem
+
+debuggerRight
+  CMP.B #2,debuggerFocus
+  BNE DebuggerCheckKeys
+  
+  ADD.L #2,dbgMemBase
+  BRA redoMem
+
+debuggerUp
+  CMP.B #2,debuggerFocus
+  BNE DebuggerCheckKeys
+  
+  SUB.L #4,dbgMemBase
+  TST.B	ShiftKey
+  BEQ redoMem
+  SUB.L #$24,dbgMemBase
+  BRA redoMem
+
+debuggerDown
+  CMP.B #2,debuggerFocus
+  BNE DebuggerCheckKeys
+   
+  ADD.L #4,dbgMemBase
+  TST.B	ShiftKey
+  BEQ redoMem
+  ADD.L #$24,dbgMemBase
+  BRA redoMem
+
+debuggerTab
+  JSR DrawDebuggerFocus
+  ADD.B #1,debuggerFocus
+  CMP.B #3,debuggerFocus
+  BNE.S .1
+  CLR.B debuggerFocus
+.1:
+  JSR DrawDebuggerFocus
+	BRA	DebuggerCheckKeys
+
+DrawDebuggerFocus:
+  LEA focusTable,A0
+  MOVEQ #0,D0
+  MOVE.B debuggerFocus,D0
+  LSL.W #3,D0
+	MOVEM.W	(A0,D0),D0-D3
+	JSR drawSelectedHighlight
+  RTS
+focusTable
+  DC.W 1,1,9,1
+  DC.W 1,12,11,12
+  DC.W 55,12,60,12
+
+debuggerRun:
+	ADDQ.W	#4,A7
+  RTS
+
+debuggerExit:
+  SF debuggerMode
+	JSR	Cls
+	JSR	PrintReady
+	RTS
+
+
+debuggerPage:
+  DC.W 1,1,78,10
+	DC.B	"Registers",0
+  
+  DC.W $8001,2,14,2
+ 	DC.B "D0 = ????????",0
+  DC.W $8001,3,14,3
+ 	DC.B "D1 = ????????",0
+  DC.W $8001,4,14,4
+ 	DC.B "D2 = ????????",0
+  DC.W $8001,5,14,5
+ 	DC.B "D3 = ????????",0
+  DC.W $8001,6,14,6
+ 	DC.B "D4 = ????????",0
+  DC.W $8001,7,14,7
+ 	DC.B "D5 = ????????",0
+  DC.W $8001,8,14,8
+ 	DC.B "D6 = ????????",0
+  DC.W $8001,9,14,9
+ 	DC.B "D7 = ????????",0
+  DC.W $8001,10,10,10
+ 	DC.B "SR = ????",0
+
+  DC.W $8018,2,74,2
+ 	DC.B "A0 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,3,74,3
+ 	DC.B "A1 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,4,74,4
+ 	DC.B "A2 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,5,74,5
+ 	DC.B "A3 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,6,74,6
+ 	DC.B "A4 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,7,74,7
+ 	DC.B "A5 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,8,74,8
+ 	DC.B "A6 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,9,74,9
+ 	DC.B "A7 = ???????? ******** ******** ******** ********",0
+  DC.W $8018,10,74,10
+ 	DC.B "PC = ????????",0
+
+  DC.W 1,12,53,23
+	DC.B	"Disassembly",0
+  DC.W 55,12,78,23
+	DC.B	"Memory",0
+
+  DC.W 0
 ;CMD_IMODE:
 ;	BSR.W	ReadParameter
 ;	TST.B	ParamFound
@@ -2420,6 +2676,9 @@ commandTable:
 
 	DC.B	"DIR",0
 	DC.L	CMD_DIR
+
+	DC.B	"DBG",0
+	DC.L	CMD_DBG
 
 	DC.B	"SPM",0
 	DC.L	CMD_SPM
@@ -4024,7 +4283,7 @@ Init:
 	MOVE.L	#ARON_TAG,AronFlag
   ;MOVE.W	#$ffff,ignoreExceptions
 	SF	trainerModeActive
-	LEA	LAB_A48476,A0
+	LEA	LastCmdBuff,A0
 	MOVEQ	#$4F,D0
 LAB_A13A6E:
 	MOVE.B	#$20,(A0)+
@@ -6878,7 +7137,7 @@ PrintF3:
 	JSR	DoPrefs
 	BRA.W	LAB_A16C70
 PrintF4:
-	JMP	LAB_A2DE08
+	JMP	RepeatLastCmd
 PrintBackSpace:
 	BSR.W	SUB_A11168
 	BRA.W	LAB_A16C70
@@ -10667,12 +10926,12 @@ LAB_A19B84:
 	BSR.W	SUB_A190BC
 	BRA.W	LAB_A19C8E
 Delay:
-	MOVE.L	D0,-(A7)
+	;MOVE.L	D0,-(A7)
 	MOVE.B	#$00,EXT_BFE801
 LAB_A19BA0:
 	CMP.B	#2,EXT_BFE801
 	BNE.S	LAB_A19BA0
-	MOVE.L	(A7)+,D0
+	;MOVE.L	(A7)+,D0
 	RTS
 SUB_A19BAC:
 	MOVEM.L	D0-D1,-(A7)
@@ -18401,7 +18660,7 @@ LAB_412FB8:
 	BSR.W	SaveFileData
   JSR HandleDiskFull
 	BMI.W	LAB_412FEE
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 	BMI.W	LAB_412FEE
 LAB_412FEE:
 	MOVE.L	D0,D1
@@ -20305,18 +20564,19 @@ LAB_A1FDFC:
 	BNE.S	LAB_A1FE8C
 	SUBQ.L	#1,D2
 	BEQ.S	LAB_A1FE8C
-	LEA	$2EC0(A1),A2
+	LEA	$2EC0(A1),A2  ;end of track
 	MOVEQ	#$A,D0
 LAB_A1FE18:
-	LEA	-1088(A2),A2
+	LEA	-1088(A2),A2  ;1 sector back
 	TST.W	2(A2)
-	BNE.S	LAB_A1FE28
+	BNE.S	LAB_A1FE28  ;some data here
 	DBF	D0,LAB_A1FE18
-	BRA.S	LAB_A1FDFC
+	BRA.S	LAB_A1FDFC  ;no data
 LAB_A1FE28:
 	CMPI.W	#$4489,(A2)
-	BNE.S	LAB_A1FE38
-	LEA	$2A80(A1),A3
+	BNE.S	LAB_A1FE38  ;not found a sync
+
+	LEA	$2A80(A1),A3  ;last sector
 	CMPA.L	A2,A3
 	BEQ.S	LAB_A1FE72
 	BRA.S	LAB_A1FDFC
@@ -20356,12 +20616,13 @@ LAB_A1FE96:
 	TST.W	D0
 	MOVEM.L	(A7)+,D1-D2/A0-A3/A5
 	RTS
-SUB_A1FE9E:
+decodeAdosSectorMfm:
 	MOVEM.L	D1-D7/A0-A3,-(A7)
 	MOVE.L	#$55555555,D6
 	MOVEM.L	A0-A1,-(A7)
 	TST.B	LAB_A4824D
 	BEQ.S	LAB_A1FECC
+;calculate data checksum
 	LEA	$40(A0),A0
 	MOVE.W	#$00ff,D0
 	MOVEQ	#0,D5
@@ -20386,6 +20647,8 @@ LAB_A1FECC:
 	BEQ.S	LAB_A1FF0E
 	MOVEQ	#0,D7
 	LEA	8(A0),A2
+
+;calculate sector header checksum
 	MOVEQ	#9,D0
 LAB_A1FF04:
 	MOVE.L	(A2)+,D1
@@ -20408,13 +20671,13 @@ LAB_A1FF1C:
 	DBF	D0,LAB_A1FF10
 	TST.B	LAB_A4824D
 	BEQ.S	LAB_A1FF4C
-	MOVEQ	#-9,D0
+	MOVEQ	#-9,D0        ;not a dos track error
 	CMPI.B	#$ff,4(A3)
 	BNE.S	LAB_A1FF56
-	MOVEQ	#-3,D0
+	MOVEQ	#-3,D0        ;header checksum error
 	CMP.L	$18(A3),D7
 	BNE.S	LAB_A1FF66
-	MOVEQ	#-4,D0
+	MOVEQ	#-4,D0        ;data checksum error
 	CMP.L	$1C(A3),D5
 	BNE.S	LAB_A1FF74
 LAB_A1FF4C:
@@ -20438,21 +20701,21 @@ LAB_A1FF74:
 	BEQ.S	LAB_A1FF4E
 	MOVE.L	D5,$1C(A3)
 	BRA.S	LAB_A1FF4C
-SUB_A1FF82:
+findMfmSectors:
 	MOVEM.L	D1-D2/A1-A3,-(A7)
 	MOVE.L	A0,-(A7)
-	LEA	LAB_A48258,A2
+	LEA	mfmSectorAddresses,A2
 	MOVEQ	#$A,D1
 LAB_A1FF90:
 	CLR.L	(A2)+
 	DBF	D1,LAB_A1FF90
 	MOVEA.L	A0,A1
 	LEA	$400(A0),A0
-	LEA	LAB_A48258,A2
+	LEA	mfmSectorAddresses,A2
 	MOVEQ	#$A,D1
 LAB_A1FFA4:
 	MOVEA.L	A1,A3
-	BSR.W	SUB_A1FE9E
+	BSR.W	decodeAdosSectorMfm
 	BMI.S	LAB_A1FFDA
 	LEA	$440(A0),A0
 	LEA	$220(A1),A1
@@ -20821,7 +21084,7 @@ LAB_A2078C:
 	BMI.S	LAB_A207A2
 LAB_A20792:
 	SWAP	D1
-	LEA	LAB_A48258,A1
+	LEA	mfmSectorAddresses,A1
 	LSL.W	#2,D1
 	MOVEA.L	0(A1,D1.W),A1
 	MOVEQ	#0,D0
@@ -20837,7 +21100,7 @@ LAB_A207B2:
 	MOVE.W	D2,D0
 	BSR.W	readTrack
 	BMI.S	LAB_A207DE
-	BSR.W	SUB_A1FF82
+	BSR.W	findMfmSectors
 	BMI.S	LAB_A207DE
 	MOVE.B	D2,LAB_A48249
 	MOVE.B	currDriveNo,LAB_A4824A
@@ -21540,7 +21803,7 @@ LAB_A21090:
 	BSR.W	SaveFileData
   JSR HandleDiskFull
 	BMI.S	LAB_A210E4
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 LAB_A210E4:
 	MOVE.B	(A7)+,currDriveNo
 	BSR.W	PrintDiskOpResult
@@ -21590,7 +21853,7 @@ LAB_A2116A:
 	MOVEM.L	(A7)+,D1-D2/A1-A2
 	TST.W	D0
 	RTS
-CreateFileHeader:
+AddFileToDirBlock:
 	MOVEM.L	D1-D5/A1-A4,-(A7)
 	TST.B	LAB_A48333
 	BNE.S	LAB_A2118C
@@ -21674,6 +21937,11 @@ LAB_A21290:
 	MOVEQ	#0,D0
 LAB_A21292:
 	MOVEM.L	(A7)+,D1-D5/A1-A4
+  TST.W diskOpResult2
+  BEQ.S .1
+  MOVE.W diskOpResult2,D0
+  CLR.W diskOpResult2
+.1
 	TST.W	D0
 	RTS
 SUB_A2129A:
@@ -23467,39 +23735,42 @@ LAB_A22746:
 	MOVE.L	#$41525033,(A2) ;ARP3
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	LAB_A48354,A2
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	LAB_A48350,A2
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	LAB_A484CA,A2
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	ChipMemEnd,A2
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	SlowMemEnd,A2
 	MOVEQ	#4,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	autoConfigMemStart,A2
 	MOVEQ	#8,D0
 	BSR.W	SUB_A213FE
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	BSR.W	SUB_A22952
-	BMI.S	LAB_A227F0
+	BMI.S	.fullcheck
 	LEA	LAB_A4520A,A1
 	BSR.W	SUB_A22F5A
 	MOVEA.L	A1,A2
 	BSR.W	SUB_A213FE
+.fullcheck
+  JSR HandleDiskFull
 	BMI.S	LAB_A227F0
-	BSR.W	CreateFileHeader
+
+	BSR.W	AddFileToDirBlock
 	BMI.S	LAB_A227F0
 	MOVEQ	#0,D0
 	MOVE.B	LAB_A480DE,restartFlag
@@ -23569,6 +23840,7 @@ LAB_A229B4:
 	MOVE.L	D7,D0
 	SUB.L	D0,D5
 	JSR	SUB_A213FE(PC)
+  JSR HandleDiskFull
 	BMI.S	LAB_A229DA
 	JSR	SUB_A229E0
 	BMI.S	LAB_A229DA
@@ -23583,7 +23855,7 @@ LAB_A229DA:
 	RTS
 SUB_A229E0:
 	MOVE.L	A1,-(A7)
-	JSR	CreateFileHeader(PC)
+	JSR	AddFileToDirBlock(PC)
 	BMI.W	LAB_A22AF0
 	JSR	SUB_A1FA3E(PC)
 	BPL.S	LAB_A229F8
@@ -24238,14 +24510,16 @@ LAB_A23390:
 	BSR.W	SaveFileInit
 	BMI.S	LAB_A233C6
 	BSR.W	SUB_A2357C
-	BMI.S	LAB_A233C6
+	BMI.S	.fullcheck
 	BSR.W	SUB_A2352A
-	BMI.S	LAB_A233C6
+	BMI.S	.fullcheck
 	BSR.W	SUB_A234AC
-	BMI.S	LAB_A233C6
+	BMI.S	.fullcheck
 	BSR.S	SUB_A233CE
+.fullcheck
+  JSR HandleDiskFull
 	BMI.S	LAB_A233C6
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 	BMI.S	LAB_A233C6
 	SUBQ.W	#1,D6
 	CMPI.W	#$0031,D6
@@ -25591,7 +25865,7 @@ CMD_SLOADER:
 	BSR.W	AddDataChunk
   JSR HandleDiskFull
 	BMI.W	LAB_41A256
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 LAB_41A256:
 	MOVE.L	D0,-(A7)
 	MOVEQ	#0,D0
@@ -25638,18 +25912,18 @@ LAB_41A2EE:
 	BSR.W	SaveFileInit
 	BMI.W	LAB_41A32E
 	BSR.W	MakeSVXHeader
-	BMI.W	fullcheck
+	BMI.W	.fullcheck
 	BSR.W	ScanAddAnno
-	BMI.W	fullcheck
+	BMI.W	.fullcheck
 	BSR.W	ScanAddATAK
-	BMI.W	fullcheck
+	BMI.W	.fullcheck
 	BSR.W	SacnAddRLSE
-	BMI.W	fullcheck
+	BMI.W	.fullcheck
 	BSR.W	ScanMakeBody
-fullcheck:
+.fullcheck:
   JSR HandleDiskFull
 	BMI.W	LAB_41A32E
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 LAB_41A32E:
 	BSR.W	PrintDiskOpResult
 	BSR.W	SUB_A1FA3E
@@ -25893,7 +26167,7 @@ LAB_A24D50:
 	RTS
 LAB_A24D58:
 	MOVEQ	#$A,D0
-	LEA	LAB_A48258,A1
+	LEA	mfmSectorAddresses,A1
 LAB_A24D60:
 	MOVEA.L	(A1)+,A3
 	MOVEQ	#$7F,D3
@@ -26074,7 +26348,7 @@ SUB_A24FD6:
 	SF	LAB_A48335
 	BSR.W	SUB_A207AA
 	BMI.S	LAB_A2502A
-	LEA	LAB_A48258,A2
+	LEA	mfmSectorAddresses,A2
 	MOVEQ	#$A,D0
 LAB_A25010:
 	MOVEA.L	(A2)+,A3
@@ -26870,7 +27144,7 @@ LAB_A25B8E:
 	MOVEQ	#0,D0
 LAB_A25BA4:
 	MOVE.W	D0,D1
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 	MOVE.B	(A7)+,currDriveNo
 	TST.W	D1
 	BPL.S	LAB_A25BB6
@@ -27561,7 +27835,7 @@ LAB_A2644A:
 	BSR.W	SaveFileData
   JSR HandleDiskFull
 	BMI.S	LAB_A26486
-	BSR.W	CreateFileHeader
+	BSR.W	AddFileToDirBlock
 	LEA	JoyCodesSavedText(PC),A0
 	JSR	PrintText
 	MOVEQ	#0,D0
@@ -27585,6 +27859,11 @@ CMD_RESET:
 	CLR.L	AronFlag
 	RESET
 	JMP	(A0)
+
+CMD_DBG:
+  ST debuggerMode
+  RTS
+
 CMD_SMALLCHAR:
 	ST	LAB_A480CA
 	BRA.S	LAB_A264DE
@@ -30334,8 +30613,9 @@ LAB_A29062:
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A48442,D0
 	JSR	SUB_A213FE
+  JSR HandleDiskFull
 	BMI.S	LAB_A29056
-	JSR	CreateFileHeader
+	JSR	AddFileToDirBlock
 	BMI.S	LAB_A29056
 	JSR	SUB_A1FA3E
 	BMI.S	LAB_A29056
@@ -32140,7 +32420,7 @@ LAB_421174:
 	JSR	AddDataChunk
   JSR HandleDiskFull
 	BMI.W	LAB_42119A
-	JSR	CreateFileHeader
+	JSR	AddFileToDirBlock
 	BMI.W	LAB_42119A
 	JSR	SUB_A1FA3E
 	BPL.W	LAB_4211D8
@@ -32267,8 +32547,9 @@ LAB_A2A300:
 	MOVEA.L	DiskMonBuffer,A2
 	MOVE.L	LAB_A4831E,D0
 	JSR	SUB_A213FE
+  JSR HandleDiskFull
 	BMI.S	LAB_A2A2DE
-	JSR	CreateFileHeader
+	JSR	AddFileToDirBlock
 	BMI.S	LAB_A2A2DE
 LAB_A2A31C:
 	MOVE.W	D0,D1
@@ -33347,10 +33628,10 @@ LAB_A2DDFC:
 	MOVE.L	#$00000001,TraceStepCount
 LAB_A2DE06:
 	RTS
-LAB_A2DE08:
+RepeatLastCmd:
 	CLR.W	cursorX
 	MOVE.W	#$004e,D1
-	LEA	LAB_A48476,A1
+	LEA	LastCmdBuff,A1
 	SF	LAB_A481E4
 LAB_A2DE1E:
 	MOVE.B	(A1)+,D0
@@ -37140,7 +37421,7 @@ LAB_400848:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVEA.L	(A7)+,A0
 	BRA.W	LAB_400396
@@ -37159,9 +37440,9 @@ LAB_4008B2:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	LEA	-456(A0),A0
-	MOVE.L	LAB_A4844E,2(A0)
+	MOVE.L	saveOldDoIo,2(A0)
 	MOVEA.L	(A7)+,A0
-	MOVE.L	LAB_A4844E,2(A7)
+	MOVE.L	saveOldDoIo,2(A7)
 	JSR	setActivateMode
 	RTE
 LAB_40091A:
@@ -37171,7 +37452,7 @@ LAB_40091A:
 	BNE.W	LAB_400988
 	SF	LAB_A4838F
 	ST	LAB_A4838E
-	MOVE.L	LAB_A4844E,2(A7)
+	MOVE.L	saveOldDoIo,2(A7)
 	BTST	#5,(A7)
 	BEQ.W	LAB_400968
 	MOVE.W	(A7),-4(A7)
@@ -37188,11 +37469,11 @@ LAB_400968:
 LAB_400974:
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	LAB_A4844E,2(A0)
+	MOVE.L	saveOldDoIo,2(A0)
 	MOVEA.L	(A7)+,A0
 	RTE
 LAB_400988:
-	MOVE.L	LAB_A4844E,2(A7)
+	MOVE.L	saveOldDoIo,2(A7)
 	RTE
 LAB_400992:
 	CMPI.L	#$00000080,2(A7)
@@ -37215,7 +37496,7 @@ LAB_4009BC:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVEA.L	(A7)+,A0
 	RTE
@@ -37223,7 +37504,7 @@ LAB_4009F6:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVE.L	USP,A0
 	MOVE.L	(A0)+,6(A7)
@@ -37364,7 +37645,7 @@ LAB_400BB6:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVEA.L	(A7)+,A0
 	BRA.W	LAB_400C18
@@ -37372,7 +37653,7 @@ LAB_400C04:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	LAB_A4844E,2(A0)
+	MOVE.L	saveOldDoIo,2(A0)
 	MOVEA.L	(A7)+,A0
 LAB_400C18:
 	JSR	setActivateMode
@@ -37542,13 +37823,13 @@ LAB_400E18:
 	SF	LAB_A4838E
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	BRA.W	LAB_400E7A
 LAB_400E6A:
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	LAB_A4844E,2(A0)
+	MOVE.L	saveOldDoIo,2(A0)
 LAB_400E7A:
 	JSR	setActivateMode
 	MOVEM.L	LAB_A480CA,A0-A1
@@ -37563,7 +37844,7 @@ LAB_400E8A:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVEA.L	(A7)+,A0
 	RTE
@@ -37571,7 +37852,7 @@ LAB_400EC4:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	EXT_4.W,A0
 	SUBA.W	#$01c8,A0
-	MOVE.L	2(A0),LAB_A4844E
+	MOVE.L	2(A0),saveOldDoIo
 	MOVE.L	#$00000080,2(A0)
 	MOVE.L	USP,A0
 	MOVE.L	(A0)+,6(A7)
@@ -38390,7 +38671,7 @@ LAB_A48250:
 	DS.L	1
 LAB_A48254:
 	DS.L	1
-LAB_A48258:
+mfmSectorAddresses:
 	DS.L	$B
 	DS.W	1
 DiskCoderFlags:
@@ -38673,7 +38954,7 @@ LAB_A48446:
 	DS.L	1
 LAB_A4844A:
   DS.L  1
-LAB_A4844E:
+saveOldDoIo:
 	DS.L	1
 LAB_A48452:
 	DS.L	1
@@ -38693,7 +38974,7 @@ LAB_A4846E:
 	DS.L	1
 TraceStepCount:
 	DS.L	1
-LAB_A48476:
+LastCmdBuff:
 	DS.L	$14
 LAB_A484C6:
 	DS.L	1
@@ -38731,8 +39012,15 @@ bitplaneCount:
   DS.W  1
 lisaIdValue:
   DS.W  1
-diskOpResult2
+diskOpResult2:
   DS.W  1
+debuggerMode:
+  DS.B  1
+debuggerFocus:
+  DS.B  1
+
+dbgMemBase
+  DS.L  1
 LAB_A489F0:
 	DS.W	1
 ;LAB_A489F2:
