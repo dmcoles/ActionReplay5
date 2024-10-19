@@ -1,8 +1,8 @@
 ;Action Replay 5
 
-dbg=1
+;dbg=1
 ;pistorm=1
-;arhardware=1
+arhardware=1
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -2135,6 +2135,10 @@ DebuggerCheckKeys:
 	JSR	GetKeyCode
   TST.B EscapePressed
   BNE.S DebuggerEscape
+	CMPI.W	#"m",D0
+	BEQ.W	DebuggerM
+	CMPI.W	#"d",D0
+	BEQ.W	DebuggerD
 	CMPI.W	#CursorLeft,D0
 	BEQ.W	debuggerLeft
 	CMPI.W	#CursorRight,D0
@@ -2149,7 +2153,7 @@ DebuggerCheckKeys:
 	BEQ.W	debuggerRun
 	CMPI.W	#F7Key,D0
 	BEQ.W	debuggerStepOver
-	CMPI.W	#F7Key,D0
+	CMPI.W	#F8Key,D0
 	BEQ.W	debuggerStepInto
 	CMPI.W	#F10Key,D0
 	BEQ.W	debuggerExit
@@ -2159,6 +2163,54 @@ DebuggerEscape
   MOVE.L SaveOldPc,dbgDisasmBase
   JSR DebuggerDisasm
   BRA DebuggerCheckKeys
+
+DebuggerM:
+  MOVE.L #$1e000b,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000c,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000d,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000e,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  
+	LEA	debuggerSetMemPage(PC),A0
+	JSR	DrawPrefsPage
+
+  MOVE.L	dbgMemBase,D0
+	MOVEQ	#8,D1
+	MOVE.L	#$001e000d,D7
+	JSR	SUB_A1EE00
+	MOVE.L	D0,dbgMemBase
+  BRA debugger
+  
+DebuggerD:
+  MOVE.L #$1e000b,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000c,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000d,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  MOVE.L #$1e000e,cursorX
+  MOVE.W #21,D0
+  JSR PrintSpaces
+  
+	LEA	debuggerSetDisasmPage(PC),A0
+	JSR	DrawPrefsPage
+
+  MOVE.L	dbgDisasmBase,D0
+	MOVEQ	#8,D1
+	MOVE.L	#$001e000d,D7
+	JSR	SUB_A1EE00
+	MOVE.L	D0,dbgDisasmBase
+  BRA debugger
   
 
 DebuggerShowMem:
@@ -2370,7 +2422,16 @@ debuggerPage:
 	DC.B	"Disassembly",0
   DC.W 55,12,78,23
 	DC.B	"Memory",0
+  DC.W 0
 
+debuggerSetMemPage:
+  DC.W 30,11,50,14
+	DC.B	"View Memory From:",0
+  DC.W 0
+
+debuggerSetDisasmPage:
+  DC.W 30,11,50,14
+	DC.B	"Disassemble From:",0
   DC.W 0
 ;CMD_IMODE:
 ;	BSR.W	ReadParameter
@@ -2738,6 +2799,18 @@ commandTable:
 
 	DC.B	"DBG",0
 	DC.L	CMD_DBG
+
+	DC.B	"MMM",0
+	DC.L	CMD_MMM
+
+	DC.B	"NNN",0
+	DC.L	CMD_NNN
+
+	DC.B	"YYY",0
+	DC.L	CMD_YYY
+
+	DC.B	"DDD",0
+	DC.L	CMD_DDD
 
 	DC.B	"SPM",0
 	DC.L	CMD_SPM
@@ -3208,7 +3281,7 @@ LAB_A12BE0:
 	LEA	CopyBpl1Pth,A0
 LAB_A12C18:
 	MOVE.L	(A0)+,D0
-	BSR.W	SUB_A1A3FA
+	JSR	SUB_A1A3FA
 	MOVEQ	#$20,D0
 	BSR.W	PrintChar
 	BSR.W	PrintChar
@@ -3379,6 +3452,9 @@ CMD_TILDE:
 	MOVE.L	DefaultAddress,D0
 	MOVEA.L	D0,A1
 	BRA.S	SUB_A12F08
+CMD_DDD:
+  MOVE.W #15,repeatCount
+  BRA.S d2
 CMD_DD:
   MOVE.W #7,repeatCount
   BRA.S d2
@@ -3472,6 +3548,9 @@ LAB_A12FA2:
 LAB_A12FC8:
 	DC.B	";=======================================",$D,0
 
+CMD_NNN:
+  MOVE.W #15,repeatCount
+  BRA.S n2
 CMD_NN:
   MOVE.W #7,repeatCount
   BRA.S n2
@@ -3782,6 +3861,9 @@ LAB_A1336B:
 LAB_A1336F:
 	DC.B	$D,"A0=",0
 
+CMD_MMM:
+  MOVE.W #15,repeatCount
+  BRA.S m2
 CMD_MM:
   MOVE.W #7,repeatCount
   BRA.S m2
@@ -3936,6 +4018,9 @@ LAB_A13526:
 	RTS
 CMD_QMARK:
 	BRA.W	LAB_A1764A
+CMD_YYY:
+  MOVE.W #15,repeatCount
+  BRA.W LAB_A179DE
 CMD_YY:
   MOVE.W #7,repeatCount
   BRA.W LAB_A179DE
@@ -4606,7 +4691,8 @@ aboutText:
 	DC.B	"                             ACTION REPLAY AMIGA V5",$D
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
-  DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,0
+  DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
+  DC.B	"                  v0.1.19102024 - private alpha release for TTE",$D,0
 
 HeaderStarsText:
 	DC.B	$D,"********************************************************************************",0
@@ -8864,7 +8950,7 @@ LAB_A17C8C:
 LAB_A17C96:
 	MOVE.W	D1,memoryControlPrefsValue
 	BSR ARInit
-	JSR	setActivateMode(PC)
+	JSR	setActivateMode
 	TST.L	checksum
 	BNE.S	LAB_A17DDE
 	BSR.W	calcArChecksum
@@ -9919,7 +10005,7 @@ LAB_A18C86:
 	ADDQ.W	#1,LAB_A480DE
 LAB_A18C9C:
   ST.B IgnoreShift
-	BSR.W	GetKeyCode
+	JSR	GetKeyCode
   SF.B IgnoreShift
 	MOVE.W	KeyCode,D0
 	JSR	UpperCaseChar(PC)
@@ -12497,7 +12583,7 @@ LAB_A1AF9A:
 	TST.B	LAB_A480CA
 	BNE.S	LAB_A1AFB2
 	LEA	RamTesterOkText(PC),A0
-	BSR.W	PrintText
+	JSR	PrintText
 LAB_A1AFB2:
 	BSR.W	SUB_A173DC
 	BRA.W	PrintReady
@@ -38152,7 +38238,7 @@ LAB_4001C0:
 ENDCRC
 checksum:
 	;DS.L	1
-  DC.L $8663B82c
+  DC.L $e0a570b8
   ifd arhardware
   ds.b $440000-*
   endc
