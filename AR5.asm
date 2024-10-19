@@ -1,8 +1,8 @@
 ;Action Replay 5
 
-;dbg=1
+dbg=1
 ;pistorm=1
-arhardware=1
+;arhardware=1
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -943,7 +943,7 @@ PrintCursor:
 LAB_A110C6:
 	BRA.S	LAB_A110D6
 LAB_A110C8:
-	TST.B	LAB_A481E4
+	TST.B	cursorEnabled
 	BEQ.S	LAB_A110D6
 	TST.B	(A1)
 	BNE.S	LAB_A110D6
@@ -1148,7 +1148,7 @@ LAB_A11320:
 	ADDI.W	#$0230,D0
 	CMPI.B	#$ff,0(A0,D0.W)
 	BNE.S	LAB_A11366
-	TST.B	LAB_A481E4
+	TST.B	cursorEnabled
 	BEQ.S	LAB_A11366
 	ST	0(A0,D0.W)
 LAB_A11366:
@@ -1200,7 +1200,7 @@ LAB_A113C0:
 	RTS
 InstallVblank:
 	SF	LAB_A4821E
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	LEA	EXT_DFF000,A5
 	LEA	RegSnoop,A6
 	LEA	EXT_1000,A0
@@ -2063,6 +2063,7 @@ currentCopperText:
 	DC.B	$D,"Current Copper 0: ",0
 
 debugger:
+	SF	cursorEnabled
 	JSR	Cls
 	LEA	debuggerPage(PC),A0
 	JSR	DrawPrefsPage
@@ -2125,8 +2126,42 @@ debugger:
 	MOVE.L	SaveOldPc,D0
   MOVE.L #$001D000A,cursorX
   JSR Print8DigitHex
-
+  JSR DebuggerDisasm
+  
 redoMem:
+  JSR DebuggerShowMem
+
+DebuggerCheckKeys:
+	JSR	GetKeyCode
+  TST.B EscapePressed
+  BNE.S DebuggerEscape
+	CMPI.W	#CursorLeft,D0
+	BEQ.W	debuggerLeft
+	CMPI.W	#CursorRight,D0
+	BEQ.W	debuggerRight
+	CMPI.W	#CursorDown,D0
+	BEQ.W	debuggerDown
+	CMPI.W	#CursorUp,D0
+	BEQ.W	debuggerUp
+	CMPI.W	#F1Key,D0
+	BEQ.W	debuggerTab
+	CMPI.W	#F5Key,D0
+	BEQ.W	debuggerRun
+	CMPI.W	#F7Key,D0
+	BEQ.W	debuggerStepOver
+	CMPI.W	#F7Key,D0
+	BEQ.W	debuggerStepInto
+	CMPI.W	#F10Key,D0
+	BEQ.W	debuggerExit
+	BRA.S	DebuggerCheckKeys
+
+DebuggerEscape
+  MOVE.L SaveOldPc,dbgDisasmBase
+  JSR DebuggerDisasm
+  BRA DebuggerCheckKeys
+  
+
+DebuggerShowMem:
   MOVE.L dbgMemBase,A0
   MOVE.L #$0037000D,D7
   MOVE.W #10,D6
@@ -2160,85 +2195,108 @@ redoMem:
   MOVEM.L (Sp)+,D6/D7
   ADDQ.L #1,D7
   DBF D6,.nextmem
+  RTS
+
+DebuggerDisasm:
+  MOVE.L #$0001000D,D7
+	MOVE.L	dbgDisasmBase,D0
   
-
-DebuggerCheckKeys:
-	JSR	GetKeyCode
-
-	CMPI.W	#CursorLeft,D0
-	BEQ.W	debuggerLeft
-	CMPI.W	#CursorRight,D0
-	BEQ.W	debuggerRight
-	CMPI.W	#CursorDown,D0
-	BEQ.W	debuggerDown
-	CMPI.W	#CursorUp,D0
-	BEQ.W	debuggerUp
-	CMPI.W	#F1Key,D0
-	BEQ.W	debuggerTab
-	CMPI.W	#F5Key,D0
-	BEQ.W	debuggerRun
-	CMPI.W	#F7Key,D0
-	BEQ.W	debuggerStepOver
-	CMPI.W	#F7Key,D0
-	BEQ.W	debuggerStepInto
-	CMPI.W	#F10Key,D0
-	BEQ.W	debuggerExit
-	BRA.S	DebuggerCheckKeys
+  MOVE.W #10,D6
+  CLR.L dbgSecondLineAddr
+.nextdisasm
+	MOVEA.L	D0,A1
+  MOVE.L D7,cursorX
+  MOVEM.L D6/D7,-(Sp)
+  JSR SUB_A12F08
+  TST.L dbgSecondLineAddr
+  BNE.S .1
+  MOVE.L DefaultAddress,dbgSecondLineAddr
+.1
+  MOVEM.L (Sp)+,D6/D7
+  ADDQ.L #1,D7
+  MOVE.L DefaultAddress,D0
+  DBF D6,.nextdisasm
+  RTS
+  
 
 debuggerStepOver:
 	MOVE.L	#$00000001,TraceStepCount
+	ST	cursorEnabled
 	ST	restartFlag
 	ST	TraceSkipSubs
 	RTS
 
 debuggerStepInto:
 	MOVE.L	#$00000001,TraceStepCount
+	ST	cursorEnabled
 	ST	restartFlag
 	SF	TraceSkipSubs
 	RTS
 
 debuggerLeft
-  CMP.B #2,debuggerFocus
-  BNE DebuggerCheckKeys
+  TST.B debuggerFocus
+  BEQ.S .1
   
   SUB.L #2,dbgMemBase
   BRA redoMem
+.1  
+  SUB.L #2,dbgDisasmBase
+  BSR DebuggerDisasm
+  BRA DebuggerCheckKeys
 
 debuggerRight
-  CMP.B #2,debuggerFocus
-  BNE DebuggerCheckKeys
+  TST.B debuggerFocus
+  BEQ.S .1
   
   ADD.L #2,dbgMemBase
   BRA redoMem
+.1  
+  ADD.L #2,dbgDisasmBase
+  BSR DebuggerDisasm
+  BRA DebuggerCheckKeys
 
 debuggerUp
-  CMP.B #2,debuggerFocus
-  BNE DebuggerCheckKeys
+  TST.B debuggerFocus
+  BEQ .1
   
   SUB.L #4,dbgMemBase
   TST.B	ShiftKey
   BEQ redoMem
-  SUB.L #$24,dbgMemBase
+  SUB.L #$28,dbgMemBase
   BRA redoMem
 
+.1
+  SUB.L #4,dbgDisasmBase
+  TST.B	ShiftKey
+  BEQ .2
+
+  SUB.L #$28,dbgDisasmBase
+.2
+  BSR DebuggerDisasm
+  BRA DebuggerCheckKeys
+
 debuggerDown
-  CMP.B #2,debuggerFocus
-  BNE DebuggerCheckKeys
+  TST.B debuggerFocus
+  BEQ.S .1
    
   ADD.L #4,dbgMemBase
   TST.B	ShiftKey
   BEQ redoMem
-  ADD.L #$24,dbgMemBase
+  ADD.L #$28,dbgMemBase
   BRA redoMem
+.1  
+  MOVE.L dbgSecondLineAddr,dbgDisasmBase
+  TST.B	ShiftKey
+  BEQ.S .2
+  MOVE.L DefaultAddress,dbgDisasmBase
+.2
+  BSR DebuggerDisasm
+  BRA DebuggerCheckKeys
 
 debuggerTab
-  JSR DrawDebuggerFocus
-  ADD.B #1,debuggerFocus
-  CMP.B #3,debuggerFocus
-  BNE.S .1
-  CLR.B debuggerFocus
-.1:
-  JSR DrawDebuggerFocus
+  BSR DrawDebuggerFocus
+  BCHG #0,debuggerFocus
+  BSR DrawDebuggerFocus
 	BRA	DebuggerCheckKeys
 
 DrawDebuggerFocus:
@@ -2250,15 +2308,16 @@ DrawDebuggerFocus:
 	JSR drawSelectedHighlight
   RTS
 focusTable
-  DC.W 1,1,9,1
   DC.W 1,12,11,12
   DC.W 55,12,60,12
 
 debuggerRun:
+	ST	cursorEnabled
 	ADDQ.W	#4,A7
   RTS
 
 debuggerExit:
+	ST	cursorEnabled
   SF debuggerMode
 	JSR	Cls
 	JSR	PrintReady
@@ -2893,6 +2952,22 @@ commandTable:
 	DS.B	1
 	DC.L	CMD_MD
 
+	DC.B	"MM",0
+	DS.B	1
+	DC.L	CMD_MM
+
+	DC.B	"NN",0
+	DS.B	1
+	DC.L	CMD_NN
+
+	DC.B	"YY",0
+	DS.B	1
+	DC.L	CMD_YY
+
+	DC.B	"DD",0
+	DS.B	1
+	DC.L	CMD_DD
+
 	DC.B	"MW",0
 	DS.B	1
 	DC.L	CMD_MW
@@ -3304,7 +3379,12 @@ CMD_TILDE:
 	MOVE.L	DefaultAddress,D0
 	MOVEA.L	D0,A1
 	BRA.S	SUB_A12F08
+CMD_DD:
+  MOVE.W #7,repeatCount
+  BRA.S d2
 CMD_D:
+  CLR.W repeatCount
+d2:  
 	SF	LAB_A48205
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -3327,6 +3407,8 @@ LAB_A12F20:
 	BEQ.S	LAB_A12F46
 	TST.B	LAB_A480CA
 	BEQ.S	LAB_A12F46
+  TST.B debuggerMode
+  BNE.S LAB_A12F46
 	MOVE.L	A0,-(A7)
 	LEA	LAB_A12FC8(PC),A0
 	BSR.W	PrintText
@@ -3357,21 +3439,45 @@ LAB_A12F6A:
 LAB_A12F9C:
 	ST	LAB_A48205
 LAB_A12FA2:
+  TST.B debuggerMode
+  BNE.S .2
 	MOVEQ	#$7E,D0
 	BSR.W	PrintChar
+.2:
 	MOVE.L	(A7),D0
 	BSR.W	PrintAddressHex
+  TST.B debuggerMode
+  BEQ.S .0
+  CMP.L SaveOldPc,D0
+  BNE.S .0
+  MOVE.B #">",D0
+  BSR PrintChar
+  BRA.S .1
+.0
 	BSR.W	PrintSpace
+.1
 	MOVE.L	(A7),D0
 	BSR.W	SUB_A1613A
 	JSR	SUB_A1F4FC
 	MOVE.L	A0,DefaultAddress
 	MOVE.L	(A7)+,D0
+  TST.W repeatCount
+  BEQ.S .norep
+	BSR.W	PrintCR
+  
+  SUB.W #1,repeatCount
+  BRA.W CMD_TILDE
+.norep:
 	RTS
 LAB_A12FC8:
 	DC.B	";=======================================",$D,0
 
+CMD_NN:
+  MOVE.W #7,repeatCount
+  BRA.S n2
 CMD_N:
+  CLR.W repeatCount
+n2:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
 	BEQ.W	PrintWTF
@@ -3676,7 +3782,12 @@ LAB_A1336B:
 LAB_A1336F:
 	DC.B	$D,"A0=",0
 
+CMD_MM:
+  MOVE.W #7,repeatCount
+  BRA.S m2
 CMD_M:
+  CLR.W repeatCount
+m2:
 	JSR	SUB_A30FF8
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -3825,7 +3936,11 @@ LAB_A13526:
 	RTS
 CMD_QMARK:
 	BRA.W	LAB_A1764A
+CMD_YY:
+  MOVE.W #7,repeatCount
+  BRA.W LAB_A179DE
 CMD_Y:
+  CLR.W repeatCount
 	BRA.W	LAB_A179DE
 CMD_YS:
 	BRA.W	LAB_A1796E
@@ -4096,6 +4211,7 @@ LAB_A13810:
 	RTS
 SUB_A13814:
 	MOVEM.L	D0-D1,-(A7)
+repeatm:
 	MOVE.W	#$003a,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
@@ -4124,12 +4240,21 @@ LAB_A13854:
 	BSR.S	SUB_A137FC
 	BSR.W	PrintChar
 	DBF	D1,LAB_A13854
+
+  TST.W repeatCount
+  BEQ.S .norep
+	BSR.W	PrintCR
+  
+  SUB.W #1,repeatCount
+  BRA.S repeatm
+.norep:
   MOVE.W cpuAddrSize,D1
   ADD.W #2,D1
   MOVE.W	D1,cursorX
 	;MOVE.W	#$0009,cursorX
 	BSR.W	PrintCursor
 	MOVEM.L	(A7)+,D0-D1
+  CLR.W repeatCount
 	RTS
 LAB_A1387C:
 	CMPI.W	#$0001,LAB_A35698
@@ -4270,7 +4395,7 @@ Init:
 	MOVE.L	A0,-(A7)
 	MOVE.W	#$0110,EXT_DFF096
 	SF	restartFlag
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	SF	LAB_A483DB
 	SF	printerDumpToggle
 	SF	LAB_A483CA
@@ -7516,7 +7641,7 @@ SUB_A1727A:
 	MOVE.L	cursorX,-(A7)
 	MOVE.B	printerDumpToggle,-(A7)
 	SF	printerDumpToggle
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	MOVEA.L	CurrentPage,A0
 	MOVEQ	#0,D0
 	MOVE.W	cursorY,D0
@@ -7534,7 +7659,7 @@ LAB_A172C4:
 	JSR	SUB_A137E4(PC)
 	BSR.W	PrintChar
 	DBF	D1,LAB_A172C4
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	MOVE.B	(A7)+,printerDumpToggle
 	MOVE.L	(A7)+,cursorX
 	MOVEM.L	(A7)+,D0-D1/A0
@@ -7542,7 +7667,7 @@ LAB_A172C4:
 SUB_A172EC:
 	MOVEM.L	D0-D2/A0,-(A7)
 	MOVE.L	cursorX,-(A7)
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	CLR.L	cursorX
 	MOVEA.L	CurrentPage,A0
 	MOVE.W	#$07ce,D1
@@ -7553,7 +7678,7 @@ LAB_A1730C:
 LAB_A17312:
 	BSR.W	PrintChar
 	DBF	D1,LAB_A1730C
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	MOVE.L	(A7)+,cursorX
 	MOVEM.L	(A7)+,D0-D2/A0
 	RTS
@@ -7586,8 +7711,8 @@ LAB_A17364:
 	RTS
 AskYN:
 	MOVEM.L	D1/A0,-(A7)
-	MOVE.B	LAB_A481E4,-(A7)
-	ST	LAB_A481E4
+	MOVE.B	cursorEnabled,-(A7)
+	ST	cursorEnabled
 	BSR.W	PrintText
 	JSR	PrintSpace
 	MOVE.W	#$0082,D0
@@ -7601,7 +7726,7 @@ AskYN:
 	BNE.S	LAB_A1739C
 	MOVEQ	#1,D0
 LAB_A1739C:
-	MOVE.B	(A7)+,LAB_A481E4
+	MOVE.B	(A7)+,cursorEnabled
 	MOVEM.L	(A7)+,D1/A0
 	RTS
 PrintSpace:
@@ -8179,6 +8304,7 @@ LAB_A179DE:
 SUB_A179FA:
 	MOVEM.L	D0-D2/A0,-(A7)
 	MOVE.L	D0,D2
+repeaty:
 	MOVE.W	#$007c,D0
 	BSR.W	PrintChar
 	MOVE.L	D2,D0
@@ -8196,6 +8322,14 @@ LAB_A17A26:
 	MOVEQ	#8,D1
 	BSR.W	SUB_A1359C
 	DBF	D2,LAB_A17A26
+  TST.W repeatCount
+  BEQ.S .norep
+	BSR.W	PrintCR
+  
+  SUB.W #1,repeatCount
+  MOVE.L A0,D2
+  BRA.S repeaty
+.norep:
   MOVE.W cpuAddrSize,D2
   ADD.W #3,D2
   MOVE.W	D2,cursorX
@@ -8297,6 +8431,7 @@ LAB_A17B4A:
 SUB_A17B50:
 	MOVEM.L	D0-D1/A1,-(A7)
 	MOVEA.L	A0,A1
+repeatn:
 	MOVE.W	#$002e,D0
 	BSR.W	PrintChar
 	MOVE.L	A1,D0
@@ -8315,6 +8450,14 @@ LAB_A17B6A:
 	JSR	SUB_A137FC(PC)
 	BSR.W	PrintChar
 	DBF	D1,LAB_A17B6A
+
+  TST.W repeatCount
+  BEQ.S .norep
+	BSR.W	PrintCR
+  
+  SUB.W #1,repeatCount
+  BRA.S repeatn
+.norep:
   MOVE.W cpuAddrSize,D1
   ADD.W #2,D1
   MOVE.W D1,cursorX
@@ -15324,7 +15467,7 @@ CMD_LQR:
 CMD_LQ:
 	TST.B	sqInRamdisk
 	BEQ.W	LAB_A1D714
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	SF	TBufferAllocated
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$0200,$96(A5)
@@ -15366,7 +15509,7 @@ LAB_A1D6C6:
 	BSR.W	PrintReady
 	MOVE.W	#$c000,$9A(A5)
 	MOVE.W	#$8200,$96(A5)
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	RTS
 LAB_A1D6E8:
 	BSR.W	SwapChipRam1
@@ -15376,13 +15519,13 @@ LAB_A1D6E8:
 	JSR	PrintText
 	JSR	SUB_A230EA
 	BSR.W	PrintReady
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	RTS
 LAB_A1D714:
 	LEA	NoSaveQuickText(PC),A0
 	JSR	PrintText
 	BSR.W	PrintReady
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	RTS
 NoSaveQuickText:
 	DC.B	"No savequick-file in RAM-disk!",$D,0
@@ -16185,7 +16328,7 @@ LAB_A1DA60:
 	MOVE.W	#$02a8,currMouseX
 	MOVE.W	#$00ec,currMouseY
 	ST	LAB_A4821E
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	MOVE.W	#$8020,EXT_DFF096
 	MOVEM.L	(A7)+,D0/A0-A1
 	RTS
@@ -16203,7 +16346,7 @@ LAB_A1DB3C:
 	MOVE.W	(A0)+,EXT_DFF1A6
 	MOVE.L	(A0)+,cursorX
 	JSR	SUB_A18FDC(PC)
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	LEA	EXT_1000,A0
 	MOVE.W	#$0f9f,D0
 LAB_A1DB68:
@@ -18721,7 +18864,7 @@ LAB_413192:
 	MOVEM.L	(A7)+,D0/A0
 	RTS
 TrackerShowSongData:
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	JSR	Cls
 	LEA	LAB_4130A2(PC),A0
 	JSR	PrintText
@@ -18812,7 +18955,7 @@ LAB_413318:
 	DBF	D0,LAB_413318
 	BRA.W	LAB_4131EC
 LAB_413322:
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	JSR	Cls
 	BRA.W	LAB_412EA4
 SUB_413332:
@@ -19021,15 +19164,15 @@ LAB_4135DA:
 
 SUB_4135F8:
 	MOVE.L	D0,-(A7)
-	MOVE.B	LAB_A481E4,-(A7)
-	SF	LAB_A481E4
+	MOVE.B	cursorEnabled,-(A7)
+	SF	cursorEnabled
 	MOVE.L	A0,D0
 	TST.B	D0
 	BNE.W	LAB_41361C
 	MOVE.W	#$0009,cursorX
 	JSR	Print6DigitHex
 LAB_41361C:
-	MOVE.B	(A7)+,LAB_A481E4
+	MOVE.B	(A7)+,cursorEnabled
 	MOVE.L	(A7)+,D0
 	RTS
 
@@ -19439,14 +19582,14 @@ LAB_413D24:
 ScanStart:
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$ff00,$34(A5)
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	ST	LAB_A480D6
 	JSR	Cls
 	JSR	SUB_414176
 	MOVE.W	#$012c,LAB_A480D2
 	BSR.W	SUB_413E2E
 ScanRestart:
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	JSR	Cls
 	LEA	txtScanInfo(PC),A0
 	JSR	PrintText
@@ -19495,7 +19638,7 @@ LAB_413D8A:
 ScanExit:
 	JSR	SUB_4141A6
 	JSR	Cls
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	JSR	PrintReady
 	RTS
 SUB_413E2E:
@@ -21408,7 +21551,7 @@ LAB_A20B88:
 	BRA.W	PrintDiskOpResult
 LAB_A20BB4:
 	MOVE.L	#$00000370,currentDirBlock
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	LEA	EXT_5000.W,A0
 	BSR.W	SUB_A1F9DE
 	MOVEA.L	A0,A1
@@ -21501,7 +21644,7 @@ LAB_A20CDE:
 	MOVE.W	D1,D0
 LAB_A20CF6:
 	BSR.W	PrintDiskOpResult
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	TST.W	D0
 	RTS
 
@@ -25891,9 +26034,9 @@ SUB_41A28A:
 	CLR.L	cursorX
 	LEA	LAB_41307D(PC),A0
 	JSR	PrintText
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	JSR	SUB_A120BA
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	SF	LAB_A483C9
 	BSR.W	SUB_A2231A
 	ST	LAB_A483C9
@@ -26397,7 +26540,7 @@ LAB_A25042:
 	BEQ.W	PrintDiskOpResult
 	BTST	D5,DrivesConnectedLo
 	BEQ.W	PrintDiskOpResult
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	MOVE.L	DiskCoderFlags,-(A7)
 	TST.B	D2
 	BEQ.S	LAB_A250B2
@@ -26407,7 +26550,7 @@ LAB_A250B2:
 	BSR.S	SUB_A250D0
 	MOVE.B	(A7)+,currDriveNo
 	MOVE.L	(A7)+,DiskCoderFlags
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	BRA.W	PrintDiskOpResult
 SUB_A250D0:
 	CMP.W	D4,D5
@@ -26637,7 +26780,7 @@ LAB_A25432:
 	RTS
 SUB_A25462:
 	SF	LAB_A48392
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	MOVE.B	currDriveNo,-(A7)
 	MOVE.B	LAB_A4822B,currDriveNo
 LAB_A2547E:
@@ -26663,7 +26806,7 @@ LAB_A254BC:
 	MOVE.B	(A7)+,currDriveNo
 	RTS
 LAB_A254CA:
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	MOVE.B	(A7)+,currDriveNo
 	RTS
 LAB_A254D8:
@@ -27001,7 +27144,7 @@ LAB_A259A6:
 	JSR	SUB_A1F9DE(PC)
 	MOVE.W	#$009f,D4
 	MOVEQ	#0,D1
-	SF	LAB_A481E4
+	SF	cursorEnabled
 LAB_A259D2:
 	MOVEQ	#0,D2
 	LEA	EXT_5000.W,A0
@@ -27021,7 +27164,7 @@ LAB_A259FA:
 	LEA	EXT_5000.W,A0
 	JSR	SUB_A1FA3E(PC)
 	MOVE.B	(A7)+,currDriveNo
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	RTS
 LAB_A25A14:
 	BSR.S	SUB_A25A1E
@@ -27259,7 +27402,7 @@ LAB_A25D18:
 	BSR.W	SUB_A1FAB4
 	BMI.S	LAB_A25DB6
 	MOVEQ	#0,D0
-	SF	LAB_A481E4
+	SF	cursorEnabled
 LAB_A25D50:
 	TST.B	EscapePressed
 	BNE.S	LAB_A25DB4
@@ -27291,7 +27434,7 @@ LAB_A25DB6:
 	BSR.W	SUB_A1FAF8
 	MOVE.B	(A7)+,currDriveNo
 	BSR.W	PrintDiskOpResult
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	MOVE.W	#$0010,$96(A5)
 	RTS
 LAB_A25DD2:
@@ -27499,7 +27642,7 @@ CMD_MEGASTICK:
 	JSR	ReadParameter
 	TST.B	ParamFound
 	SNE	D4
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	ST	MegaStickPrefsFlag
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$ff00,$34(A5)
@@ -27543,7 +27686,7 @@ LAB_A25F5C:
 	MOVE.W	D0,D6
 	BRA.S	LAB_A25F0E
 LAB_A25F76:
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	JSR	PrintReady
 	RTS
 
@@ -28412,7 +28555,7 @@ SUB_A26C64:
 	SUBA.L	A3,A3
 LAB_A26C6A:
 	JSR	SUB_A26F30
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	MOVE.L	cursorX,-(A7)
 	MOVE.L	D7,cursorX
 	MOVE.L	D7,LAB_A47F3E
@@ -28544,7 +28687,7 @@ LAB_A26DCC:
 	ADDQ.W	#1,cursorX
 	BRA.W	LAB_A26C8C
 LAB_A26DD6:
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	LEA	EXT_1000,A0
 	MOVE.W	#$0280,D0
 	MULU	cursorY,D0
@@ -28565,7 +28708,7 @@ CMD_EXQ:
 	BNE.S	LAB_A26E28
 	JMP	LAB_A1D714
 LAB_A26E28:
-	SF	LAB_A481E4
+	SF	cursorEnabled
 	SF	TBufferAllocated
 	LEA	EXT_DFF000,A5
 	JSR	InitialiseDisk(PC)
@@ -28625,7 +28768,7 @@ LAB_A26ED2:
 	MOVE.L	D7,LAB_A48362
 	MOVE.W	#$c000,$9A(A5)
 	MOVE.W	#$8200,$96(A5)
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	RTS
 LAB_A26F0A:
 	LEA	NoDataSpaceText,A0
@@ -32015,9 +32158,17 @@ SUB_A2A0F6:
 	MOVE.W	cursorX,-(A7)
 	MOVE.L	D0,-(A7)
 	SF	printerDumpToggle
+  TST.B debuggerMode
+  BEQ.S .1
+	MOVE.W	#1,cursorX
+	MOVEQ	#53,D0
+	JSR	PrintSpaces
+  BRA.S .2
+.1
 	CLR.W	cursorX
 	MOVEQ	#$4F,D0
 	JSR	PrintSpaces
+.2
 	MOVE.L	(A7)+,D0
 	MOVE.W	(A7)+,cursorX
 	MOVE.B	(A7)+,printerDumpToggle
@@ -33632,12 +33783,12 @@ RepeatLastCmd:
 	CLR.W	cursorX
 	MOVE.W	#$004e,D1
 	LEA	LastCmdBuff,A1
-	SF	LAB_A481E4
+	SF	cursorEnabled
 LAB_A2DE1E:
 	MOVE.B	(A1)+,D0
 	JSR	PrintChar
 	DBF	D1,LAB_A2DE1E
-	ST	LAB_A481E4
+	ST	cursorEnabled
 	CLR.W	cursorX
 	MOVE.W	cursorY,D0
 	CMP.W	PageHeight,D0
@@ -38543,7 +38694,7 @@ LAB_A481E1:
 	DS.B	1
 SYSOP_MODE:
 	DS.W	1
-LAB_A481E4:
+cursorEnabled:
 	DS.B	1
 LAB_A481E5:
 	DS.B	1
@@ -39018,9 +39169,14 @@ debuggerMode:
   DS.B  1
 debuggerFocus:
   DS.B  1
-
-dbgMemBase
+dbgMemBase:
   DS.L  1
+dbgDisasmBase:
+  DS.L  1
+dbgSecondLineAddr:
+  DS.L  1  
+repeatCount
+  DS.W  1
 LAB_A489F0:
 	DS.W	1
 ;LAB_A489F2:
