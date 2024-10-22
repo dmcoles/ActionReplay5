@@ -1,8 +1,9 @@
 ;Action Replay 5
 
-;dbg=1
-;pistorm=1
-arhardware=1
+dbg=0
+pistorm=1
+arhardware=0
+
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -290,7 +291,16 @@ spr6data	EQU	$174
 spr7data	EQU	$17C
 color00	EQU	$180
 
- ifd dbg
+rsnoop SET 0
+  if arhardware=1
+rsnoop SET 1
+  endc
+  if pistorm=1
+rsnoop SET 1
+  endc
+
+
+ if dbg=1
   move.l SECSTRT_0+$7c,$80
   trap #0
   nop
@@ -300,11 +310,11 @@ color00	EQU	$180
    rts
   endc
 
- ifd pistorm
+ if pistorm=1
  ORG	$a10000
  endc
 
- ifd arhardware
+ if arhardware=1
  ORG	$400000
  endc
 
@@ -479,7 +489,7 @@ AREntry3:
 	MOVE.W	EXT_DFF01E,SaveIntreq
 	MOVE.W	EXT_DFF010,SaveAdkcon
 	MOVE.W	RegSnoopDskSync,SaveDskSync
-  ifd arhardware
+  if rsnoop=1
   MOVE.L	RegSnoop+$20,SaveDskPt
   MOVE.L	RegSnoop+$24,SaveDskLen
   endc
@@ -499,14 +509,14 @@ LAB_A10A50:
 	BEQ.S	LAB_A10A88
 	MOVE.L	#$00128000,LAB_A480CA
 LAB_A10A64:
-  ifd arhardware
+  if rsnoop=1
 	MOVE.W	#$0000,EXT_DFF02C
   endc
 	SUBQ.L	#1,LAB_A480CA
 	BEQ.S	LAB_A10A76
 	BTST	#1,EXT_DFF01F
 	BEQ.S	LAB_A10A64
-  ifd arhardware
+  if rsnoop=1
   BSET  #1,SaveIntReq1
   MOVE.L D0,LAB_A480CA
   MOVEQ #0,D0
@@ -539,7 +549,7 @@ LAB_A10A88:
 	CLR.L	EXT_DFF174
 	CLR.L	EXT_DFF17C
 	BSR.W	SaveCIARegs
-  ifd arhardware
+  if rsnoop=1
   BSR BlitterSave
   endc
 	JSR	SUB_A1D77C
@@ -556,14 +566,14 @@ LAB_A10A88:
 	BSR.W	RestoreDisplay1
 	BSR.W	KeyboardIntRemove
 	BSR.W	RestoreFloppy
-  ifd arhardware
+  if rsnoop=1
   BSR.W BlitterRestore
   endc
 	BSR.W	RestoreCIARegs
 	BSR.W	SUB_A10D2C
 	JSR	ActivateTrace
 	BSR.W	setActivateMode
-  ifnd arhardware
+  if rsnoop=0
 	BSR.W	RestoreDisplay2
   endc
 	MOVE.W	#$7fff,EXT_DFF09A
@@ -613,7 +623,7 @@ LAB_A10BF4:
 	MOVE.W	#$0300,EXT_DFF096
 	MOVE.W	SaveDmaCon,EXT_DFF096
 	MOVE.W	SaveIntena,EXT_DFF09A
-  ifd arhardware
+  if rsnoop=1
   MOVE.L SaveCop1Lch,EXT_DFF080
   MOVE.L RegSnoopCop2Lc,EXT_DFF084
   endc
@@ -744,12 +754,12 @@ LAB_A10DD2:
 	BSET	#1,newActivateModeLo
 LAB_A10E00:
 	MOVE.W	(A7)+,D0
-  ifd arhardware
+  if arhardware=1
   MOVE.W	newActivateMode,SECSTRT_0
   endc
 	RTS
 
-  ifd arhardware
+  if rsnoop=1
 BlitterSave:
 	LEA	RegSnoop,A0
 	MOVE.L	bltcon0(A0),SaveBltCon0
@@ -800,7 +810,7 @@ LAB_A10E3A:
 	BSET	#7,SaveAdkcon
 	MOVE.W	#$7fff,EXT_DFF09E
 	MOVE.W	SaveAdkcon,EXT_DFF09E
-  ifd arhardware
+  if rsnoop=1
 	MOVE.L SaveDskPt,EXT_DFF020
   endc
 	RTS
@@ -1277,20 +1287,20 @@ LAB_A119F6:
 	MOVE.L	D2,(A0)+
 	ADDQ.W	#8,A1
 	DBF	D0,LAB_A119F6
-  ifd arhardware
+  if rsnoop=1
 	MOVE.L	SaveCop1Lch,cop1lch(A5)
   endc
   JSR GetLisaId
   MOVE.W D0,D1
 
 	MOVE.W	SaveDiwStart,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A2A
   endc
 	MOVE.W	D0,$8E(A5)
 LAB_A11A2A:
 	MOVE.W	SaveDiwStop,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A36
   endc
 	MOVE.W	D0,$90(A5)
@@ -1298,50 +1308,50 @@ LAB_A11A36:
   BTST #1,D1      ;ecs
 	BNE.S	LAB_A11A36_1
 	MOVE.W	SaveDiwHigh,D0
-  ifnd arhardware
+  if rsnoop=0
   ;BNE.S LAB_A11A36_1
   endc
 	;MOVE.W	D0,$1e4(A5)
 LAB_A11A36_1:
 	MOVE.W	SaveDdfStrt,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A42
   endc
 	MOVE.W	D0,$92(A5)
 LAB_A11A42:
 	MOVE.W	SaveDdfStop,D0
-	ifnd arhardware
+	if rsnoop=0
   BEQ.S	LAB_A11A4E
   endc
 	MOVE.W	D0,$94(A5)
 LAB_A11A4E:
 
 	MOVE.W	SaveColor00,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A5A
   endc
 	MOVE.W	D0,$180(A5)
 LAB_A11A5A:
 	MOVE.W	SaveColor01,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A66
   endc
 	MOVE.W	D0,$182(A5)
 LAB_A11A66:
 	MOVE.W	SaveBplCon0,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A72
   endc
 	MOVE.W	D0,$100(A5)
 LAB_A11A72:
 	MOVE.W	SaveBplCon1,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A7E
   endc
 	MOVE.W	D0,$102(A5)
 LAB_A11A7E:
 	MOVE.W	SaveBplCon2,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A7E_1
   endc
 	MOVE.W	D0,$104(A5)
@@ -1349,7 +1359,7 @@ LAB_A11A7E_1:
   BTST #2,D1      ;aga
 	BNE.S	LAB_A11A7E_2
 	MOVE.W	SaveBplCon3,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A7E_2
   endc
 	MOVE.W	D0,$106(A5)
@@ -1357,7 +1367,7 @@ LAB_A11A7E_2:
   BTST #2,D1      ;aga
 	BNE.S	LAB_A11A7E_3
 	MOVE.W	SaveBplCon4,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A7E_3
   endc
 	MOVE.W	D0,$10c(A5)
@@ -1365,26 +1375,26 @@ LAB_A11A7E_3:
   BTST #2,D1      ;aga
 	BNE.S	LAB_A11A7E_4
 	MOVE.W	SaveFmode,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A7E_4
   endc
 	MOVE.W	D0,$1fc(A5)
 LAB_A11A7E_4:
 ;ecs agnus
 	MOVE.W	SaveBeamCon0,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A8A
   endc
 	MOVE.W	D0,$1dc(A5)
 LAB_A11A8A:
 	MOVE.W	SaveBpl1Mod,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11A96
   endc
 	MOVE.W	D0,$108(A5)
 LAB_A11A96:
 	MOVE.W	SaveBpl2Mod,D0
-  ifnd arhardware
+  if rsnoop=0
 	BEQ.S	LAB_A11AA2
   endc
 	MOVE.W	D0,$10A(A5)
@@ -1392,7 +1402,7 @@ LAB_A11AA2:
 	MOVE.L	Int3Save,AUTO_INT3.W
 	RTS
 
-  ifnd arhardware
+  if rsnoop=0
 RestoreDisplay2:
 	LEA	RegSnoop,A6
 	LEA	EXT_DFF000,A5
@@ -4603,11 +4613,6 @@ LAB_A13C1E:
   ADD.W   D0,D0
   ADDQ.W  #6,D0
 	ADD.L	D0,$3C(A0)
-  ;ifd arhardware
-	;ADDQ.L	#6,$3C(A0)
-  ;else
-	;ADDQ.L	#8,$3C(A0)
-  ;endc
 	MOVEA.L	$3C(A0),A0
 	MOVE.L	(A7)+,(A0)+
 	MOVE.W	(A0)+,D0
@@ -4636,11 +4641,6 @@ LAB_A13C7C:
   ADD.W   D0,D0
   ADDQ.W  #6,D0
   ADD.L D0,$3C(A0)
-  ;ifd arhardware
-	;ADDQ.L	#6,$3C(A0)
-  ;else
-	;ADDQ.L	#8,$3C(A0)
-	;endc
   MOVEA.L	$3C(A0),A0
 	MOVE.L	(A7)+,(A0)+
 	MOVE.W	(A0)+,D0
@@ -6823,7 +6823,7 @@ LAB_A166BC:
 	MOVEM.L	(A7)+,D0-D1
 	RTS
 SUB_A166C8:
-  ifd arhardware
+  if rsnoop=1
     MOVE.L SaveCop1Lch,copperPos
   else
 	MOVE.L	#$0000041e,copperPos
@@ -6925,7 +6925,7 @@ SUB_A16826:
 	;CLR.W	CopyFmode
 	CLR.W	CopyDiwHigh
 	;CLR.W	CopyBplCon4
-  ifd arhardware
+  if rsnoop=1
   MOVE.L SaveCop1Lch,A0
   MOVE.L A0,copperPos
   else
@@ -8592,7 +8592,7 @@ LAB_A17C0E:
 LAB_A17C12:
 	MOVEM.L	(A7)+,D0-D4/A0-A3
 	RTS
-  ifd arhardware
+  if arhardware=1
 LAB_407C6C:
 	MOVEA.L	2(A7),A3
 	CLR.L	(A7)
@@ -9660,7 +9660,7 @@ LAB_A1884E:
 	MOVE.L	#$00000040,0(A0,D0.W)
   LEA EXT_40.W,A3
 
-  ifd arhardware
+  if arhardware=1
   MOVE.L  #$4a3900bf,(a3)+
   MOVE.L  #$e00160f8,(a3)+
   else
@@ -12297,7 +12297,7 @@ SubsEliminatedText:
 
 SUB_A1ACDE:
 	MOVEM.L	D0-D1/A0-A4,-(A7)
-	ifd arhardware
+	if arhardware=1
 	MOVEA.L	#$00c00000,A0
 	MOVEA.L	#$00dc0000,A1
 	MOVEA.L	A0,A4
@@ -15205,7 +15205,7 @@ CMD_SETEXCEPT:
 	LEA	EXT_100.W,A0
 LAB_A1CFB2:
 
-  ifd arhardware
+  if arhardware=1
   MOVE.L  #$4a3900bf,(A0)+
   MOVE.W  #$e001,(A0)+
   else
@@ -15217,7 +15217,7 @@ LAB_A1CFB2:
   MOVE.L A0,A1
   JSR getVBR
 
-  ifnd arhardware
+  if arhardware=0
   MOVE.L a1,TRAP_14(A0)
 
   MOVE.W #$4eb9,(a1)+
@@ -15241,7 +15241,7 @@ ExceptionHandlerInsText:
 	DC.B	") Line-F",$D,"            5) Division by zero error",$D,0
 
 SUB_A1D0A8:
-  ifd arhardware
+  if arhardware=1
 	CMPI.L	#$00000124,SaveOldPc
 	BHI.S	LAB_A1D0F0
 	CMPI.L	#$00000106,SaveOldPc
@@ -27541,7 +27541,7 @@ LAB_A25DFC:
 LAB_A25E06:
 	RTS
 
-  ifd arhardware
+  if arhardware=1
 SUB_41BB88:
 	LEA	LAB_A483AA,A0
 	CLR.L	(A0)+
@@ -27680,7 +27680,8 @@ LAB_41BDEC:
 
   endc
 
-  ifnd arhardware
+  if arhardware=0
+  
 SUB_41BB88:
 	LEA	LAB_A483AA,A0
 	CLR.L	(A0)+
@@ -30048,7 +30049,7 @@ LAB_A2813E:
 	MOVEQ	#4,D3
 	MOVE.W	#$00ec,D4
 	LEA	EXT_130.W,A2
-  ifd arhardware
+  if arhardware=1
   MOVE.L  #$4a3900bf,(A2)+
   MOVE.L  #$e0014e71,(A2)+
   MOVE.W  #$4e71,(A2)+
@@ -33782,19 +33783,19 @@ ActivateTrace:
 	TST.L	TraceStepCount
 	BEQ.W	LAB_A2DDAE
 	MOVE.L	TRACE.W,StackEnd
-  ifd pistorm
+  if pistorm=1
   ;enable trace
-  movec #$1e0,d0
+  dc.w $4e7a,$01e0  ;movec #$1e0,d0
   or.w #$1000,d0
-  movec d0,#$1e0
+  dc.w $4e7b,$01e0  ;movec d0,#$1e0
   endc
 
-  ifd arhardware
+  if arhardware=1
   move.l #$4a3900bf,$150.W
   move.l #$e00160f8,$154.W
   endc
 
-  ifnd arhardware
+  if arhardware=0
   MOVE.W #$4eb9,$150.W
   MOVE.L #DoArTrace,$152.W
   MOVE.W #$4e73,$156.W
@@ -37271,7 +37272,7 @@ LAB_A31946:
 	MOVEQ	#0,D0
 	RTS
 
-  ifd arhardware
+  if arhardware=1
 
 SoftBoot:
   MOVE.B (A7)+,D0
@@ -38099,7 +38100,7 @@ LAB_400EC4:
   endc
 
 NMI_Entry:
-  ifd arhardware
+  if arhardware=1
     MOVE.B D0,-(A7)
 
 	MOVE.B	#$13,kickstartVersion
@@ -38230,7 +38231,7 @@ LAB_4001C0:
 	RTE
   endc
 
-  ifnd arhardware
+  if arhardware=0
 	JSR	NMI_Entry2
 	RTE
   endc
@@ -38238,9 +38239,9 @@ LAB_4001C0:
 ENDCRC
 checksum:
 	;DS.L	1
-  DC.L $e0a570b8
-  ifd arhardware
-  ds.b $440000-*
+  DC.L $1905c6ed
+  if rsnoop=1
+  ds.b SECSTRT_0+$40000-*
   endc
 arramstart:
 
@@ -38333,8 +38334,8 @@ TextPage1:
 	DS.L	$1F4
 TextPage2:
 	DS.L	$1F4
-  ifd arhardware
-  ds.b $44f000-*
+  if rsnoop=1
+  ds.b SECSTRT_0+$4f000-*
   endc
 RegSnoop:
 	DS.L	$10
@@ -38735,7 +38736,7 @@ SAVE_CIABCRB:
 	DS.B	1
 	DS.L	3
 	DS.W	1
-  ifd arhardware
+  if rsnoop=1
 SaveDskPt:
   DS.L  1
 SaveDskLen:
