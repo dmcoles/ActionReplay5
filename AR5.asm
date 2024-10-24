@@ -1,8 +1,8 @@
 ;Action Replay 5
 
-dbg=1
+dbg=0
 pistorm=0
-arhardware=0
+arhardware=1
 
 
 EXT_0		EQU	$0
@@ -18841,7 +18841,7 @@ SUB_412F72:
 	BCC.W	LAB_412FB8
 	LEA	EXT_7C000,A0
 LAB_412FB8:
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.B	currDriveNo,-(A7)
 	MOVE.L	D1,D0
@@ -18856,7 +18856,7 @@ LAB_412FB8:
 	BMI.W	LAB_412FEE
 LAB_412FEE:
 	MOVE.L	D0,D1
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	MOVE.L	D1,D0
 	MOVE.B	(A7)+,currDriveNo
 LAB_412FFC:
@@ -20432,7 +20432,7 @@ LAB_A1F9D6:
 	MOVE.L	D4,D0
 	MOVEA.L	A1,A2
 	BRA.S	LAB_A1F9CA
-SUB_A1F9DE:
+backupMfmBuffer:
 	MOVEM.L	D0-D1/A0-A1,-(A7)
 	SF	trainerModeActive
 	MOVE.W	#$085f,D0
@@ -20442,7 +20442,7 @@ LAB_A1F9F2:
 	MOVE.L	D1,(A1)
 	ADDQ.W	#8,A1
 	DBF	D0,LAB_A1F9F2
-	MOVE.W	#$049f,D0
+	MOVE.W	#$063f,D0
 LAB_A1FA00:
 	MOVE.L	(A0)+,(A1)+
 	DBF	D0,LAB_A1FA00
@@ -20456,7 +20456,7 @@ LAB_A1FA00:
 	SF	LAB_A48335
 	MOVE.W	#$8002,EXT_DFF09C
 	RTS
-SUB_A1FA3E:
+restoreMfmBuffer:
 	MOVEM.L	D1-D2/A0-A1,-(A7)
 	TST.B	LAB_A48333
 	BEQ.S	LAB_A1FA52
@@ -20472,7 +20472,7 @@ LAB_A1FA62:
 	ADDQ.L	#8,A1
 	MOVE.L	D1,(A0)+
 	DBF	D2,LAB_A1FA62
-	MOVE.W	#$049f,D2
+	MOVE.W	#$063f,D2
 LAB_A1FA72:
 	MOVE.L	(A1)+,(A0)+
 	DBF	D2,LAB_A1FA72
@@ -20746,11 +20746,10 @@ LAB_A1FDD6:
 	DBF	D0,LAB_A1FDD6
 	MOVE.L	A1,$20(A5)
 	MOVE.W	#$0002,$9C(A5)
-	;MOVE.W	#$9761,$24(A5)
-	;MOVE.W	#$9761,$24(A5)
-  MOVE.W	#$9AA0,$24(A5)
-	MOVE.W	#$9AA0,$24(A5)
-	;MOVE.L	#$00010000,D2
+	MOVE.W	#$9761,$24(A5)
+	MOVE.W	#$9761,$24(A5)
+  ;MOVE.W	#$9AA0,$24(A5)
+	;MOVE.W	#$9AA0,$24(A5)
   MOVE.L	#$0000A000,D2
   MOVE.B	#$00,EXT_BFE801
 LAB_A1FDFC:
@@ -20784,9 +20783,16 @@ LAB_A1FE28:
 	BEQ.S	LAB_A1FE72
 	BRA.S	LAB_A1FDFC
 LAB_A1FE38:
-  TST.W $3540-2(a1)   ;whole track already read (winuae turbo mode)
-  BNE.S LAB_A1FE94
-  
+
+;  TST.W $3540-2(a1)   ;whole track already read (winuae turbo mode)
+;  BEQ.S .1
+;.2
+;  BTST	#1,$1F(A5)
+;	BNE.S .2
+;	MOVE.W	#$0002,$9C(A5)
+;
+;  BRA.S LAB_A1FE94
+;.1
 	MOVE.W	#$4000,$24(A5)
 	MOVE.L	#$aaaaaaaa,-6(A2)
 	MOVE.W	#$4489,-2(A2)
@@ -20802,7 +20808,6 @@ LAB_A1FE38:
 	MOVE.W	D1,$24(A5)
 	MOVE.W	D1,$24(A5)
 LAB_A1FE72:
-	;MOVE.L	#$00020000,D0
   MOVE.L	#$00014000,D0
   MOVE.B	#$00,EXT_BFE801
 LAB_A1FE78:
@@ -20930,20 +20935,20 @@ LAB_A1FF90:
 LAB_A1FFA4:
 	MOVEA.L	A1,A3
 	MOVEQ	#0,D2
-.3:
-  CMP.W #$4489,4(a0)
-  BNE.S .1
-  CMP.W #$4489,6(a0)
-  BNE.S .1
-  BRA.S .2
-.1:
-  LEA 2(A0),a0
-  ADDQ.L #2,D2
-  CMP.W #$680,D2
-  BNE.S .3
-  MOVEQ #-2,D0
-  BRA.S LAB_A1FFDA
-.2
+;.3:
+;  CMP.W #$4489,4(a0)
+;  BNE.S .1
+;  CMP.W #$4489,6(a0)
+;  BNE.S .1
+;  BRA.S .2
+;.1:
+;  LEA 2(A0),a0
+;  ADDQ.L #2,D2
+;  CMP.W #$680,D2
+;  BNE.S .3
+;  MOVEQ #-2,D0
+;  BRA.S LAB_A1FFDA
+;.2
 	BSR.W	decodeAdosSectorMfm
 	BMI.S	LAB_A1FFDA
 	LEA	$440(A0),A0
@@ -21435,7 +21440,7 @@ LAB_A20906:
 	LEA	stringWorkspace,A2
 	MOVE.B	currDriveNo,-(A7)
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	BSR.W	getDirBlock
 	BMI.W	LAB_A209C4
 	MOVE.L	D1,D0
@@ -21484,7 +21489,7 @@ LAB_A2099C:
 	MOVEQ	#0,D0
 LAB_A209C4:
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	SF	LAB_A483CA
 	MOVE.B	(A7)+,currDriveNo
 	RTS
@@ -21639,7 +21644,7 @@ LAB_A20BB4:
 	MOVE.L	#$00000370,currentDirBlock
 	SF	cursorEnabled
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVEA.L	A0,A1
 	TST.B	QuickFormat
 	BNE.W	LAB_A20CD8
@@ -21725,7 +21730,7 @@ LAB_A20CDE:
 	MOVEQ	#$23,D0
 	JSR	PrintSpaces
 	CLR.W	cursorX
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.S	LAB_A20CF6
 	MOVE.W	D1,D0
 LAB_A20CF6:
@@ -22022,7 +22027,7 @@ LAB_A21090:
 	BEQ.S	LAB_A21070
 	MOVEA.L	A1,A2
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -22036,7 +22041,7 @@ LAB_A21090:
 LAB_A210E4:
 	MOVE.B	(A7)+,currDriveNo
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 SaveFileInit:
 ;filename in A1
@@ -22610,7 +22615,7 @@ CMD_DELETE:
 	TST.W	D1
 	BEQ.W	PrintDiskOpResult
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.B	currDriveNo,-(A7)
 	LEA	stringWorkspace,A1
 	MOVE.L	D1,D0
@@ -22625,7 +22630,7 @@ CMD_DELETE:
 	BSR.S	SUB_A2179E
 	MOVE.W	D0,D1
 LAB_A21780:
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.S	LAB_A21788
 	MOVE.W	D1,D0
 LAB_A21788:
@@ -23025,7 +23030,7 @@ CMD_LM:
 	MOVEA.L	D0,A1
 	MOVEA.L	D0,A2
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -23047,7 +23052,7 @@ CMD_LM:
 LAB_A21BC6:
 	MOVE.B	(A7)+,currDriveNo
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 
 LoadingFromText:
@@ -23422,9 +23427,9 @@ SUB_A22006:
 	SF	LAB_A48333
 	CMPA.L	A0,A1
 	BEQ.S	LAB_A22022
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	EXG	A1,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 LAB_A22022:
 	MOVE.B	(A7)+,LAB_A48333
 	TST.W	D0
@@ -23455,7 +23460,7 @@ LAB_A22044:
 CMD_CD:
 	BSR.W	SUB_A2231A
 	LEA	EXT_70000,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	TST.W	D0
 	BEQ.S	LAB_A2206E
 	LEA	stringWorkspace,A2
@@ -23465,7 +23470,7 @@ LAB_A2206E:
 	BSR.W	SUB_A22160
 LAB_A22072:
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.W	PrintDiskOpResult
 	RTS
 SUB_A22080:
@@ -23620,11 +23625,11 @@ CMD_MAKEDIR:
 	TST.W	D0
 	BEQ.W	LAB_A21070
 	LEA	EXT_70000,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	BSR.S	SUB_A22240
 	MOVE.W	D0,D1
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.S	LAB_A2223A
 	MOVE.W	D1,D0
 LAB_A2223A:
@@ -23954,7 +23959,7 @@ LAB_A2270E:
 	RTS
 LAB_A22746:
 	MOVEA.L	D0,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.L	D1,D0
 	MOVE.L	D1,D4
 	LEA	stringWorkspace,A1
@@ -24005,7 +24010,7 @@ LAB_A22746:
 	MOVE.B	LAB_A480DE,restartFlag
 LAB_A227F0:
 	MOVE.L	D0,-(A7)
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	MOVE.L	(A7)+,D0
 	BSR.W	SUB_A2256E
 	TST.W	D0
@@ -24086,9 +24091,9 @@ SUB_A229E0:
 	MOVE.L	A1,-(A7)
 	JSR	AddFileToDirBlock(PC)
 	BMI.W	LAB_A22AF0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BPL.S	LAB_A229F8
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	BRA.W	LAB_A22AF0
 LAB_A229F8:
 	MOVE.L	AUTO_INT2,-(A7)
@@ -24112,13 +24117,13 @@ LAB_A22A3C:
 	MOVEQ	#-8,D0
 	BRA.S	LAB_A22AA6
 LAB_A22A54:
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	SF	LAB_A48332
 	JSR	SUB_A21A66(PC)
 	TST.W	D0
 	BPL.S	LAB_A22A7A
 	MOVE.L	D0,-(A7)
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.L	(A7)+,D0
 LAB_A22A6E:
 	JSR	PrintDiskOpResult(PC)
@@ -24128,7 +24133,7 @@ LAB_A22A72:
 LAB_A22A7A:
 	JSR	SUB_A2202C(PC)
 	MOVE.L	D0,-(A7)
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BPL.S	LAB_A22A8C
 	LEA	4(A7),A7
 	BRA.S	LAB_A22A6E
@@ -24159,7 +24164,7 @@ LAB_A22AA6:
 	MOVE.B	D0,1(A1,D4.W)
 	MOVE.W	D4,D0
 	ADDQ.W	#2,D0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	JSR	SaveFileInit(PC)
 LAB_A22AF0:
 	MOVEA.L	(A7)+,A1
@@ -24178,7 +24183,7 @@ LAB_A22B04:
 	MOVE.L	D0,D1
 	MOVEA.L	ChipMemEnd,A0
 	SUBA.L	#$00003400,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.L	D1,D0
 	MOVE.W	D0,D4
 	LEA	stringWorkspace,A1
@@ -24294,7 +24299,7 @@ LAB_A22CDC:
 	MOVE.W	#$c000,EXT_DFF09A
 	MOVE.W	#$8100,EXT_DFF096
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 LAB_A22D06:
 	LEA	NoLoad2Text(PC),A0
@@ -24371,9 +24376,9 @@ LAB_A22E78:
 	RTS
 SUB_A22E7E:
 	MOVEM.L	D1/A1,-(A7)
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BPL.S	LAB_A22E90
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	BRA.W	LAB_A22F34
 LAB_A22E90:
 	MOVE.L	AUTO_INT2.W,-(A7)
@@ -24410,11 +24415,11 @@ LAB_A22EFA:
 	MOVE.B	D0,1(A1,D4.W)
 	MOVE.W	D4,D0
 	ADDQ.W	#2,D0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	JSR	LoadFile(PC)
 	BPL.S	LAB_A22F32
 	EXG	D0,D1
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	EXG	D0,D1
 	JSR	PrintDiskOpResult(PC)
 	JSR	PrintCR
@@ -24701,10 +24706,10 @@ LAB_A232F4:
 LAB_A23312:
 	MOVEA.L	ChipMemEnd,A0
 	SUBA.L	#$00003400,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	BSR.S	SUB_A23348
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.W	PrintDiskOpResult
 	RTS
 
@@ -25095,10 +25100,10 @@ LAB_A23744:
 	BRA.W	PrintDiskOpResult
 LAB_A2378C:
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	BSR.S	SUB_A237D2
 	MOVE.W	D0,D1
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BMI.S	LAB_A237A0
 	MOVE.W	D1,D0
 LAB_A237A0:
@@ -26140,7 +26145,7 @@ CMD_SLOADER:
 	MOVE.L	A0,UnpackSourceEnd
 	JSR	UnpackNoFlash(PC)
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.L	#$00000005,D0
 	LEA	ALoadName(PC),A1
 	BSR.W	SaveFileInit
@@ -26159,7 +26164,7 @@ LAB_41A256:
 	BSR.W	SUB_41454E
 	JSR	SUB_A172EC
 	MOVE.W	#$8100,EXT_DFF096
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BMI.W	LAB_41A27E
 	MOVE.L	(A7)+,D0
 	BRA.W	PrintDiskOpResult
@@ -26192,7 +26197,7 @@ SUB_41A28A:
 	BHI.W	LAB_41A2EE
 	LEA	EXT_7C000,A0
 LAB_41A2EE:
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.L	D1,D0
 	LEA	stringWorkspace,A1
 	BSR.W	SaveFileInit
@@ -26212,7 +26217,7 @@ LAB_41A2EE:
 	BSR.W	AddFileToDirBlock
 LAB_41A32E:
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BPL.W	LAB_41A33E
 LAB_41A33A:
 	BSR.W	PrintDiskOpResult
@@ -26398,7 +26403,7 @@ LAB_A24C46:
 	MOVE.L	D3,D1
 LAB_A24CB2:
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	TST.B	LAB_A480CA
 	BNE.S	LAB_A24CD8
 	MOVEA.L	DiskMonBuffer,A1
@@ -26409,7 +26414,7 @@ LAB_A24CB2:
 LAB_A24CD8:
 	BSR.S	ReadTracks
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 ReadTracks:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
@@ -26541,10 +26546,10 @@ LAB_A24EC4:
 	CMPI.W	#$009f,D3
 	BHI.W	LAB_A21070
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	BSR.S	SUB_A24EF0
 	MOVE.L	D0,-(A7)
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	MOVE.L	(A7)+,D0
 	BRA.W	PrintDiskOpResult
 SUB_A24EF0:
@@ -26706,7 +26711,7 @@ LAB_A250E2:
 	BLS.S	LAB_A25132
 LAB_A250F0:
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 LAB_A250F8:
 	MOVE.W	D6,D1
 	MOVEQ	#0,D2
@@ -26719,7 +26724,7 @@ LAB_A250F8:
 	BPL.S	LAB_A25126
 LAB_A2511A:
 	MOVE.L	D0,-(A7)
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	MOVE.L	(A7)+,D0
 	TST.W	D0
 	RTS
@@ -26727,7 +26732,7 @@ LAB_A25126:
 	ADDQ.W	#1,D6
 	CMP.W	D7,D6
 	BLS.S	LAB_A250F8
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 LAB_A25132:
 	TST.B	LAB_A48393
@@ -26759,7 +26764,7 @@ LAB_A25168:
 LAB_A25194:
 	ST	LAB_A48393
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	TST.L	foundSlowMemEnd
 	BNE.S	LAB_A25204
 	CMPI.L	#$00100000,foundChipMemEnd
@@ -26827,7 +26832,7 @@ LAB_A2527A:
 LAB_A25282:
 	LEA	EXT_5000.W,A0
 	MOVE.W	D0,-(A7)
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	MOVE.W	(A7)+,D0
 	MOVE.B	(A7)+,currDriveNo
 	TST.W	D0
@@ -26967,16 +26972,16 @@ LAB_A254FE:
 LAB_A25508:
 	JSR	PrintCR
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	MOVE.B	currDriveNo,-(A7)
 	CLR.B	currDriveNo
 	BSR.W	SUB_A237D2
 	BPL.S	LAB_A25532
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	BRA.S	LAB_A25552
 LAB_A25532:
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	TST.W	D0
 	BMI.S	LAB_A2554E
 	LEA	NormalBBText(PC),A0
@@ -27123,7 +27128,7 @@ LAB_A2576E:
 	BRA.W	PrintDiskOpResult
 LAB_A2579A:
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	MOVEQ	#0,D0
 	JSR	loadSector(PC)
 	BMI.S	LAB_A257C6
@@ -27132,11 +27137,11 @@ LAB_A2579A:
 	EOR.L	D2,(A1)
 	EOR.L	D2,-8(A1)
 	ST	TrackBufferModified
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BRA.W	PrintDiskOpResult
 LAB_A257C6:
 	JSR	PrintDiskOpResult(PC)
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	BMI.W	PrintDiskOpResult
 	RTS
 BBCodeYNText:
@@ -27150,7 +27155,7 @@ CMD_TYPE:
 	TST.W	D0
 	BEQ.W	LAB_A21070
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	LEA	stringWorkspace,A1
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	LoadFile
@@ -27195,7 +27200,7 @@ LAB_A25892:
 LAB_A258A2:
 	MOVE.W	D0,D1
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.W	D1,D0
 	BSR.W	PrintDiskOpResult
 	SF	LAB_A483CA
@@ -27283,7 +27288,7 @@ LAB_A259A6:
 	MOVE.B	currDriveNo,-(A7)
 	MOVE.B	D0,currDriveNo
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	MOVE.W	#$009f,D4
 	MOVEQ	#0,D1
 	SF	cursorEnabled
@@ -27304,7 +27309,7 @@ LAB_A259F2:
 LAB_A259FA:
 	BSR.W	PrintDiskOpResult
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.B	(A7)+,currDriveNo
 	ST	cursorEnabled
 	RTS
@@ -27405,7 +27410,7 @@ LAB_A25B2E:
 	BEQ.W	LAB_A21070
 	MOVEA.L	A1,A2
 	LEA	EXT_5000.W,A0
-	BSR.W	SUB_A1F9DE
+	BSR.W	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -27436,7 +27441,7 @@ LAB_A25BA4:
 	MOVE.W	D1,D0
 LAB_A25BB6:
 	BSR.W	PrintDiskOpResult
-	BSR.W	SUB_A1FA3E
+	BSR.W	restoreMfmBuffer
 	RTS
 SUB_A25BC0:
 	MOVEM.L	D1-D7/A1/A3-A6,-(A7)
@@ -28063,7 +28068,7 @@ CMD_LSTICK:
 	BRA.W	PrintDiskOpResult
 LAB_A2638A:
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	LEA	stringWorkspace,A1
 	MOVE.B	currDriveNo,-(A7)
 	BSR.W	LoadFile
@@ -28087,7 +28092,7 @@ LAB_A263D2:
 LAB_A263DE:
 	MOVE.W	D0,D1
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.W	D1,D0
 	BSR.W	PrintDiskOpResult
 	MOVE.B	(A7)+,currDriveNo
@@ -28110,7 +28115,7 @@ CMD_SSTICK:
 LAB_A2644A:
 	MOVE.L	D0,D2
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	LEA	stringWorkspace,A1
 	MOVE.L	D2,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -28128,7 +28133,7 @@ LAB_A2644A:
 LAB_A26486:
 	MOVE.W	D0,D1
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.W	D1,D0
 	BSR.W	PrintDiskOpResult
 	MOVE.B	(A7)+,currDriveNo
@@ -28300,7 +28305,7 @@ SUB_A266EA:
 	MOVE.L	LAB_A480DE,-(A7)
 	MOVE.B	currDriveNo,-(A7)
 	LEA	EXT_70000,A0
-	JSR	SUB_A1F9DE(PC)
+	JSR	backupMfmBuffer(PC)
 	JSR	SUB_A1DA38
 	LEA	fileDialog(PC),A6
 	EXG	A6,A0
@@ -28395,7 +28400,7 @@ LAB_A26856:
 LAB_A26864:
 	EXG	A6,A0
 	LEA	EXT_70000,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVEQ	#0,D0
 	BRA.W	LAB_A26A08
 LAB_A26876:
@@ -28517,7 +28522,7 @@ LAB_A269F8:
 	EXG	A0,A6
 	MOVE.L	D0,-(A7)
 	LEA	EXT_70000,A0
-	JSR	SUB_A1FA3E(PC)
+	JSR	restoreMfmBuffer(PC)
 	MOVE.L	(A7)+,D0
 LAB_A26A08:
 	MOVE.L	LAB_A48418,currentDirBlock
@@ -30701,14 +30706,14 @@ LAB_A28DAE:
 	MOVE.W	D0,D1
 	MOVE.W	#$0100,EXT_DFF096
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	MOVEQ	#0,D0
 	MOVE.W	D1,D0
 	LEA	stringWorkspace,A1
 	JSR	LoadFile
 	BPL.S	LAB_A28DE4
 LAB_A28DD4:
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 LAB_A28DDA:
 	LEA	LAB_A28D2E(PC),A0
 	MOVEQ	#-1,D0
@@ -30716,7 +30721,7 @@ LAB_A28DDA:
 LAB_A28DE4:
 	CMPI.L	#$00005000,LAB_A4831E
 	BLS.S	LAB_A28E00
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	LEA	LAB_A28CD3(PC),A0
 	MOVEQ	#-1,D0
 	BRA.W	LAB_A28EB0
@@ -30725,7 +30730,7 @@ LAB_A28E00:
 	LEA	EXT_1000,A2
 	JSR	SUB_A21D86
 	BMI.S	LAB_A28DD4
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BMI.S	LAB_A28DDA
 	LEA	EXT_1000,A0
 	CMPI.L	#$000003f3,(A0)
@@ -30889,14 +30894,14 @@ LAB_A29012:
 	SUBI.L	#$00001000,D0
 	MOVE.W	D0,LAB_A48442
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVEQ	#0,D0
 	MOVE.W	LAB_A480D6,D0
 	JSR	SaveFileInit
 	BPL.S	LAB_A29062
 LAB_A29056:
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	LEA	LAB_A28D2E(PC),A0
 	BRA.S	LAB_A2908C
 LAB_A29062:
@@ -30908,7 +30913,7 @@ LAB_A29062:
 	BMI.S	LAB_A29056
 	JSR	AddFileToDirBlock
 	BMI.S	LAB_A29056
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BMI.S	LAB_A29056
 	LEA	LAB_A28D3D(PC),A0
 LAB_A2908C:
@@ -32155,7 +32160,7 @@ CMD_RELABEL:
 	RTS
 LAB_A29EEA:
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	MOVE.L	#$00000370,D0
 	JSR	loadSector
 	BMI.S	LAB_A29F2E
@@ -32170,11 +32175,11 @@ LAB_A29F12:
 	MOVEA.L	A3,A1
 	JSR	calcDataSectorChecksum
 	ST	TrackBufferModified
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BRA.S	LAB_A29F38
 LAB_A29F2E:
 	MOVE.W	D0,D1
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	MOVE.W	D1,D0
 LAB_A29F38:
 	JSR	PrintDiskOpResult
@@ -32193,7 +32198,7 @@ CMD_RENAME:
 	BEQ.W	LAB_A2A0E8
 	MOVEA.L	A0,A6
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVEA.L	A1,A2
 	MOVE.W	D1,D0
@@ -32295,7 +32300,7 @@ LAB_A2A0CA:
 	MOVEQ	#0,D0
 LAB_A2A0DE:
 	MOVE.W	D0,D1
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	MOVE.W	D1,D0
 LAB_A2A0E8:
 	JSR	PrintDiskOpResult
@@ -32370,7 +32375,7 @@ LAB_420C92:
 	TST.W	D1
 	BEQ.W	LAB_420EB2
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -32422,7 +32427,7 @@ LAB_420D9E:
 	MOVE.B	(A7)+,currDriveNo
 	JSR	PrintDiskOpResult
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	JSR	PrintReady
 	SF	LAB_A4839B
 	RTS
@@ -32626,7 +32631,7 @@ prefsFilename:
 LoadPrefs:
 	MOVEM.L	D0-D3/A0-A3,-(A7)
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	prefsFilename(PC),A1
 	JSR	SUB_42101A(PC)
 	JSR	SUB_A266EA(PC)
@@ -32657,7 +32662,7 @@ LAB_4210AA:
 	DBF	D0,LAB_4210AA
 	BRA.S	LAB_42109E
 LAB_4210B2:
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BPL.W	LAB_4210FA
 LAB_4210BC:
 	MOVE.L	D0,-(A7)
@@ -32668,7 +32673,7 @@ LAB_4210C4:
 	BPL.S	LAB_4210C4
 	MOVE.L	(A7)+,D0
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BPL.W	LAB_4210FA
 	MOVE.L	D0,-(A7)
 	MOVE.L	#$00009c40,D0
@@ -32687,7 +32692,7 @@ LAB_4210FA:
 SavePrefs:
 	MOVEM.L	D0-D3/A0-A3,-(A7)
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	prefsFilename(PC),A1
 	JSR	SUB_42101A(PC)
 	JSR	SUB_A266EA(PC)
@@ -32721,7 +32726,7 @@ LAB_421174:
 	BMI.W	LAB_42119A
 	JSR	AddFileToDirBlock
 	BMI.W	LAB_42119A
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BPL.W	LAB_4211D8
 LAB_42119A:
 	MOVE.L	D0,-(A7)
@@ -32732,7 +32737,7 @@ LAB_4211A2:
 	BPL.S	LAB_4211A2
 	MOVE.L	(A7)+,D0
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BPL.W	LAB_4211D8
 	MOVE.L	D0,-(A7)
 	MOVE.L	#$00009c40,D0
@@ -32773,7 +32778,7 @@ CMD_COPY:
 	JSR	AllocTBuff(PC)
 LAB_A2A20C:
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.W	D1,D6
 	MOVE.W	D6,D0
@@ -32853,7 +32858,7 @@ LAB_A2A300:
 LAB_A2A31C:
 	MOVE.W	D0,D1
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	BMI.S	LAB_A2A32C
 	MOVE.W	D1,D0
 LAB_A2A32C:
@@ -36646,7 +36651,7 @@ LAB_A30F62:
 	BEQ.W	LAB_A2DF8A
 	MOVE.L	D0,D3
 	LEA	EXT_5000.W,A0
-	JSR	SUB_A1F9DE
+	JSR	backupMfmBuffer
 	LEA	stringWorkspace,A1
 	MOVE.W	D1,D0
 	MOVE.B	currDriveNo,-(A7)
@@ -36660,7 +36665,7 @@ LAB_A30F62:
 LAB_A30FDE:
 	MOVE.B	(A7)+,currDriveNo
 	JSR	PrintDiskOpResult
-	JSR	SUB_A1FA3E
+	JSR	restoreMfmBuffer
 	RTS
 LAB_A30FF2:
 	JMP	PrintDiskOpResult
@@ -38299,39 +38304,12 @@ checksum:
   ds.b SECSTRT_0+$40000-*
   endc
 arramstart:
-
-cpuAddrSize:
-  DS.W  1
-vbrflag
-  DS.W  1
-
-VgaModeFlag:
-	DS.W	1
-LAB_A35698:
-	DS.W	1
-LAB_A3569A:
-	DS.L	1
-SAVE_CACR:
-	DS.L	1
-SaveEntryRegs:
-	DS.L	$10
-SAVE_CIABPRB:
-	DS.L	1
-	DS.W	1
-	DS.B	1
-SAVE_CIAAICR:
-	DS.B	1
-memWatchSlotsUsed1:
-	DS.L	1
-memWatchSlotsUsed2:
-	DS.W	1
-deepMemWatch:
-	DS.W	1
+;all of this is used to store chipmem data
+;dont move any of it
 ChipramSave1:
 	DS.L	$1F40
 ChipRamSave2:
 	DS.L	$10C0
-
 LAB_A43CF6:
 mt_sin:
 	DS.L	8
@@ -38362,7 +38340,11 @@ mt_chan4:
 LAB_A43E52:
   DS.L $129
 LAB_A442F6:
-	DS.L $320
+	DS.L $4c0
+;chipmem storage area end
+;safety check
+  ds.b arramstart+$D900-*
+
 DiskBitmap:
 	DS.L	$1B
 LAB_A44FE2:
@@ -38381,8 +38363,138 @@ LAB_A45352:
 	DS.L	$40
 LAB_A45452:
 	DS.L	$2F
-;LAB_A4550E:
-;	DS.L	$212
+
+currCopper:
+	DS.L	1
+robdmode:
+	DS.B	1
+decryptins:
+	DS.B	1
+startupFail:
+  DS.B  1
+updateBeamcon:
+  DS.B  1
+LAB_A489FC:
+	DS.W	1
+LAB_A489FE:
+	DS.L	1
+LAB_A48A02:
+	DS.L	1
+LAB_A48A06:
+	DS.W	1
+LAB_A48A08:
+	DS.L	1
+LAB_A48A0C:
+	DS.L	$23
+
+cpuAddrSize:
+  DS.W  1
+vbrflag
+  DS.W  1
+
+VgaModeFlag:
+	DS.W	1
+LAB_A35698:
+	DS.W	1
+LAB_A3569A:
+	DS.L	1
+SAVE_CACR:
+	DS.L	1
+SaveEntryRegs:
+	DS.L	$10
+SAVE_CIABPRB:
+	DS.L	1
+	DS.W	1
+	DS.B	1
+SAVE_CIAAICR:
+	DS.B	1
+memWatchSlotsUsed1:
+	DS.L	1
+memWatchSlotsUsed2:
+	DS.W	1
+deepMemWatch:
+	DS.W	1
+
+LAB_A4846A:
+	DS.L	1
+LAB_A4846E:
+	DS.L	1
+TraceStepCount:
+	DS.L	1
+LastCmdBuff:
+	DS.L	$14
+LAB_A484C6:
+	DS.L	1
+LAB_A484CA:
+	DS.L	1
+CursorStore:
+	DS.L	1
+LAB_A484D2:
+	DS.L	1
+LAB_A484D6:
+	DS.L	1
+BurstNibblerFastStartPrefsFlag:
+	DS.B	1
+kickstartVersion:
+	DS.B	1
+FastFileSystemFlag1:
+	DS.B	1
+FastFileSystemFlag2:
+	DS.B	1
+ignoreExceptions:
+	DS.W	1
+CopyFmode:
+	DS.W	1
+CopyDiwHigh:
+	DS.W	1
+LAB_A489EA:
+	DS.W	1
+copperPos:
+	DS.L	1
+bitplaneCount:
+  DS.W  1
+lisaIdValue:
+  DS.W  1
+diskOpResult2:
+  DS.W  1
+debuggerMode:
+  DS.B  1
+debuggerFocus:
+  DS.B  1
+dbgMemBase:
+  DS.L  1
+dbgDisasmBase:
+  DS.L  1
+dbgSecondLineAddr:
+  DS.L  1  
+repeatCount
+  DS.W  1
+LAB_A489F0:
+	DS.W	1
+
+LAB_A4843E:
+	DS.L	1
+LAB_A48442:
+	DS.L	1
+LAB_A48446:
+	DS.L	1
+LAB_A4844A:
+  DS.L  1
+saveOldDoIo:
+	DS.L	1
+LAB_A48452:
+	DS.L	1
+LAB_A48456:
+	DS.L	1
+autoConfigMemStart:
+	DS.L	1
+autoConfigMemEnd:
+	DS.L	1
+foundAutoConfigMemStart:
+	DS.L	1
+foundAutoConfigMemEnd:
+	DS.L	1
+
 TextPage1:
 	DS.L	$1F4
 TextPage2:
@@ -38832,8 +38944,8 @@ LAB_A481DF:
 	DS.B	1
 LAB_A481E1:
 	DS.B	1
-SYSOP_MODE:
-	DS.W	1
+;SYSOP_MODE:
+;	DS.W	1
 cursorEnabled:
 	DS.B	1
 LAB_A481E5:
@@ -39144,8 +39256,8 @@ LAB_A4839B:
 	DS.B	1
 BootblockCoderValue:
 	DS.L	1
-SysopCounter:
-	DC.W	$0006
+;SysopCounter:
+;	DC.W	$0006
 LAB_A483A2:
 	DS.L	1
 LAB_A483A6:
@@ -39237,116 +39349,21 @@ LAB_A48438:
 	DS.L	1
 BlankerCount:
 	DS.W	1
-LAB_A4843E:
-	DS.L	1
-LAB_A48442:
-	DS.L	1
-LAB_A48446:
-	DS.L	1
-LAB_A4844A:
-  DS.L  1
-saveOldDoIo:
-	DS.L	1
-LAB_A48452:
-	DS.L	1
-LAB_A48456:
-	DS.L	1
-autoConfigMemStart:
-	DS.L	1
-autoConfigMemEnd:
-	DS.L	1
-foundAutoConfigMemStart:
-	DS.L	1
-foundAutoConfigMemEnd:
-	DS.L	1
-LAB_A4846A:
-	DS.L	1
-LAB_A4846E:
-	DS.L	1
-TraceStepCount:
-	DS.L	1
-LastCmdBuff:
-	DS.L	$14
-LAB_A484C6:
-	DS.L	1
-LAB_A484CA:
-	DS.L	1
-CursorStore:
-	DS.L	1
-LAB_A484D2:
-	DS.L	1
-LAB_A484D6:
-	DS.L	1
-BurstNibblerFastStartPrefsFlag:
-	DS.B	1
-kickstartVersion:
-	DS.B	1
-FastFileSystemFlag1:
-	DS.B	1
-FastFileSystemFlag2:
-	DS.B	1
-StackStart:
-	DS.L	$140
-StackEnd:
-	DS.L	1
-ignoreExceptions:
-	DS.W	1
-CopyFmode:
-	DS.W	1
-CopyDiwHigh:
-	DS.W	1
-LAB_A489EA:
-	DS.W	1
-copperPos:
-	DS.L	1
-bitplaneCount:
-  DS.W  1
-lisaIdValue:
-  DS.W  1
-diskOpResult2:
-  DS.W  1
-debuggerMode:
-  DS.B  1
-debuggerFocus:
-  DS.B  1
-dbgMemBase:
-  DS.L  1
-dbgDisasmBase:
-  DS.L  1
-dbgSecondLineAddr:
-  DS.L  1  
-repeatCount
-  DS.W  1
-LAB_A489F0:
-	DS.W	1
+
 ;LAB_A489F2:
 ;	DS.L	1
-currCopper:
-	DS.L	1
-robdmode:
-	DS.B	1
-decryptins:
-	DS.B	1
-startupFail:
-  DS.B  1
-updateBeamcon:
-  DS.B  1
-LAB_A489FC:
-	DS.W	1
-LAB_A489FE:
-	DS.L	1
-LAB_A48A02:
-	DS.L	1
-LAB_A48A06:
-	DS.W	1
-LAB_A48A08:
-	DS.L	1
-LAB_A48A0C:
-	DS.L	$23
+
 LAB_A4550E:
-	DS.L	$212
+	DS.L	$14e;$212
+
+StackStart:
+	DS.L	$b8
+  ;safety check
+StackEnd:
+	DS.L	1
 LAB_A54A97:
 	DS.B	1
+  ds.b arramstart+$10000-*
 dataend:
 
 	END
