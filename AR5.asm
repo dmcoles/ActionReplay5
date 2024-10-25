@@ -20439,7 +20439,7 @@ backupMfmBuffer:
 	LEA	ChipRamSave2,A1
 LAB_A1F9F2:
 	MOVE.L	(A0)+,D1
-	MOVEP.L	D1,(A1)
+  MOVEP.L	D1,(A1)
 	ADDQ.W	#8,A1
 	DBF	D0,LAB_A1F9F2
 	MOVE.W	#$063f,D0
@@ -20744,12 +20744,14 @@ LAB_A1FDD6:
 	CLR.L	(A2)
 	LEA	$440(A2),A2
 	DBF	D0,LAB_A1FDD6
+  CLR.W $3540-2(a1)
+  
 	MOVE.L	A1,$20(A5)
 	MOVE.W	#$0002,$9C(A5)
-	MOVE.W	#$9761,$24(A5)
-	MOVE.W	#$9761,$24(A5)
-  ;MOVE.W	#$9AA0,$24(A5)
-	;MOVE.W	#$9AA0,$24(A5)
+	;MOVE.W	#$9761,$24(A5)
+	;MOVE.W	#$9761,$24(A5)
+  MOVE.W	#$9AA0,$24(A5)
+	MOVE.W	#$9AA0,$24(A5)
   MOVE.L	#$0000A000,D2
   MOVE.B	#$00,EXT_BFE801
 LAB_A1FDFC:
@@ -20784,15 +20786,15 @@ LAB_A1FE28:
 	BRA.S	LAB_A1FDFC
 LAB_A1FE38:
 
-;  TST.W $3540-2(a1)   ;whole track already read (winuae turbo mode)
-;  BEQ.S .1
-;.2
-;  BTST	#1,$1F(A5)
-;	BNE.S .2
-;	MOVE.W	#$0002,$9C(A5)
-;
-;  BRA.S LAB_A1FE94
-;.1
+  TST.W $3540-2(a1)   ;whole track already read (winuae turbo mode)
+  BEQ.S .1
+.2
+  BTST	#1,$1F(A5)
+	BNE.S .2
+	MOVE.W	#$0002,$9C(A5)
+
+  BRA.S LAB_A1FE94
+.1
 	MOVE.W	#$4000,$24(A5)
 	MOVE.L	#$aaaaaaaa,-6(A2)
 	MOVE.W	#$4489,-2(A2)
@@ -20935,20 +20937,20 @@ LAB_A1FF90:
 LAB_A1FFA4:
 	MOVEA.L	A1,A3
 	MOVEQ	#0,D2
-;.3:
-;  CMP.W #$4489,4(a0)
-;  BNE.S .1
-;  CMP.W #$4489,6(a0)
-;  BNE.S .1
-;  BRA.S .2
-;.1:
-;  LEA 2(A0),a0
-;  ADDQ.L #2,D2
-;  CMP.W #$680,D2
-;  BNE.S .3
-;  MOVEQ #-2,D0
-;  BRA.S LAB_A1FFDA
-;.2
+.3:
+  CMP.W #$4489,4(a0)
+  BNE.S .1
+  CMP.W #$4489,6(a0)
+  BNE.S .1
+  BRA.S .2
+.1:
+  LEA 2(A0),a0
+  ADDQ.L #2,D2
+  CMP.W #$680,D2
+  BNE.S .3
+  MOVEQ #-2,D0
+  BRA.S LAB_A1FFDA
+.2
 	BSR.W	decodeAdosSectorMfm
 	BMI.S	LAB_A1FFDA
 	LEA	$440(A0),A0
