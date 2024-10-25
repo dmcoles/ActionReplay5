@@ -53,6 +53,10 @@ EXT_120		EQU	$120
 EXT_124		EQU	$124
 EXT_130		EQU	$130
 EXT_13E		EQU	$13E
+EXT_150		EQU	$150
+EXT_152		EQU	$152
+EXT_154		EQU	$154
+EXT_156		EQU	$156
 EXT_15A		EQU	$15A
 EXT_180		EQU	$180
 EXT_184		EQU	$184
@@ -65,7 +69,6 @@ EXT_204		EQU	$204
 EXT_208		EQU	$208
 EXT_20C		EQU	$20C
 EXT_210		EQU	$210
-EXT_300		EQU	$300
 EXT_400		EQU	$400
 EXT_41E		EQU	$41E
 EXT_1000	EQU	$1000
@@ -338,7 +341,7 @@ LAB_A1001C:
 NMI_Entry2:
 	CMPI.L	#SECSTRT_0,6(A7)
 	BLT.S	LAB_A10212
-	CMPI.L	#LAB_A54A97+1,6(A7)
+	CMPI.L	#dataend,6(A7)
 	BLT.W	LAB_A10240
 LAB_A10212:
 	TST.B	RomAvoidFlag
@@ -360,7 +363,7 @@ ExceptionEntry:
 ExceptionEntry2:
 	CMPI.L	#SECSTRT_0,6(A7)
 	BLT.S	LAB_A103BE
-	CMPI.L	#LAB_A54A97+1,6(A7)
+	CMPI.L	#dataend,6(A7)
 	BLT.S	LAB_A10400
 LAB_A103BE:
 	TST.B	RomAvoidFlag
@@ -1204,7 +1207,7 @@ LAB_A113C0:
 	MOVEM.L	(A7)+,D0-D1/A0-A1
 	RTS
 InstallVblank:
-	SF	LAB_A4821E
+	SF	viewingPrefs
 	ST	cursorEnabled
 	LEA	EXT_DFF000,A5
 	LEA	RegSnoop,A6
@@ -1213,10 +1216,15 @@ InstallVblank:
 	MOVE.W	#$0f9f,D0
 LAB_A11406:
 	MOVE.L	(A0),D1
+  if arhardware=1
 	MOVEP.L	0(A1),D2
 	MOVEP.L	D1,0(A1)
-	MOVE.L	D2,(A0)+
 	ADDQ.W	#8,A1
+  else
+	MOVE.L	(A1),D2
+	MOVE.L	D1,(A1)+
+  endc
+	MOVE.L	D2,(A0)+
 	DBF	D0,LAB_A11406
 	MOVE.L	$80(A6),SaveCop1Lch
 	MOVE.L	$E0(A6),SaveBpl1Pth
@@ -1276,11 +1284,16 @@ RestoreDisplay1:
 	LEA	ChipramSave1,A1
 	MOVE.W	#$0f9f,D0
 LAB_A119F6:
+  if arhardware=1
 	MOVE.L	(A0),D1
 	MOVEP.L	0(A1),D2
 	MOVEP.L	D1,0(A1)
-	MOVE.L	D2,(A0)+
 	ADDQ.W	#8,A1
+  else
+	MOVE.L	(A1),D2
+	MOVE.L	D1,(A1)+
+  endc
+	MOVE.L	D2,(A0)+
 	DBF	D0,LAB_A119F6
   if rsnoop=1
 	MOVE.L	SaveCop1Lch,cop1lch(A5)
@@ -1499,7 +1512,7 @@ LAB_A11652:
 	MOVE.L	#EXT_1000,bpl1pth(A5)
 	MOVE.L	#EXT_200,spr0pth(A5)
 
-	TST.B	LAB_A4821E
+	TST.B	viewingPrefs
 	BEQ.W	LAB_A116E0
  	MOVE.W	#$0024,$104(A5)
 
@@ -1529,13 +1542,14 @@ LAB_A11652:
 	OR.W	D0,D1
 	MOVE.L	D1,$204.W
 	CLR.L	EXT_200.W
-	MOVE.L	#$200,spr1pth(A5)
-	MOVE.L	#$200,spr2pth(A5)
-	MOVE.L	#$200,spr3pth(A5)
-	MOVE.L	#$200,spr4pth(A5)
-	MOVE.L	#$200,spr5pth(A5)
-	MOVE.L	#$200,spr6pth(A5)
-	MOVE.L	#$200,spr7pth(A5)
+  MOVE.L #EXT_200,D0
+	MOVE.L	D0,spr1pth(A5)
+	MOVE.L	D0,spr2pth(A5)
+	MOVE.L	D0,spr3pth(A5)
+	MOVE.L	D0,spr4pth(A5)
+	MOVE.L	D0,spr5pth(A5)
+	MOVE.L	D0,spr6pth(A5)
+	MOVE.L	D0,spr7pth(A5)
 	MOVE.L	#$204,spr0pth(A5)
 	BRA.S	LAB_A1170A
 LAB_A116E0:
@@ -1837,7 +1851,7 @@ keymapUpperUK:
 	DS.L	2
 SUB_A11CF6:
 	MOVEM.L	D0/A0,-(A7)
-	TST.B	LAB_A4821E
+	TST.B	viewingPrefs
 	BNE.S	LAB_A11D2C
 	MOVEQ	#$50,D0
 	MULU	cursorY,D0
@@ -4752,8 +4766,12 @@ memSafeReadByte:
 	CMPA.L	#EXT_1000,A0
 	BCS.W	LAB_A145E2
 	MOVE.L	A0,-(A7)
+  if arhardware=1
   ADD.L A0,A0 
 	ADDA.L	#ChipramSave1-$2000,A0
+  else
+	ADDA.L	#ChipramSave1-$1000,A0
+  endc
 LAB_A14564:
 	MOVEQ	#0,D0
 	MOVE.B	(A0),D0
@@ -4815,8 +4833,12 @@ memSafeUpdateByte:
 	BCS.S	LAB_A1465C
 	CMPA.L	#EXT_4E80,A0
 	BCC.S	LAB_A1462E
+  if arhardware=1
   ADD.L A0,A0
 	ADDA.L	#ChipramSave1-$2000,A0
+  else
+	ADDA.L	#ChipramSave1-$1000,A0
+  endc
 LAB_A1462E:
 	TST.B	LAB_A489FC
 	BEQ.S	LAB_A14654
@@ -7982,8 +8004,12 @@ LAB_A1753E:
 	CMPA.L	#EXT_1000,A0
 	BCS.S	LAB_A17560
 	MOVE.L	A0,-(A7)
+  if arhardware=1
   ADD.L A0,A0
 	ADDA.L	#ChipramSave1-$2000,A0
+  else
+	ADDA.L	#ChipramSave1-$1000,A0
+  endc
 LAB_A1755A:
 	MOVE.B	(A0),D0
 	MOVEA.L	(A7)+,A0
@@ -8920,6 +8946,7 @@ LAB_A17DC8:
 
 ArEntry1:
 	CLR.L	AronFlag
+  MOVE.L EXT_200.W,Save200
 	MOVEM.L	D0-D7/A0-A6,SaveEntryRegs
 	MOVE.L	D0,-(A7)
 	MOVE.L	EXT_F80004,D0
@@ -8959,6 +8986,7 @@ LAB_A17C96:
 	BSR.W	calcArChecksum
 LAB_A17DDE:
 	MOVEM.L	SaveEntryRegs,D0-D7/A0-A6
+  MOVE.L Save200,EXT_200.W
 	JMP	AREntry2
 
 SUB_A17DF4:
@@ -9300,12 +9328,12 @@ LAB_A182C4:
 	MOVE.L	D0,trainerContinueAddress
 	ST	LAB_A481DC
 	MOVE.W	#$0817,D0
-	LEA	LAB_A43CF6,A1
+	LEA	mt_sin,A1
 LAB_A182DE:
 	CLR.L	(A1)+
 	DBF	D0,LAB_A182DE
 	ST	trainerModeActive
-	MOVE.L	#LAB_A43CF6,trainerWorkspacePtr
+	MOVE.L	#mt_sin,trainerWorkspacePtr
 	LEA	FirstTrainpassText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	trainerContinueAddress,D0
@@ -9394,7 +9422,7 @@ LAB_A18410:
 	MOVE.L	trainerContinueAddress,D0
 	BSR.W	PrintAddressHex
 	BSR.W	SUB_A173DC
-	CMPI.L	#LAB_A43CF6,trainerWorkspacePtr
+	CMPI.L	#mt_sin,trainerWorkspacePtr
 	BNE.S	LAB_A18442
 LAB_A1843A:
 	LEA	TrainerFailText(PC),A0
@@ -9412,7 +9440,7 @@ LAB_A18454:
 	BRA.W	LAB_A18348
 LAB_A1845A:
 	SF	D4
-	LEA	LAB_A43CF6,A1
+	LEA	mt_sin,A1
 	MOVEA.L	trainerWorkspacePtr,A2
 LAB_A18468:
 	CMPA.L	A1,A2
@@ -9424,7 +9452,7 @@ LAB_A18468:
 	CLR.L	-4(A1)
 	BRA.S	LAB_A18468
 LAB_A18480:
-	LEA	LAB_A43CF6,A1
+	LEA	mt_sin,A1
 	MOVEA.L	A1,A2
 LAB_A18488:
 	MOVEA.L	A2,A0
@@ -9440,7 +9468,7 @@ LAB_A1849E:
 	BRA.S	LAB_A18488
 LAB_A184A2:
 	MOVE.L	A1,trainerWorkspacePtr
-	LEA	LAB_A43CF6,A1
+	LEA	mt_sin,A1
 LAB_A184AE:
 	CMPA.L	trainerWorkspacePtr,A1
 	BEQ.S	LAB_A184DA
@@ -11571,8 +11599,8 @@ LAB_A1A2A6:
 SUB_A1A2B0:
 	MOVEM.L	D0/A0-A2,-(A7)
 	LEA	EXT_100.W,A0
-	LEA	EXT_300.W,A1
-	LEA	LAB_A43CF6,A2
+	LEA	EXT_200.W,A1
+	LEA	mt_sin,A2
 	MOVE.L	(A0)+,(A2)+
 	MOVE.L	(A1)+,(A2)+
 	MOVEQ	#7,D0
@@ -11614,8 +11642,8 @@ LAB_A1A2C8:
 SUB_A1A32A:
 	MOVEM.L	D0/A0-A2,-(A7)
 	LEA	EXT_100.W,A0
-	LEA	EXT_300.W,A1
-	LEA	LAB_A43CF6,A2
+	LEA	EXT_200.W,A1
+	LEA	mt_sin,A2
 	MOVEQ	#$10,D0
 LAB_A1A33E:
 	MOVE.L	(A2)+,(A0)+
@@ -11636,7 +11664,7 @@ SUB_A1A35C:
 	MOVE.W	LAB_A480D6,D4
 	MOVE.W	LAB_A480DA,D3
 	BSR.S	SUB_A1A398
-	MOVEM.W	D0-D1,EXT_300.W
+	MOVEM.W	D0-D1,EXT_200.W
 	MOVE.W	#$8020,EXT_DFF096
 	MOVEM.L	(A7)+,D0-D1/D3-D4
 	RTS
@@ -11671,9 +11699,14 @@ SwapChipRam1:
 	LEA	ChipramSave1,A0
 	LEA	EXT_1000,A1
 LAB_A1A3E8:
+  if arhardware=1
 	MOVE.B	(A0),D1
 	MOVE.B	(A1),(A0)
 	ADDQ.W	#2,A0
+  else
+	MOVE.B	(A0),D1
+	MOVE.B	(A1),(A0)+
+  endc
 	MOVE.B	D1,(A1)+
 	DBF	D0,LAB_A1A3E8
 	MOVEM.L	(A7)+,D0-D1/A0-A1
@@ -16376,7 +16409,7 @@ LAB_A1DA60:
 	CLR.L	(A0)+
 	MOVE.W	#$02a8,currMouseX
 	MOVE.W	#$00ec,currMouseY
-	ST	LAB_A4821E
+	ST	viewingPrefs
 	SF	cursorEnabled
 	MOVE.W	#$8020,EXT_DFF096
 	MOVEM.L	(A7)+,D0/A0-A1
@@ -16384,7 +16417,7 @@ LAB_A1DA60:
 SUB_A1DB1E:
 	MOVEM.L	D0/A0-A1,-(A7)
 	MOVE.W	#$0020,EXT_DFF096
-	SF	LAB_A4821E
+	SF	viewingPrefs
 	LEA	CopyCop1lc,A0
 	LEA	EXT_200.W,A1
 	MOVEQ	#$12,D0
@@ -18903,15 +18936,15 @@ LAB_4130A2:
 	DC.B	$D,$D,$D,$D,$D,$D,$D,"note        sampledata                          volume"
 	DC.B	"data",$D,$D,$D,"voice1:",$D,$D,"voice2:",$D,$D,"voice3:",$D,$D,"voice4:",$D,$D,0,0
 
-UNK_005:
-	MOVEM.L	D0/A0,-(A7)
-	MOVEQ	#$4F,D0
-	LEA	LAB_A43E52,A0
-LAB_413192:
-	CLR.W	(A0)+
-	DBF	D0,LAB_413192
-	MOVEM.L	(A7)+,D0/A0
-	RTS
+;UNK_005:
+;	MOVEM.L	D0/A0,-(A7)
+;	MOVEQ	#$4F,D0
+;	LEA	LAB_A43E52,A0
+;LAB_413192:
+;	CLR.W	(A0)+
+;	DBF	D0,LAB_413192
+;	MOVEM.L	(A7)+,D0/A0
+;	RTS
 TrackerShowSongData:
 	SF	cursorEnabled
 	JSR	Cls
@@ -20439,8 +20472,12 @@ backupMfmBuffer:
 	LEA	ChipRamSave2,A1
 LAB_A1F9F2:
 	MOVE.L	(A0)+,D1
+  if arhardware=1
   MOVEP.L	D1,(A1)
 	ADDQ.W	#8,A1
+  else
+  MOVE.L	D1,(A1)+
+  endc
 	DBF	D0,LAB_A1F9F2
 	MOVE.W	#$063f,D0
 LAB_A1FA00:
@@ -20468,8 +20505,12 @@ LAB_A1FA58:
 	MOVE.W	#$085f,D2
 	LEA	ChipRamSave2,A1
 LAB_A1FA62:
+  if arhardware=1
 	MOVEP.L	0(A1),D1
 	ADDQ.L	#8,A1
+  else
+	MOVE.L	(A1)+,D1
+  endc
 	MOVE.L	D1,(A0)+
 	DBF	D2,LAB_A1FA62
 	MOVE.W	#$063f,D2
@@ -33850,7 +33891,7 @@ LAB_A2DD0E:
 ActivateTrace:
 	TST.L	TraceStepCount
 	BEQ.W	LAB_A2DDAE
-	MOVE.L	TRACE.W,StackEnd
+	MOVE.L	TRACE.W,OldTrace
   if pistorm=1
   ;enable trace
   dc.w $4e7a,$01e0  ;movec #$1e0,d0
@@ -33859,16 +33900,16 @@ ActivateTrace:
   endc
 
   if arhardware=1
-  move.l #$4a3900bf,$150.W
-  move.l #$e00160f8,$154.W
+  move.l #$4a3900bf,EXT_150.W
+  move.l #$e00160f8,EXT_154.W
   endc
 
   if arhardware=0
-  MOVE.W #$4eb9,$150.W
-  MOVE.L #DoArTrace,$152.W
-  MOVE.W #$4e73,$156.W
+  MOVE.W #$4eb9,EXT_150.W
+  MOVE.L #DoArTrace,EXT_152.W
+  MOVE.W #$4e73,EXT_156.W
   endc
-	MOVE.L	#$00000150,TRACE.W
+	MOVE.L	#EXT_150,TRACE.W
 	BSET	#7,SaveOldSr
 	ST	TraceActive
 	SF	LAB_A483DE
@@ -33927,7 +33968,7 @@ SUB_A2DDB0:
 	JSR	SUB_A12F08
 	JSR	PrintCR
 	SF	TraceActive
-	MOVE.L	StackEnd,TRACE.W
+	MOVE.L	OldTrace,TRACE.W
 	CLR.L	TraceStepCount
 	RTS
 LAB_A2DDFC:
@@ -38308,11 +38349,23 @@ checksum:
 arramstart:
 ;all of this is used to store chipmem data
 ;dont move any of it
+
+  ;first 48k of space in AR hardware is actually
+  ;only 8 bit so we have to use MOVEP and allow twice
+  ;as much space
+
 ChipramSave1:
+  if arhardware=1
 	DS.L	$1F40
+  else
+	DS.W	$1F40
+  endc
 ChipRamSave2:
+  if arhardware=1
 	DS.L	$10C0
-LAB_A43CF6:
+  else
+	DS.W	$10C0
+  endc
 mt_sin:
 	DS.L	8
 mt_periods:
@@ -38386,8 +38439,35 @@ LAB_A48A06:
 	DS.W	1
 LAB_A48A08:
 	DS.L	1
-LAB_A48A0C:
-	DS.L	$23
+;LAB_A48A0C:
+;	DS.L	$23
+mfmSectorAddresses:
+	DS.L	$B
+	DS.W	1
+DiskCoderFlags:
+DiskCoderDf0Flag:
+	DS.B	1
+DiskCoderDf1Flag:
+	DS.B	1
+DiskCoderDf2Flag:
+	DS.B	1
+DiskCoderDf3Flag:
+	DS.B	1
+DiskCoderValues:
+DiskCoderDf0Value:
+	DS.L	1
+DiskCoderDf1Value:
+	DS.L	1
+DiskCoderDf2Value:
+	DS.L	1
+DiskCoderDf3Value:
+	DS.L	1
+LAB_A483E0:
+	DS.L	$D
+	DS.W	1
+
+MemWatchAddrs:
+	DS.L	5
 
 cpuAddrSize:
   DS.W  1
@@ -38656,7 +38736,7 @@ cursorY:
 cursorYLo:
 	DS.B	1
 PageHeight:
-	DC.W	$0018
+	DS.W 1
 KeyCode:
 	DS.B	1
 LAB_A47F35:
@@ -38721,7 +38801,8 @@ LAB_A47FBE:
 LAB_A47FC0:
 	DS.L	1
 LAB_A47FC4:
-	DS.L	2
+	DS.L	1
+  ;DS.L	1
 LAB_A47FCC:
 	DS.W	1
 LAB_A47FCE:
@@ -38731,14 +38812,16 @@ LAB_A47FD0:
 LAB_A47FD2:
 	DS.L	1
 LAB_A47FD6:
-	DS.L	2
+	DS.L	1
+  ;DS.L	1
 LAB_A47FDE:
-	DS.L	8
 	DS.W	1
+	;DS.L	8
 DefaultAddress:
 	DS.L	1
 SAVE_VPOS:
-	DS.L	2
+	DS.L	1
+  ;DS.L	1
 tempD0:
 	DS.L	1
 tempD1:
@@ -38822,11 +38905,13 @@ LAB_A48076:
 LAB_A4807A:
 	DS.L	1
 LAB_A4807E:
-	DS.L	$B
+  DS.B  1
+	;DS.L	$B
 LAB_A480AA:
 	DS.B	1
 LAB_A480AB:
 	DS.B	1
+  even
 LAB_A480AC:
 	DS.W	1
 bpl1Work:
@@ -38867,7 +38952,7 @@ LAB_A480D6:
 	DS.B	1
 LAB_A480D7:
 	DS.B	1
-	DS.W	1
+	;DS.W	1
 LAB_A480DA:
 	DS.L	1
 LAB_A480DE:
@@ -38881,7 +38966,7 @@ BreakpointTrapNo:
 	DS.W	1
 LAB_A48104:
 	DS.L	1
-	DS.W	1
+	;DS.W	1
 SaveDskSync:
 	DS.W	1
 saveCIAA:
@@ -38917,37 +39002,42 @@ RemarksData:
 	DS.L	$1E
 SaveCopJmp:
 	DS.W	1
+;dont split
 LAB_A481C0:
 	DS.W	1
 LAB_A481C2:
 	DS.W	1
+;end
+;dont split
 LAB_A481C4:
 	DS.W	1
 LAB_A481C6:
 	DS.W	1
+;end
 LAB_A481C8:
 	DS.W	1
+;dont split
 LAB_A481CA:
 	DS.W	1
 LAB_A481CC:
 	DS.L	1
-	DS.W	1
+;end
+	;DS.W	1
 LAB_A481D2:
 	DS.L	1
 LAB_A481D6:
-	DS.L	1
 	DS.W	1
+	;DS.L	1
 LAB_A481DC:
 	DS.W	1
 LAB_A481DE:
 	DS.B	1
 LAB_A481DF:
 	DS.B	1
-	DS.B	1
+  ;unused
+	;DS.B	1
 LAB_A481E1:
 	DS.B	1
-;SYSOP_MODE:
-;	DS.W	1
 cursorEnabled:
 	DS.B	1
 LAB_A481E5:
@@ -39004,7 +39094,7 @@ currMouseX:
 	DS.W	1
 currMouseY:
 	DS.W	1
-LAB_A4821E:
+viewingPrefs:
 	DS.W	1
 P1AutoFirePrefsSetting:
 	DS.B	1
@@ -39075,27 +39165,6 @@ LAB_A4824E:
 LAB_A48250:
 	DS.L	1
 LAB_A48254:
-	DS.L	1
-mfmSectorAddresses:
-	DS.L	$B
-	DS.W	1
-DiskCoderFlags:
-DiskCoderDf0Flag:
-	DS.B	1
-DiskCoderDf1Flag:
-	DS.B	1
-DiskCoderDf2Flag:
-	DS.B	1
-DiskCoderDf3Flag:
-	DS.B	1
-DiskCoderValues:
-DiskCoderDf0Value:
-	DS.L	1
-DiskCoderDf1Value:
-	DS.L	1
-DiskCoderDf2Value:
-	DS.L	1
-DiskCoderDf3Value:
 	DS.L	1
 LAB_A4829A:
 	DS.L	1
@@ -39258,8 +39327,6 @@ LAB_A4839B:
 	DS.B	1
 BootblockCoderValue:
 	DS.L	1
-;SysopCounter:
-;	DC.W	$0006
 LAB_A483A2:
 	DS.L	1
 LAB_A483A6:
@@ -39332,9 +39399,6 @@ TraceSkipSubs:
 	DS.B	1
 LAB_A483DE:
 	DS.W	1
-LAB_A483E0:
-	DS.L	$D
-	DS.W	1
 LAB_A48416:
 	DS.W	1
 LAB_A48418:
@@ -39345,27 +39409,23 @@ LAB_A4841E:
 	DS.W	1
 LAB_A48420:
 	DS.L	1
-MemWatchAddrs:
-	DS.L	5
 LAB_A48438:
 	DS.L	1
 BlankerCount:
 	DS.W	1
-
-;LAB_A489F2:
-;	DS.L	1
+OldTrace:
+	DS.L	1
+Save200:
+  DS.L  1
 
 LAB_A4550E:
 	DS.L	$14e;$212
 
 StackStart:
-	DS.L	$b8
+	DS.L	$e0
   ;safety check
-StackEnd:
-	DS.L	1
-LAB_A54A97:
-	DS.B	1
   ds.b arramstart+$10000-*
+StackEnd:
 dataend:
 
 	END
