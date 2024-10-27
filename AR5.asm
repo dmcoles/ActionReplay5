@@ -7075,7 +7075,7 @@ LAB_A169AC:
 	BCS.S	LAB_A169D6
 	CMPI.W	#$01be,D2
 	BHI.S	LAB_A169D6
-	TST.W	LAB_A489EA
+	TST.W	CopyBplCon3
 	BNE.S	LAB_A169D6
 	MOVE.W	D2,D3
 	SUBI.W	#$0180,D3
@@ -7130,7 +7130,7 @@ LAB_A16A5A:
 	BNE.S	LAB_A16A6C
 	SWAP	D2
 	ANDI.W	#$f300,D0
-	MOVE.W	D2,LAB_A489EA
+	MOVE.W	D2,CopyBplCon3
 LAB_A16A6C:
 	BRA.W	LAB_A1688E
 LAB_A16A70:
@@ -20479,7 +20479,7 @@ LAB_A1F9F2:
   MOVE.L	D1,(A1)+
   endc
 	DBF	D0,LAB_A1F9F2
-	MOVE.W	#$063f,D0
+	MOVE.W	#(DiskBitmap-mt_sin+3)/4-1,D0
 LAB_A1FA00:
 	MOVE.L	(A0)+,(A1)+
 	DBF	D0,LAB_A1FA00
@@ -20513,7 +20513,7 @@ LAB_A1FA62:
   endc
 	MOVE.L	D1,(A0)+
 	DBF	D2,LAB_A1FA62
-	MOVE.W	#$063f,D2
+	MOVE.W	#(DiskBitmap-mt_sin+3)/4-1,D2
 LAB_A1FA72:
 	MOVE.L	(A1)+,(A0)+
 	DBF	D2,LAB_A1FA72
@@ -20785,14 +20785,14 @@ LAB_A1FDD6:
 	CLR.L	(A2)
 	LEA	$440(A2),A2
 	DBF	D0,LAB_A1FDD6
-  CLR.W $3540-2(a1)
+  CLR.W $3200-2(a1)
   
 	MOVE.L	A1,$20(A5)
 	MOVE.W	#$0002,$9C(A5)
 	;MOVE.W	#$9761,$24(A5)
 	;MOVE.W	#$9761,$24(A5)
-  MOVE.W	#$9AA0,$24(A5)
-	MOVE.W	#$9AA0,$24(A5)
+  MOVE.W	#$9900,$24(A5)
+	MOVE.W	#$9900,$24(A5)
   MOVE.L	#$0000A000,D2
   MOVE.B	#$00,EXT_BFE801
 LAB_A1FDFC:
@@ -20827,7 +20827,7 @@ LAB_A1FE28:
 	BRA.S	LAB_A1FDFC
 LAB_A1FE38:
 
-  TST.W $3540-2(a1)   ;whole track already read (winuae turbo mode)
+  TST.W $3200-2(a1)   ;whole track already read (winuae turbo mode)
   BEQ.S .1
 .2
   BTST	#1,$1F(A5)
@@ -20987,7 +20987,7 @@ LAB_A1FFA4:
 .1:
   LEA 2(A0),a0
   ADDQ.L #2,D2
-  CMP.W #$680,D2
+  CMP.W #$340,D2
   BNE.S .3
   MOVEQ #-2,D0
   BRA.S LAB_A1FFDA
@@ -38339,13 +38339,16 @@ LAB_4001C0:
 	JSR	NMI_Entry2
 	RTE
   endc
-  CNOP 0,4
+
+  if rsnoop=1
+  ds.b SECSTRT_0+$40000-*-4
+  else
+  cnop 0,4
+  endc
 ENDCRC
 checksum:
   DC.L $1905c6ed
-  if rsnoop=1
-  ds.b SECSTRT_0+$40000-*
-  endc
+  
 arramstart:
 ;all of this is used to store chipmem data
 ;dont move any of it
@@ -38395,11 +38398,11 @@ mt_chan4:
 LAB_A43E52:
   DS.L $129
 LAB_A442F6:
-	DS.L $4c0
+	DS.L $1b0
+;reserve extra space enough for track buffer
+  ds.b mt_sin+$3200+$406-($10c0*2)-*
 ;chipmem storage area end
-;safety check
-  ds.b arramstart+$D900-*
-
+  cnop 0,4
 DiskBitmap:
 	DS.L	$1B
 LAB_A44FE2:
@@ -38419,6 +38422,11 @@ LAB_A45352:
 LAB_A45452:
 	DS.L	$2F
 
+TextPage1:
+	DS.L	$1F4
+TextPage2:
+	DS.L	$1F4
+
 currCopper:
 	DS.L	1
 robdmode:
@@ -38429,51 +38437,34 @@ startupFail:
   DS.B  1
 updateBeamcon:
   DS.B  1
-LAB_A489FC:
-	DS.W	1
-LAB_A489FE:
-	DS.L	1
-LAB_A48A02:
-	DS.L	1
-LAB_A48A06:
-	DS.W	1
-LAB_A48A08:
-	DS.L	1
-;LAB_A48A0C:
-;	DS.L	$23
-mfmSectorAddresses:
-	DS.L	$B
-	DS.W	1
-DiskCoderFlags:
-DiskCoderDf0Flag:
-	DS.B	1
-DiskCoderDf1Flag:
-	DS.B	1
-DiskCoderDf2Flag:
-	DS.B	1
-DiskCoderDf3Flag:
-	DS.B	1
-DiskCoderValues:
-DiskCoderDf0Value:
-	DS.L	1
-DiskCoderDf1Value:
-	DS.L	1
-DiskCoderDf2Value:
-	DS.L	1
-DiskCoderDf3Value:
-	DS.L	1
-LAB_A483E0:
-	DS.L	$D
-	DS.W	1
-
-MemWatchAddrs:
-	DS.L	5
-
 cpuAddrSize:
   DS.W  1
 vbrflag
   DS.W  1
-
+Save200:
+  DS.L  1
+EscapeDisabled:
+  DS.B  1
+IgnoreShift
+  DS.B  1
+bitplaneCount:
+  DS.W  1
+lisaIdValue:
+  DS.W  1
+diskOpResult2:
+  DS.W  1
+debuggerMode:
+  DS.B  1
+debuggerFocus:
+  DS.B  1
+dbgMemBase:
+  DS.L  1
+dbgDisasmBase:
+  DS.L  1
+dbgSecondLineAddr:
+  DS.L  1  
+repeatCount
+  DS.W  1
 VgaModeFlag:
 	DS.W	1
 LAB_A35698:
@@ -38496,398 +38487,33 @@ memWatchSlotsUsed2:
 	DS.W	1
 deepMemWatch:
 	DS.W	1
-
-LAB_A4846A:
+OldTrace:
 	DS.L	1
-LAB_A4846E:
-	DS.L	1
-TraceStepCount:
-	DS.L	1
-LastCmdBuff:
-	DS.L	$14
-LAB_A484C6:
-	DS.L	1
-LAB_A484CA:
-	DS.L	1
-CursorStore:
-	DS.L	1
-LAB_A484D2:
-	DS.L	1
-LAB_A484D6:
-	DS.L	1
-BurstNibblerFastStartPrefsFlag:
-	DS.B	1
-kickstartVersion:
-	DS.B	1
-FastFileSystemFlag1:
-	DS.B	1
-FastFileSystemFlag2:
-	DS.B	1
 ignoreExceptions:
 	DS.W	1
 CopyFmode:
 	DS.W	1
 CopyDiwHigh:
 	DS.W	1
-LAB_A489EA:
+CopyBplCon3:
 	DS.W	1
 copperPos:
 	DS.L	1
-bitplaneCount:
-  DS.W  1
-lisaIdValue:
-  DS.W  1
-diskOpResult2:
-  DS.W  1
-debuggerMode:
-  DS.B  1
-debuggerFocus:
-  DS.B  1
-dbgMemBase:
-  DS.L  1
-dbgDisasmBase:
-  DS.L  1
-dbgSecondLineAddr:
-  DS.L  1  
-repeatCount
-  DS.W  1
 LAB_A489F0:
 	DS.W	1
+LAB_A489FC:
+	DS.W	1
+LAB_A489FE:
+	DS.L	1
+LAB_A48A02:
+	DS.L	1
+LAB_A48A06:
+	DS.W	1
+LAB_A48A08:
+	DS.L	1
+;LAB_A48A0C:
+;	DS.L	$23
 
-LAB_A4843E:
-	DS.L	1
-LAB_A48442:
-	DS.L	1
-LAB_A48446:
-	DS.L	1
-LAB_A4844A:
-  DS.L  1
-saveOldDoIo:
-	DS.L	1
-LAB_A48452:
-	DS.L	1
-LAB_A48456:
-	DS.L	1
-autoConfigMemStart:
-	DS.L	1
-autoConfigMemEnd:
-	DS.L	1
-foundAutoConfigMemStart:
-	DS.L	1
-foundAutoConfigMemEnd:
-	DS.L	1
-
-TextPage1:
-	DS.L	$1F4
-TextPage2:
-	DS.L	$1F4
-  if rsnoop=1
-  ds.b SECSTRT_0+$4f000-*
-  endc
-RegSnoop:
-	DS.L	$10
-RegSnoopBltcon0:
-	DS.W	1
-RegSnoopBltcon1:
-	DS.L	$F
-RegSnoopDskSync:
-	DC.W	$4489
-RegSnoopCop1Lc:
-	DS.L	1
-RegSnoopCop2Lc:
-	DS.L	7
-RegSnoopAud0Lc:
-	DS.L	$10
-RegSnoopBpl1Pt:
-	DS.L	9
-RegSnoopBplCon2:
-  DS.W  1
-RegSnoopBplCon3:
-  DS.W  1
-RegSnoopBpl1Mod:
-  DS.W  1
-RegSnoopBpl2Mod:
-  DS.W  1
-RegSnoopBplCon4:
-	DS.L	5
-RegSnoopSpr0Pos:
-	DS.L	$18
-RegSnoopColor00:
-	DC.L	$00000fff,$0eee0ddd,$0ccc0bbb,$0aaa0999
-	DC.L	$08880777,$06660555,$04440333,$02220111
-RegSnoopColor17:
-	DS.L	1
-RegSnoopColor19:
-	DS.L	$16
-	DS.W	1
-  DS.W	1
-SaveDmaCon:
-	DS.B	1
-SaveDmaCon1:
-	DS.B	1
-SaveIntena:
-	DS.W	1
-SaveIntreq:
-	DS.B	1
-SaveIntReq1:
-	DS.B	1
-SaveAdkcon:
-	DS.W	1
-SaveCpuRegs:
-	DS.L	8
-SaveCpuRegs2:
-	DS.L	7
-SaveCpuA7:
-	DS.L	1
-SaveOldPc:
-	DS.L	1
-SaveOldSr:
-	DS.W	1
-SaveBplCon0:
-	DS.W	1
-SaveBplCon1:
-	DS.W	1
-SaveBplCon2:
-	DS.W	1
-SaveBplCon3:
-	DS.W	1
-SaveBplCon4:
-	DS.W	1
-SaveBeamCon0:
-	DS.W	1
-SaveFmode:
-	DS.W	1
-SaveBpl1Mod:
-	DS.W	1
-SaveBpl2Mod:
-	DS.W	1
-SaveColor00:
-	DS.W	1
-SaveColor01:
-	DS.W	1
-SaveDiwStart:
-	DS.W	1
-SaveDiwStop:
-	DS.W	1
-SaveDiwHigh:
-	DS.W	1
-SaveDdfStrt:
-	DS.W	1
-SaveDdfStop:
-	DS.W	1
-SaveBpl1Pth:
-	DS.W	1
-SaveBpl1Ptl:
-	DS.W	1
-SaveBltCon0:
-	DS.W	1
-SaveBltCon1:
-	DS.W	1
-SaveBltAfwm:
-	DS.W	1
-SaveBtlAlwm:
-	DS.W	1
-SaveBltCPth:
-	DS.W	1
-SaveBltCptl:
-	DS.W	1
-SaveBltBPth:
-	DS.W	1
-SaveBltBPtl:
-	DS.W	1
-SaveBltAPth:
-	DS.W	1
-SaveBltAPtl:
-	DS.W	1
-SaveBltDPth:
-	DS.W	1
-SaveBltDPtl:
-	DS.W	1
-SaveBltCMod:
-	DS.W	1
-SaveBltBMod:
-	DS.W	1
-SaveBltAMod:
-	DS.W	1
-SaveBltDMod:
-	DS.W	1
-SaveBltCDat:
-	DS.W	1
-SaveBltBDat:
-	DS.W	1
-SaveBltADat:
-	DS.W	1
-SaveBltSize:
-	DS.W	1
-Int2Save:
-	DS.L	1
-Int3Save:
-	DS.L	1
-LAB_A47F2C:
-	DS.B	1
-LAB_A47F2D:
-	DS.B	1
-cursorX:
-	DS.B	1
-cursorXLo:
-	DS.B	1
-cursorY:
-	DS.B	1
-cursorYLo:
-	DS.B	1
-PageHeight:
-	DS.W 1
-KeyCode:
-	DS.B	1
-LAB_A47F35:
-	DS.B	1
-ShiftKey:
-	DS.B	1
-EscapePressed:
-	DS.B	1
-EscapeDisabled:
-  DS.B  1
-IgnoreShift
-  DS.B  1
-  even
-CurrentPage:
-	DS.L	1
-LAB_A47F3C:
-	DS.W	1
-LAB_A47F3E:
-	DS.W	1
-LAB_A47F40:
-	DS.W	1
-LAB_A47F42:
-	DS.W	1
-ParamFound:
-	DS.L	1
-LAB_A47F48:
-	DS.B	1
-LAB_A47F49:
-	DS.B	1
-LAB_A47F4A:
-	DS.L	1
-LAB_A47F4E:
-	DS.L	1
-LAB_A47F52:
-	DS.W	1
-trainerModeActive:
-	DS.W	1
-trainerContinueAddress:
-	DS.L	1
-trainerWorkspacePtr:
-	DS.L	1
-stringWorkspace:
-	DS.L	$14
-AronFlag:
-	DS.L	1
-LAB_A47FB2:
-	DS.W	1
-asciiDumpOffset:
-	DS.B	1
-AsciiDumpOffset1:
-	DS.B	1
-LAB_A47FB6:
-	DS.W	1
-LAB_A47FB8:
-	DS.W	1
-LAB_A47FBA:
-	DS.W	1
-LAB_A47FBC:
-	DS.W	1
-LAB_A47FBE:
-	DS.W	1
-LAB_A47FC0:
-	DS.L	1
-LAB_A47FC4:
-	DS.L	1
-  ;DS.L	1
-LAB_A47FCC:
-	DS.W	1
-LAB_A47FCE:
-	DS.W	1
-LAB_A47FD0:
-	DS.W	1
-LAB_A47FD2:
-	DS.L	1
-LAB_A47FD6:
-	DS.L	1
-  ;DS.L	1
-LAB_A47FDE:
-	DS.W	1
-	;DS.L	8
-DefaultAddress:
-	DS.L	1
-SAVE_VPOS:
-	DS.L	1
-  ;DS.L	1
-tempD0:
-	DS.L	1
-tempD1:
-	DS.L	1
-CopyCop1lc:
-	DS.L	1
-CopyCop2lc:
-	DS.L	1
-CopyDiwStart:
-	DS.B	1
-CopyDiwStartLo:
-	DS.B	1
-CopyDiwStop:
-	DS.B	1
-CopyDiwStopLo:
-	DS.B	1
-CopyDdfStrt:
-	DS.B	1
-CopyDdfStrtLo:
-	DS.B	1
-CopyDdfStop:
-	DS.B	1
-CopyDdfStopLo:
-	DS.B	1
-CopyBpl1Pth:
-	DS.L	1
-CopyBpl2Pth:
-	DS.L	1
-CopyBpl3Pth:
-	DS.L	1
-CopyBpl4Pth:
-	DS.L	1
-CopyBpl5Pth:
-	DS.L	1
-CopyBpl6Pth:
-	DS.L	1
-CopyBpl7Pth:
-	DS.L	1
-CopyBpl8Pth:
-	DS.L	1
-;these must be kept in this order
-CopyBplCon0:
-	DC.B	$10
-CopyBplCon0Lo:
-	DS.B	1
-CopyBplCon1:
-	DS.B	1
-CopyBplCon1Lo:
-	DS.B	1
-CopyBplCon2:
-	DS.W	1
-CopyBplCon3:
-	DS.W	1
-CopyBplMod1:
-	DS.W	1
-CopyBplMod2:
-	DS.W	1
-CopyBplCon4:
-	DS.W	1
-;until here
-CopyBeamCon0:
-	DS.W	1
-CopySpr0Pt:
-	DS.L	8
-Copyclxcon:
-	DS.W	1
 SaveColor:
 	DS.B	1
 LAB_A4806B:
@@ -38906,12 +38532,12 @@ LAB_A4807A:
 	DS.L	1
 LAB_A4807E:
   DS.B  1
+  even
 	;DS.L	$B
 LAB_A480AA:
 	DS.B	1
 LAB_A480AB:
 	DS.B	1
-  even
 LAB_A480AC:
 	DS.W	1
 bpl1Work:
@@ -39166,6 +38792,27 @@ LAB_A48250:
 	DS.L	1
 LAB_A48254:
 	DS.L	1
+mfmSectorAddresses:
+	DS.L	$B
+	DS.W	1
+DiskCoderFlags:
+DiskCoderDf0Flag:
+	DS.B	1
+DiskCoderDf1Flag:
+	DS.B	1
+DiskCoderDf2Flag:
+	DS.B	1
+DiskCoderDf3Flag:
+	DS.B	1
+DiskCoderValues:
+DiskCoderDf0Value:
+	DS.L	1
+DiskCoderDf1Value:
+	DS.L	1
+DiskCoderDf2Value:
+	DS.L	1
+DiskCoderDf3Value:
+	DS.L	1
 LAB_A4829A:
 	DS.L	1
 LAB_A4829E:
@@ -39399,6 +39046,9 @@ TraceSkipSubs:
 	DS.B	1
 LAB_A483DE:
 	DS.W	1
+LAB_A483E0:
+	DS.L	$D
+	DS.W	1
 LAB_A48416:
 	DS.W	1
 LAB_A48418:
@@ -39409,22 +39059,371 @@ LAB_A4841E:
 	DS.W	1
 LAB_A48420:
 	DS.L	1
+MemWatchAddrs:
+	DS.L	5
 LAB_A48438:
 	DS.L	1
 BlankerCount:
 	DS.W	1
-OldTrace:
+LAB_A4843E:
 	DS.L	1
-Save200:
+LAB_A48442:
+	DS.L	1
+LAB_A48446:
+	DS.L	1
+LAB_A4844A:
   DS.L  1
+saveOldDoIo:
+	DS.L	1
+LAB_A48452:
+	DS.L	1
+LAB_A48456:
+	DS.L	1
+autoConfigMemStart:
+	DS.L	1
+autoConfigMemEnd:
+	DS.L	1
+foundAutoConfigMemStart:
+	DS.L	1
+foundAutoConfigMemEnd:
+	DS.L	1
+LAB_A4846A:
+	DS.L	1
+LAB_A4846E:
+	DS.L	1
+TraceStepCount:
+	DS.L	1
+LastCmdBuff:
+	DS.L	$14
+LAB_A484C6:
+	DS.L	1
+LAB_A484CA:
+	DS.L	1
+CursorStore:
+	DS.L	1
+LAB_A484D2:
+	DS.L	1
+LAB_A484D6:
+	DS.L	1
+BurstNibblerFastStartPrefsFlag:
+	DS.B	1
+kickstartVersion:
+	DS.B	1
+FastFileSystemFlag1:
+	DS.B	1
+FastFileSystemFlag2:
+	DS.B	1
+
+;spare space here for more variables
+
+  if rsnoop=1
+  ds.b SECSTRT_0+$4f000-*
+  endc
+RegSnoop:
+	DS.L	$10
+RegSnoopBltcon0:
+	DS.W	1
+RegSnoopBltcon1:
+	DS.L	$F
+RegSnoopDskSync:
+	DC.W	$4489
+RegSnoopCop1Lc:
+	DS.L	1
+RegSnoopCop2Lc:
+	DS.L	7
+RegSnoopAud0Lc:
+	DS.L	$10
+RegSnoopBpl1Pt:
+	DS.L	9
+RegSnoopBplCon2:
+  DS.W  1
+RegSnoopBplCon3:
+  DS.W  1
+RegSnoopBpl1Mod:
+  DS.W  1
+RegSnoopBpl2Mod:
+  DS.W  1
+RegSnoopBplCon4:
+	DS.L	5
+RegSnoopSpr0Pos:
+	DS.L	$18
+RegSnoopColor00:
+	DC.L	$00000fff,$0eee0ddd,$0ccc0bbb,$0aaa0999
+	DC.L	$08880777,$06660555,$04440333,$02220111
+RegSnoopColor17:
+	DS.L	1
+RegSnoopColor19:
+	DS.L	$16
+	DS.W	1
+  DS.W	1
+SaveDmaCon:
+	DS.B	1
+SaveDmaCon1:
+	DS.B	1
+SaveIntena:
+	DS.W	1
+SaveIntreq:
+	DS.B	1
+SaveIntReq1:
+	DS.B	1
+SaveAdkcon:
+	DS.W	1
+SaveCpuRegs:
+	DS.L	8
+SaveCpuRegs2:
+	DS.L	7
+SaveCpuA7:
+	DS.L	1
+SaveOldPc:
+	DS.L	1
+SaveOldSr:
+	DS.W	1
+SaveBplCon0:
+	DS.W	1
+SaveBplCon1:
+	DS.W	1
+SaveBplCon2:
+	DS.W	1
+SaveBplCon3:
+	DS.W	1
+SaveBplCon4:
+	DS.W	1
+SaveBeamCon0:
+	DS.W	1
+SaveFmode:
+	DS.W	1
+SaveBpl1Mod:
+	DS.W	1
+SaveBpl2Mod:
+	DS.W	1
+SaveColor00:
+	DS.W	1
+SaveColor01:
+	DS.W	1
+SaveDiwStart:
+	DS.W	1
+SaveDiwStop:
+	DS.W	1
+SaveDiwHigh:
+	DS.W	1
+SaveDdfStrt:
+	DS.W	1
+SaveDdfStop:
+	DS.W	1
+SaveBpl1Pth:
+	DS.W	1
+SaveBpl1Ptl:
+	DS.W	1
+SaveBltCon0:
+	DS.W	1
+SaveBltCon1:
+	DS.W	1
+SaveBltAfwm:
+	DS.W	1
+SaveBtlAlwm:
+	DS.W	1
+SaveBltCPth:
+	DS.W	1
+SaveBltCptl:
+	DS.W	1
+SaveBltBPth:
+	DS.W	1
+SaveBltBPtl:
+	DS.W	1
+SaveBltAPth:
+	DS.W	1
+SaveBltAPtl:
+	DS.W	1
+SaveBltDPth:
+	DS.W	1
+SaveBltDPtl:
+	DS.W	1
+SaveBltCMod:
+	DS.W	1
+SaveBltBMod:
+	DS.W	1
+SaveBltAMod:
+	DS.W	1
+SaveBltDMod:
+	DS.W	1
+SaveBltCDat:
+	DS.W	1
+SaveBltBDat:
+	DS.W	1
+SaveBltADat:
+	DS.W	1
+SaveBltSize:
+	DS.W	1
+Int2Save:
+	DS.L	1
+Int3Save:
+	DS.L	1
+LAB_A47F2C:
+	DS.B	1
+LAB_A47F2D:
+	DS.B	1
+cursorX:
+	DS.B	1
+cursorXLo:
+	DS.B	1
+cursorY:
+	DS.B	1
+cursorYLo:
+	DS.B	1
+PageHeight:
+	DS.W 1
+KeyCode:
+	DS.B	1
+LAB_A47F35:
+	DS.B	1
+ShiftKey:
+	DS.B	1
+EscapePressed:
+	DS.B	1
+CurrentPage:
+	DS.L	1
+LAB_A47F3C:
+	DS.W	1
+LAB_A47F3E:
+	DS.W	1
+LAB_A47F40:
+	DS.W	1
+LAB_A47F42:
+	DS.W	1
+ParamFound:
+	DS.L	1
+LAB_A47F48:
+	DS.B	1
+LAB_A47F49:
+	DS.B	1
+LAB_A47F4A:
+	DS.L	1
+LAB_A47F4E:
+	DS.L	1
+LAB_A47F52:
+	DS.W	1
+trainerModeActive:
+	DS.W	1
+trainerContinueAddress:
+	DS.L	1
+trainerWorkspacePtr:
+	DS.L	1
+stringWorkspace:
+	DS.L	$14
+AronFlag:
+	DS.L	1
+LAB_A47FB2:
+	DS.W	1
+asciiDumpOffset:
+	DS.B	1
+AsciiDumpOffset1:
+	DS.B	1
+LAB_A47FB6:
+	DS.W	1
+LAB_A47FB8:
+	DS.W	1
+LAB_A47FBA:
+	DS.W	1
+LAB_A47FBC:
+	DS.W	1
+LAB_A47FBE:
+	DS.W	1
+LAB_A47FC0:
+	DS.L	1
+LAB_A47FC4:
+	DS.L	1
+  ;DS.L	1
+LAB_A47FCC:
+	DS.W	1
+LAB_A47FCE:
+	DS.W	1
+LAB_A47FD0:
+	DS.W	1
+LAB_A47FD2:
+	DS.L	1
+LAB_A47FD6:
+	DS.L	1
+  ;DS.L	1
+LAB_A47FDE:
+	DS.W	1
+	;DS.L	8
+DefaultAddress:
+	DS.L	1
+SAVE_VPOS:
+	DS.L	1
+  ;DS.L	1
+tempD0:
+	DS.L	1
+tempD1:
+	DS.L	1
+CopyCop1lc:
+	DS.L	1
+CopyCop2lc:
+	DS.L	1
+CopyDiwStart:
+	DS.B	1
+CopyDiwStartLo:
+	DS.B	1
+CopyDiwStop:
+	DS.B	1
+CopyDiwStopLo:
+	DS.B	1
+CopyDdfStrt:
+	DS.B	1
+CopyDdfStrtLo:
+	DS.B	1
+CopyDdfStop:
+	DS.B	1
+CopyDdfStopLo:
+	DS.B	1
+CopyBpl1Pth:
+	DS.L	1
+CopyBpl2Pth:
+	DS.L	1
+CopyBpl3Pth:
+	DS.L	1
+CopyBpl4Pth:
+	DS.L	1
+CopyBpl5Pth:
+	DS.L	1
+CopyBpl6Pth:
+	DS.L	1
+CopyBpl7Pth:
+	DS.L	1
+CopyBpl8Pth:
+	DS.L	1
+;these must be kept in this order
+CopyBplCon0:
+	DC.B	$10
+CopyBplCon0Lo:
+	DS.B	1
+CopyBplCon1:
+	DS.B	1
+CopyBplCon1Lo:
+	DS.B	1
+CopyBplCon2:
+	DS.W	1
+CopyBplMod1:
+	DS.W	1
+CopyBplMod2:
+	DS.W	1
+CopyBplCon4:
+	DS.W	1
+;until here
+CopyBeamCon0:
+	DS.W	1
+CopySpr0Pt:
+	DS.L	8
+Copyclxcon:
+	DS.W	1
 
 LAB_A4550E:
-	DS.L	$14e;$212
+	DS.L	$212
 
 StackStart:
-	DS.L	$e0
+	DS.L	$fe
   ;safety check
-  ds.b arramstart+$10000-*
+ ds.b arramstart+$10000-*
 StackEnd:
 dataend:
 
