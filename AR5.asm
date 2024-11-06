@@ -2830,6 +2830,9 @@ commandTable:
 	DC.B	"DIR",0
 	DC.L	CMD_DIR
 
+	DC.B	"RNC",0
+	DC.L	CMD_RNC
+
 	DC.B	"DBG",0
 	DC.L	CMD_DBG
 
@@ -2981,6 +2984,10 @@ commandTable:
 	DC.B	"FA",0
 	DS.B	1
 	DC.L	CMD_FA
+
+	DC.B	"CI",0
+	DS.B	1
+	DC.L	CMD_CI
 
 	DC.B	"FC",0
 	DS.B	1
@@ -3339,7 +3346,7 @@ LAB_A12C5C:
 	LEA	CopySpr0Pt,A0
 LAB_A12C6C:
 	MOVE.L	(A0)+,D0
-	BSR.W	SUB_A1A3FA
+	JSR	SUB_A1A3FA
 	MOVEQ	#$20,D0
 	BSR.W	PrintChar
 	BSR.W	PrintChar
@@ -3604,8 +3611,8 @@ CMD_DOT:
 	BMI.W	PrintWTF
 	LEA	$40(A1),A0
 	BRA.W	SUB_A17B50
-CMD_W:
-	BRA.W	EditCiaData
+
+CMD_W:	JMP	EditCiaData
 CMD_G:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -3916,16 +3923,76 @@ CMD_FA:
 	JSR	FindAddressingOpcode
 	BRA.W	PrintReady
 
+CMD_CI:
+	BSR.W	ReadParameter
+	TST.B	ParamFound
+	BEQ.W	PrintWTF
+
+	MOVE.L D0,A1
+	BSR copyLockInfo
+	BRA.W	PrintReady
+  
+copyLockInfo:
+	MOVEM.L D0-D1/A0-A1,-(A7)
+	MOVE.W #$400,D1
+.srch
+	ST	decryptins
+	MOVE.L	-4(A1),LAB_A489FE
+	MOVE.L	-4(A1),LAB_A48A02
+	CLR.W	LAB_A48A06
+	MOVE.L A1,A0
+	JSR	memSafeReadLong
+	SF	decryptins
+	CMP.L #$323c000b,D0
+	BNE.S .not
+	LEA .clockSerial(PC),A0
+	BSR PrintText
+	MOVE.B robdmode,-(A7)
+	ST.B robdmode
+	MOVE.L A1,D0
+	JSR SUB_A12F08
+	MOVE.L DefaultAddress,D0
+	JSR PrintCR
+	JSR SUB_A12F08
+	MOVE.L DefaultAddress,D0
+	JSR PrintCR
+	JSR SUB_A12F08
+	MOVE.L DefaultAddress,D0
+	JSR PrintCR
+	JSR SUB_A12F08
+	MOVE.L DefaultAddress,D0
+	JSR PrintCR
+	JSR SUB_A12F08
+	JSR PrintCR
+	MOVE.B (A7)+,robdmode
+	MOVEM.L (A7)+,D0-D1/A0-A1
+	RTS
+.not
+	LEA 2(A1),A1
+	DBF D1,.srch
+	LEA .clockNotFound(PC),A0
+	BSR PrintText
+	MOVEM.L (A7)+,D0-D1/A0-A1
+	RTS
+
+.clockSerial
+	DC.B "Decrypted Serial code:",10,0
+.clockNotFound
+	DC.B "Serial code not found",10,10,0
+
+  even
 CMD_FC:
 	SF	LAB_A480CA
 	ST	LAB_A483C9
-  LEA onz(pc),A1
-  MOVE.L (a1)+,stringWorkspace
-  MOVE.l #4,D0
-  BRA srch
+	ST  copyLockSearch
+	LEA onz(pc),A1
+	MOVE.L (a1)+,stringWorkspace
+	MOVE.l #4,D0
+	BRA srch
 
 onz:
-  DC.B " ONz",0
+	DC.B " ONz",0
+  even
 
 CMD_FS:
 	ST	LAB_A480CA
@@ -3951,6 +4018,7 @@ srch:
 	MOVE.W	(A7)+,D0
 	BSR.S	SUB_A1341C
 	BSR.W	SUB_A174E0
+	SF  copyLockSearch
 	BRA.W	PrintReady
 LAB_A133F0:
 	MOVEA.L	LAB_A47F4A,A1
@@ -3959,6 +4027,7 @@ LAB_A133F6:
 	MOVE.W	(A7)+,D0
 	BSR.S	SUB_A1341C
 	BSR.W	SUB_A174E0
+	SF  copyLockSearch
 	BRA.W	PrintReady
 SearchFromText:
 	DC.B	"Search from: ",0
@@ -8046,6 +8115,21 @@ LAB_A175A0:
 	DBF	D0,LAB_A1753E
 	MOVE.L	A1,D0
 	BSR.W	PrintAddressHex
+	TST.B copyLockSearch
+	BEQ.S .1
+
+	MOVE.L A0,-(A7)
+	LEA .clockText(PC),A0
+	BSR.W	PrintText
+	MOVE.L (A7)+,A0
+	BSR copyLockInfo
+	BRA.S LAB_A175BA
+
+.clockText
+	DC.B "...Possible Copylock",10,0
+  even
+  
+.1
 	MOVEQ	#2,D0
 	BSR.W	PrintSpaces
 LAB_A175BA:
@@ -20543,8 +20627,10 @@ SUB_A1FAB4:
 	NOP
 	NOP
 	BSR.W	SUB_A1FB6C
-	MOVE.L	#$0001ffff,D0
+	;MOVE.L	#$0001ffff,D0
+	MOVEQ	#$10,D0
 LAB_A1FADA:
+	JSR Delay
 	BTST	#5,EXT_BFE001
 	BEQ.S	LAB_A1FAF0
 	SUBQ.L	#1,D0
@@ -20791,10 +20877,10 @@ LAB_A1FDD6:
 	MOVE.W	#$0002,$9C(A5)
 	;MOVE.W	#$9761,$24(A5)
 	;MOVE.W	#$9761,$24(A5)
-  MOVE.W	#$9900,$24(A5)
 	MOVE.W	#$9900,$24(A5)
-  MOVE.L	#$0000A000,D2
-  MOVE.B	#$00,EXT_BFE801
+	MOVE.W	#$9900,$24(A5)
+	MOVEQ	#$7F,D2
+	MOVE.B	#$00,EXT_BFE801
 LAB_A1FDFC:
 	TST.B	EscapePressed
 	BNE.W	LAB_A1FE90
@@ -26333,6 +26419,278 @@ LAB_41A44C:
 	TST.W	D0
 	RTS
 
+
+CMD_RNC:
+  MOVE.B	currDriveNo,-(A7)
+  MOVE.B	#0,currDriveNo
+  LEA	EXT_5000.W,A0
+  JSR	backupMfmBuffer
+  MOVE.W #2,D6
+.retry
+  LEA	EXT_5000.W,A0
+  LEA	$1000(A0),A1
+  MOVE.L A1,A2
+  MOVE.L	#1,D0
+  BSR.W	SUB_A24E64
+  BSR.W	readRNCTrack  
+  BMI .1
+  MOVE.W #-5,D0
+  CMP.W #$aa94,(a0)+
+  BNE .1
+  
+  MOVE.W #50-1,D3
+.decode
+  CLR.B D2
+  MOVE.B (A0)+,D0
+  MOVE.B (A0)+,D1
+  BTST #6,D0
+  BEQ.S .1a
+  BSET #7,D2
+.1a
+  BTST #4,D0
+  BEQ.S .1b
+  BSET #6,D2
+.1b  
+  BTST #2,D0
+  BEQ.S .1c
+  BSET #5,D2
+.1c
+  BTST #0,D0
+  BEQ.S .1d
+  BSET #4,D2
+.1d
+  BTST #6,D1
+  BEQ.S .2a
+  BSET #3,D2
+.2a
+  BTST #4,D1
+  BEQ.S .2b
+  BSET #2,D2
+.2b  
+  BTST #2,D1
+  BEQ.S .2c
+  BSET #1,D2
+.2c
+  BTST #0,D1
+  BEQ.S .2d
+  BSET #0,D2
+.2d
+  MOVE.B D2,(A1)+
+  DBF D3,.decode
+  
+  MOVE.L A2,A1
+  MOVE.W #-5,D0
+  CMP.L #$526F6220,(A1)+
+  BNE .1
+  CMP.L #$4E6F7274,(A1)+
+  BNE .1
+  CMP.L #$68656E20,(A1)+
+  BNE .1
+  CMP.L #$436F6D70,(A1)+
+  BNE .1
+
+
+  LEA	EXT_5000.W,A2
+  move.l	a2,a0		;A0 = buffer
+
+	;number 8
+		add.w	#2,a0
+		move	#0,ccr		;clear X
+		moveq	#5,d1
+		moveq	#0,d0
+.Loop8		move.l	(a0)+,d3
+		move.l	d3,d4
+		moveq	#15,d2
+.Roxl		roxl.l	#2,d4
+		roxl.l	#1,d3
+		dbra	d2,.Roxl
+		swap	d3
+		move.l	(a0)+,d5
+		move.l	d5,d4
+		moveq	#15,d2
+.Roxl2		roxl.l	#2,d4
+		roxl.l	#1,d5
+		dbra	d2,.Roxl2
+		move.w	d5,d3
+		add.l	d3,d0
+		rol.l	#1,d0
+		dbf	d1,.Loop8
+		move.l	d0,-(a7)
+
+	;number 7
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop7		add.l	d0,d0
+		add.l	(a0)+,d0
+		swap	d0
+		dbf	d1,.Loop7
+		move.l	d0,-(a7)
+
+	;number 6
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop6		add.l	d0,d0
+		sub.l	(a0)+,d0
+		dbf	d1,.Loop6
+		move.l	d0,-(a7)
+
+	;number 5
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop5		add.l	d0,d0
+		add.l	(a0)+,d0
+		dbf	d1,.Loop5
+		move.l	d0,-(a7)
+
+	;number 4
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop4		sub.l	(a0)+,d0
+		swap	d0
+		dbf	d1,.Loop4
+		move.l	d0,-(a7)
+
+	;number 3
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop3		add.l	(a0)+,d0
+		swap	d0
+		dbf	d1,.Loop3
+		move.l	d0,-(a7)
+
+	;number 2
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop2		sub.l	(a0)+,d0
+		dbf	d1,.Loop2
+		move.l	d0,-(a7)
+
+	;number 1
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop1		add.l	(a0)+,d0
+		dbf	d1,.Loop1
+		move.l	d0,-(a7)
+
+	;number 0
+		move.l	a2,a0
+		moveq	#11,d1
+		moveq	#0,d0
+.Loop0		add.l	(a0)+,d0
+		rol.l	#1,d0
+		dbf	d1,.Loop0
+		move.l	d0,-(a7)
+    
+  JSR PrintCR
+  JSR PrintCR
+  MOVEQ #9-1,D1
+.print
+    MOVE.L (A7)+,D0
+    JSR Print8DigitHex
+    LEA	RncTypesTable(PC),A0
+    MOVE.W	D1,D0
+    JSR	PrintTableEntry
+
+    JSR PrintCR
+    DBF D1,.print
+  
+  CLR.W D0
+  CLR.W D6
+.1
+  DBF D6,.retry
+  JSR PrintCR
+	BSR.W	PrintDiskOpResult
+	BSR.W	restoreMfmBuffer
+  MOVE.B (A7)+,currDriveNo
+	RTS
+
+RncTypesTable:
+	DC.B	"  #8  add.l (a1)+,d0  rol.l #1,d0    (5 x roxl)",0
+	DC.B	"  #7  add.l d6,d6     add.l (a0)+,d6  swap d6",0
+	DC.B	"  #6  add.l d6,d6     sub.l (a0)+,d6",0
+	DC.B	"  #5  add.l d6,d6     add.l (a0)+,d6",0
+	DC.B	"  #4  sub.l (a0)+,d6  swap d6",0
+	DC.B	"  #3  add.l (a0)+,d6  swap d6",0
+	DC.B	"  #2  sub.l (a0)+,d6",0
+	DC.B	"  #1  add.l (a0)+,d6",0
+	DC.B	"  #0  add.l (a1)+,d0  rol.l #1,d0",0
+
+readRNCTrack:
+	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
+	MOVE.L	D0,D1
+	BSR.W	SUB_A20188
+	BMI.W	RNCREAD_DONE
+	MOVEQ	#-8,D0
+	TST.B	EscapePressed
+	BNE.W	RNCREAD_DONE
+	LEA	EXT_DFF000,A5
+	BSR.W	SUB_A2084E
+	BMI.W	RNCREAD_DONE
+	MOVE.B	currDriveNo,D0
+	BTST	D0,LAB_A4824C
+	BNE.S	.3
+	BSR.W	SUB_A1FAB4
+	BMI.W	RNCREAD_DONE
+.3:
+	MOVE.L	D1,D0
+	BSR.W	StepToTrack
+	BSR.W	selectDrive
+	MOVE.W	#$8210,$96(A5)
+	MOVE.W	#$8914,$7E(A5)
+	MOVE.W	#$77f0,$9E(A5)
+	MOVE.W	#$9500,$9E(A5)
+	MOVE.W	#$4000,$24(A5)
+  
+	MOVE.L	A0,$20(A5)
+	MOVE.W	#$0002,$9C(A5)
+	;MOVE.W	#$9761,$24(A5)
+	;MOVE.W	#$9761,$24(A5)
+  MOVE.W	#$8410,$24(A5)
+	MOVE.W	#$8410,$24(A5)
+  MOVE.L	#$0000A000,D2
+  MOVE.B	#$00,EXT_BFE801
+
+	TST.B	EscapePressed
+	BNE.W	RNC_ABORT
+	BTST	#1,$1F(A5)
+	BNE	RNC_READERR
+
+.2
+  CMP.B	#2,EXT_BFE801
+	BNE.S	.1
+
+  MOVE.B	#$00,EXT_BFE801
+	SUBQ.L	#1,D2
+	BEQ	RNC_READERR
+
+  BTST	#1,$1F(A5)
+	BNE.S .2
+.1
+  MOVE.W	#$0002,$9C(A5)
+  BRA.S RNCREAD_OK
+RNC_READERR:
+	MOVEQ	#-2,D0    ;read error
+	BRA.S	RNCREAD_DONE
+RNC_ABORT:
+	MOVEQ	#-8,D0
+	BRA.S	RNCREAD_DONE
+RNCREAD_OK:
+	MOVEQ	#0,D0
+RNCREAD_DONE:
+	TST.W	D0
+	MOVEM.L	(A7)+,D1-D2/A0-A3/A5
+	RTS
+
+CMD_RP:
+  ST pdosRead
+
 CMD_RT:
 	SF	LAB_A480CA
 	JSR	ReadParameter
@@ -26458,6 +26816,7 @@ LAB_A24CD8:
 	BSR.S	ReadTracks
 	BSR.W	PrintDiskOpResult
 	BSR.W	restoreMfmBuffer
+	SF pdosRead
 	RTS
 ReadTracks:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
@@ -39112,11 +39471,16 @@ FastFileSystemFlag1:
 	DS.B	1
 FastFileSystemFlag2:
 	DS.B	1
+  
+copyLockSearch
+	DS.B  1
 
 ;spare space here for more variables
 
   if rsnoop=1
   ds.b SECSTRT_0+$4f000-*
+  else
+    even
   endc
 RegSnoop:
 	DS.L	$10
