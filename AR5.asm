@@ -3029,6 +3029,10 @@ commandTable:
 	DS.B	1
 	DC.L	CMD_TM
 
+	DC.B	"RP",0
+	DS.B	1
+	DC.L	CMD_RP
+
 	DC.B	"RT",0
 	DS.B	1
 	DC.L	CMD_RT
@@ -3933,7 +3937,7 @@ CMD_CI:
 	BRA.W	PrintReady
   
 copyLockInfo:
-	MOVEM.L D0-D1/A0-A1,-(A7)
+	MOVEM.L D0-D2/A0-A1,-(A7)
 	MOVE.W #$400,D1
 .srch
 	ST	decryptins
@@ -3942,9 +3946,73 @@ copyLockInfo:
 	CLR.W	LAB_A48A06
 	MOVE.L A1,A0
 	JSR	memSafeReadLong
-	SF	decryptins
+
 	CMP.L #$323c000b,D0
-	BNE.S .not
+	BNE .not
+
+  
+  LEA 4(A1),A0
+	MOVE.L	-4(A0),LAB_A489FE
+	MOVE.L	-4(A0),LAB_A48A02
+	CLR.W	LAB_A48A06
+	JSR	memSafeReadLong
+  MOVE.L D0,D1
+
+  LEA 8(A1),A0
+	MOVE.L	-4(A0),LAB_A489FE
+	MOVE.L	-4(A0),LAB_A48A02
+	CLR.W	LAB_A48A06
+	JSR	memSafeReadWord
+  MOVE.L D0,D2
+
+  CMP.L #$D099e398,D1
+  BEQ.S .typefound
+
+  MOVEQ #0,D0
+  CMP.L #$D099e398,D1
+  BEQ.S .typefound
+
+  MOVEQ #1,D0
+  CMP.L #$DC9851C9,D1
+  BEQ.S .typefound
+
+  MOVEQ #2,D0
+  CMP.L #$9C9851C9,D1
+  BEQ.S .typefound
+  
+  MOVEQ #3,D0
+  CMP.L #$DC984846,D1
+  BEQ.S .typefound
+
+  MOVEQ #4,D0
+  CMP.L #$9C984846,D1
+  BEQ.S .typefound
+
+  MOVEQ #7,D0
+  CMP.W #$4846,D2
+  BEQ.S .maybe7
+  
+  MOVEQ #5,D0
+
+.maybe7:
+  CMP.L #$DC86DC98,D1
+  BEQ.S .typefound
+
+  MOVEQ #6,D0
+  CMP.L #$DC869C98,D1
+  BEQ.S .typefound
+  
+  MOVEQ #-1,D0
+
+.typefound:
+	SF	decryptins
+  TST.L D0
+  BMI.S .notype
+	LEA .clockType(PC),A0
+	BSR PrintText
+	BSR.W	Print2DigitHex
+  BSR PrintCR
+.notype:
 	LEA .clockSerial(PC),A0
 	BSR PrintText
 	MOVE.B robdmode,-(A7)
@@ -3965,20 +4033,23 @@ copyLockInfo:
 	JSR SUB_A12F08
 	JSR PrintCR
 	MOVE.B (A7)+,robdmode
-	MOVEM.L (A7)+,D0-D1/A0-A1
+	MOVEM.L (A7)+,D0-D2/A0-A1
 	RTS
 .not
+	SF	decryptins
 	LEA 2(A1),A1
 	DBF D1,.srch
 	LEA .clockNotFound(PC),A0
 	BSR PrintText
-	MOVEM.L (A7)+,D0-D1/A0-A1
+	MOVEM.L (A7)+,D0-D2/A0-A1
 	RTS
 
 .clockSerial
 	DC.B "Decrypted Serial code:",10,0
 .clockNotFound
 	DC.B "Serial code not found",10,10,0
+.clockType
+	DC.B "Type: ",0
 
   even
 CMD_FC:
@@ -4782,7 +4853,7 @@ aboutText:
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B	"                  v0.1.27102024 - private alpha release for TTE",$D,0
+  DC.B	"                  v0.2.11112024 - private alpha release for TTE",$D,0
 
 HeaderStarsText:
 	DC.B	$D,"********************************************************************************",0
@@ -20837,6 +20908,70 @@ LAB_A1FD46:
 	OR.B	D0,EXT_BFD100
 	BSR.W	SUB_A1FB40
 	RTS
+readPdosTrack:
+	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
+	MOVE.L	D0,D1
+	BSR.W	SUB_A20188
+	BMI.W	PdosReadDone
+	MOVEQ	#-8,D0
+	TST.B	EscapePressed
+	BNE.W	PdosReadDone
+	LEA	EXT_DFF000,A5
+	BSR.W	SUB_A2084E
+	BMI.W	PdosReadDone
+	MOVE.B	currDriveNo,D0
+	BTST	D0,LAB_A4824C
+	BNE.S	.3
+	BSR.W	SUB_A1FAB4
+	BMI.W	PdosReadDone
+.3:
+	MOVE.L	D1,D0
+	BSR.W	StepToTrack
+	BSR.W	selectDrive
+	MOVE.W	#$8210,$96(A5)
+	MOVE.W	#$1448,$7E(A5)
+	MOVE.W	#$77f0,$9E(A5)
+	MOVE.W	#$9500,$9E(A5)
+	MOVE.W	#$4000,$24(A5)
+  
+	MOVE.L	A0,$20(A5)
+	MOVE.W	#$0002,$9C(A5)
+	MOVE.W	#$998b,$24(A5)
+	MOVE.W	#$998b,$24(A5)
+  MOVE.L	#$0000A000,D2
+  MOVE.B	#$00,EXT_BFE801
+
+	TST.B	EscapePressed
+	BNE.W	PdosAbort
+	BTST	#1,$1F(A5)
+	BNE	PdosReadErr
+
+.2
+  CMP.B	#2,EXT_BFE801
+	BNE.S	.1
+
+  MOVE.B	#$00,EXT_BFE801
+	SUBQ.L	#1,D2
+	BEQ	PdosReadErr
+
+  BTST	#1,$1F(A5)
+	BNE.S .2
+.1
+  MOVE.W	#$0002,$9C(A5)
+  BRA.S PdosReadOk
+PdosReadErr:
+	MOVEQ	#-2,D0    ;read error
+	BRA.S	PdosReadDone
+PdosAbort:
+	MOVEQ	#-8,D0
+	BRA.S	PdosReadDone
+PdosReadOk:
+	MOVEQ	#0,D0
+PdosReadDone:
+	TST.W	D0
+	MOVEM.L	(A7)+,D1-D2/A0-A3/A5
+	RTS
+
 readTrack:
 	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
 	MOVE.L	D0,D1
@@ -21049,6 +21184,127 @@ LAB_A1FF74:
 	BEQ.S	LAB_A1FF4E
 	MOVE.L	D5,$1C(A3)
 	BRA.S	LAB_A1FF4C
+
+findPdosMfmSectors:
+	MOVEM.L	D1-D3/A1-A3,-(A7)
+	MOVE.L	A0,-(A7)
+	LEA	mfmSectorAddresses,A2
+	MOVEQ	#$B,D1
+.1
+	CLR.L	(A2)+
+	DBF	D1,.1
+
+	LEA	mfmSectorAddresses,A2
+
+	MOVEQ	#$B,D1
+.2
+  MOVE.W #$200,D0
+.4
+  CMP.W #$4891,(a0)+
+  BEQ.S .3
+  DBF D0,.4
+  MOVEQ #-2,D0 
+  BRA .err
+.3
+  MOVE.L (A0)+,D0
+	ANDI.L	#$55555555,D0
+  LSL.L #1,D0
+  MOVE.L (A0)+,D2
+	ANDI.L	#$55555555,D2
+  OR.L D2,D0
+  MOVE.L D1,-(A7)
+  MOVE.L pdosKey,D1
+  BSET #31,D1
+  EOR.L D1,D0
+ 
+	MOVEA.L	A0,A1
+	MOVE.W	#$00ff,D2
+	MOVEQ	#0,D4
+.crc:
+	MOVE.L	(A1)+,D1
+	EOR.L	D1,D4
+	DBF	D2,.crc
+	AND.L	#$55555555,D4
+  MOVE.L D4,D1
+  SWAP D1
+  ADD.W D1,D1
+  OR.W D1,D4
+  MOVE.L (A7)+,D1
+
+  TST.L pdosKey
+  BNE.S .haskey
+
+  ;brute force the disk key
+  MOVEQ #0,D2
+  MOVE.B pdosTrack,D2
+  SWAP D2
+  MOVE.W D4,D2
+  EOR.L D0,D2
+  BCLR #31,D2
+  MOVE.L D2,pdosKey
+  MOVEM.L D0/A0,-(A7)
+  MOVE.W #29,cursorX
+  LEA .pdosKeyText(PC),A0
+  JSR PrintText
+  MOVE.L D2,D0
+  JSR Print8DigitHex
+  CLR.W cursorX
+  MOVEM.L (A7)+,D0/A0
+.haskey 
+  
+  MOVE.L D0,D2
+ 	MOVEQ	#-4,D0        ;data checksum error
+	CMP.W	D2,D4
+	BNE.S	.err
+
+  SWAP D2
+	MOVEQ	#-5,D0
+  CMP.B pdosTrack,D2  ;track number is not right
+	BNE.S	.err
+  
+  ROR.W #8,D2
+  AND.W #$FF,D2
+	MOVEQ	#-5,D0
+	CMPI.W	#11,D2      ;sector number is invalid
+	BHI.S	.err
+
+  ADD.W D2,D2
+  ADD.W D2,D2
+
+	MOVEQ	#-5,D0
+	TST.L	0(A2,D2.W)    ;sector duplicated
+	BNE.S	.err
+
+	MOVE.L	A0,0(A2,D2.W)
+  
+  MOVE.W #$7F,D0
+  MOVE.L pdosKey,D4
+
+.5
+  MOVE.L (A0),D2
+	ANDI.L	#$55555555,D2
+  LSL.L #1,D2
+  MOVE.L $200(A0),D3
+	ANDI.L	#$55555555,D3
+  OR.L D3,D2
+  EOR.L D2,D4
+  MOVE.L D4,(A0)+
+  MOVE.L D2,D4
+	DBF	D0,.5
+
+  DBF D1,.2
+
+	MOVEQ	#0,D0
+.err
+	TST.W	D0
+	MOVEA.L	(A7)+,A0
+	MOVEM.L	(A7)+,D1-D3/A1-A3
+	RTS
+
+.pdosKeyText:
+  DC.B "Disk key: ",0
+  even
+
 findMfmSectors:
 	MOVEM.L	D1-D2/A1-A3,-(A7)
 	MOVE.L	A0,-(A7)
@@ -21461,10 +21717,20 @@ SUB_A207AA:
 	MOVEQ	#5,D1
 LAB_A207B2:
 	MOVE.W	D2,D0
+  TST.B pdosRead
+  BNE.S .pdos
 	BSR.W	readTrack
 	BMI.S	LAB_A207DE
 	BSR.W	findMfmSectors
 	BMI.S	LAB_A207DE
+  BRA.S .1
+.pdos
+  MOVE.B D0,pdosTrack
+	BSR.W	readPdosTrack
+	BMI.S	LAB_A207DE
+	BSR.W	findPdosMfmSectors
+	BMI.S	LAB_A207DE
+.1
 	MOVE.B	D2,LAB_A48249
 	MOVE.B	currDriveNo,LAB_A4824A
 	SF	TrackBufferModified
@@ -26690,6 +26956,7 @@ RNCREAD_DONE:
 
 CMD_RP:
   ST pdosRead
+  CLR.L pdosKey
 
 CMD_RT:
 	SF	LAB_A480CA
@@ -26714,6 +26981,15 @@ LAB_A24B1A:
 	BCLR	#0,D0
 	MOVEA.L	D0,A1
 	ST	LAB_A480CA
+
+  TST.B pdosRead
+  BEQ.S .notpdos
+
+	JSR	ReadParameter
+	TST.B	ParamFound
+	BEQ.S	.notpdos
+  MOVE.L D0,pdosKey
+.notpdos
 	BRA.W	LAB_A24C46
 LAB_A24B46:
 	TST.B	TBufferAllocated
@@ -26849,6 +27125,9 @@ LAB_A24CEA:
 LAB_A24D3E:
 	SF	LAB_A48335
 	ADDA.W	#$1600,A2
+  TST.B pdosRead
+  BEQ.S LAB_A24D48
+  ADDA.W	#$200,A2
 LAB_A24D48:
 	ADDQ.W	#1,D1
 	DBF	D2,LAB_A24CEA
@@ -26859,6 +27138,10 @@ LAB_A24D50:
 	RTS
 LAB_A24D58:
 	MOVEQ	#$A,D0
+  TST.B pdosRead
+  BEQ.S .1
+  MOVEQ	#$B,D0
+.1
 	LEA	mfmSectorAddresses,A1
 LAB_A24D60:
 	MOVEA.L	(A1)+,A3
@@ -33406,7 +33689,7 @@ HelpText:
 	DC.B	"tlives startaddr.",$D,"*    imode: Entering AR-PRO mode           "
 	DC.B	"      - imode X",$D,"            where X can be 0 upto 3",$D,"      rob"
 	DC.B	"d: Enable/Disable Rob Northen MODE      - robd",$D,"      kill: Re"
-	DC.B	"moves action replay from memory    - robd",$D,"    allexc: Enable/"
+	DC.B	"moves action replay from memory    - kill",$D,"    allexc: Enable/"
 	DC.B	"Disable exception activation  - allexc",$D,"    deepmw: Enable/Dis"
 	DC.B	"able deep memwatcher       - deepmw",$D,$A,"  romavoid: Change kickst"
 	DC.B	"art placement adr       - romavoid",$D,"     cache: Change cache s"
@@ -38706,7 +38989,8 @@ LAB_4001C0:
   endc
 ENDCRC
 checksum:
-  DC.L $1905c6ed
+  ;DC.L $1905c6ed ;v0.1
+  DC.L $507aad91 ; v0.2
   
 arramstart:
 ;all of this is used to store chipmem data
@@ -39152,6 +39436,7 @@ LAB_A48254:
 	DS.L	1
 mfmSectorAddresses:
 	DS.L	$B
+	DS.L  1   ;extra sector for PDOS read function
 	DS.W	1
 DiskCoderFlags:
 DiskCoderDf0Flag:
@@ -39472,8 +39757,15 @@ FastFileSystemFlag1:
 FastFileSystemFlag2:
 	DS.B	1
   
-copyLockSearch
-	DS.B  1
+copyLockSearch:
+  DS.B  1
+pdosRead:
+  DS.B  1
+pdosTrack:
+  DS.B  1
+  even
+pdosKey:
+  DS.L  1
 
 ;spare space here for more variables
 
