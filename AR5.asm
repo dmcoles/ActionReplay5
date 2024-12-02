@@ -39882,7 +39882,7 @@ checksum:
   ;DC.L $91BC69e6  ;v0.2.2
   ;DC.L $f694b5e4  ;v0.3.0
   ;DC.L $7f54738f  ;v0.3.1
-  DC.L $69f45fe2  ;v0.4.0
+  DC.L $725c70c0  ;v0.4.0
   
 arramstart:
 ;all of this is used to store chipmem data
@@ -40029,8 +40029,6 @@ ignoreExceptions:
 CopyFmode:
 	DS.W	1
 CopyDiwHigh:
-	DS.W	1
-CopyBplCon3:
 	DS.W	1
 copperPos:
 	DS.L	1
@@ -40963,6 +40961,8 @@ CopyBplCon1:
 CopyBplCon1Lo:
 	DS.B	1
 CopyBplCon2:
+	DS.W	1
+CopyBplCon3:
 	DS.W	1
 CopyBplMod1:
 	DS.W	1
