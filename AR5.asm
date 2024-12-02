@@ -6523,8 +6523,10 @@ aboutText:
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B	"                 v0.4.0.02122024 - private alpha release for TTE",$D,0
-
+  DC.B	"                 v0.4.0.02122024 - private alpha release for TTE",$D,$D
+  DC.B	"                  Special thanks to gerbil for hardware testing",$D
+  DC.B	"              and to na103 for reverse engineering the AR3 hardware",$D,0
+  
 HeaderStarsText:
 	DC.B	$D,"********************************************************************************",0
 
@@ -10404,7 +10406,7 @@ LAB_A17B6A:
   MOVE.W cpuAddrSize,D1
   ADD.W #2,D1
   MOVE.W D1,cursorX
-	BSR.W	PrintCursor
+	JSR	PrintCursor
 	MOVEM.L	(A7)+,D0-D1/A1
 	RTS
 MemFill:
@@ -14364,7 +14366,7 @@ LAB_A1AEBA:
 	BSR.W	PrintCrIfNotBlankLine
 	MOVE.L	A0,D0
 	LEA	QuickDunpText(PC),A0
-	BSR.W	PrintText
+	JSR	PrintText
 	JSR	PrintAddressHex
 	BRA.W	PrintCrIfNotBlankLine
 
@@ -39882,7 +39884,7 @@ checksum:
   ;DC.L $91BC69e6  ;v0.2.2
   ;DC.L $f694b5e4  ;v0.3.0
   ;DC.L $7f54738f  ;v0.3.1
-  DC.L $725c70c0  ;v0.4.0
+  DC.L $15a29945  ;v0.4.0
   
 arramstart:
 ;all of this is used to store chipmem data
