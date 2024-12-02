@@ -1,0 +1,60 @@
+Action Replay 5 Private Alpha For TTE
+
+
+v0.1 Bug fixes/enhancements:
+  - fix: invalid sector number error sometimes occurred when disk full
+  - fix: file not written when disk full
+  - escape disabled during save (temporary fix until a better fix can be done)
+  - DIR sometimes shows 2 blocks free when there are none
+  - Memory addresses shown as full 32 bit when running on full 32 bit cpu
+  - NEW command FC - copylock finder (shortcut for FS " Onz")
+  - Added uk keymap and made it default
+  - Added MM, NN, DD, YY, MMM, NNN, DDD, YYY commands (same as M,N,D,Y respectively
+     but dumps 8 or 16 lines instead of just 1)
+  - fix: message "resident program allocated at.." sometimes appeared incorrectly
+  - works on all cpu/kickstart versions (winuae JIT causes errors on soft reboot for some reason)
+  - fix: keyboard shortcuts to unlock bitplanes in picture viewer weren't working
+  - added support for AGA in picture viewer
+  - DBG command - new debugger (not finished)
+     - F1 - switch between code/mem
+       F5 - run
+       F7 - step over
+       F8 - step into
+       F10 - exit
+       M - set memory address
+       D - set disassembly address
+       Cursor LRUD - scroll memory/disassembly
+
+v0.2 Updates (not released)
+  - fix: hopefully should work on real hardware now
+  - fix: floppy code - winuae turbo mode
+  - fix: floppy code - fast cpu support (removed processor delay loops)
+  - fix: FS command crashed
+  - new command RNC reads copylock serial track and shows probable serial numbers
+  - new command RP for reading PDOS tracks
+  - FC now searches for serial key decrypt code and displays disassembly and type code
+    (used in conjunction with the info from the RNC command to get the serial)
+  - Other miscellaneous minor fixes
+
+v0.2.1 Updates (not released)
+  - added various tweaks to try and get it running on real AR3 hardware
+
+v0.2.2 Updates (not released)
+  - added boot sequence colours to try and help work out why its not working
+    on real AR3
+  - aded RM command for reading raw MFM
+  - some further tweaks to boot sequence to fix for AR3 hardware
+  - added RC, RF, RM commands to display FPU, MMU and other registers on
+    68020 and higher CPUs.
+v0.3.0 Updates (not released)
+  - removed startup failure check as this was triggering incorrectly
+  - fixed burst nibbler mouse clicks not registering
+v0.3.1 Updates (not released)
+  - removed debug code for testing on real hardware
+  - fixed RC, RF, RM commands to not crash on 68000
+v0.4.0 Updates
+  - picture viewer (mempeeker) not displaying correctly
+  - partially disable beamcon0 handling as it is not currently working
+  - tweaks to floppy routines again to support turbo mode
+  - update boot screen code as was displaying incorrectly sometimes on
+    real hardware

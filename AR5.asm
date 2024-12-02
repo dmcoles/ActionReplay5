@@ -1,45 +1,10 @@
 ;Action Replay 5
 
+  OPT p=68040
+  
 dbg=0
 pistorm=0
 arhardware=1
-arfix=1
-
-  if arfix=1
-fixcol macro 
-  MOVE.W #\1,$DFF180
-  JSR debugDelay
-  endm
-
-arfix1 macro
-  CMP.L #$fc0144,2(a7)    ;1.2/1.3
-  BEQ.S .hboot
-
-  CMP.L #$f80160,2(a7)    ;2.04
-  BEQ.S .hboot
-
-  CMP.L #$f801ba,2(a7)    ;3.1
-  BEQ.S .hboot
-  
-  ST	LAB_A4824E
-  JMP AREntry3
-  endm
-arfix2 macro
-  MOVEA.L	2(A7),A3
-	CLR.W	(A7)
-	CLR.L	2(A7)
-  LEA EXT_40000,A7
-  JMP (A3)
-  endm
-
-  else
-fixcol macro 
-  endm
-arfix1 macro
-  endm
-arfix2 macro
-  endm
-  endc
 
 EXT_0		EQU	$0
 EXT_4		EQU	$4
@@ -359,20 +324,11 @@ rsnoop SET 1
  endc
  
 SECSTRT_0:
-  if arfix=0
-    OPT p=68040
-    DS.L 31
-  else
-    OPT p=68000
-    DC.B  $20,$18,$20,$18,$41,$43,$54,$49,$4F,$4E,$20,$52,$45,$50,$4C,$41
-    DC.B  $59,$20,$41,$4D,$49,$47,$41,$20,$4D,$4B,$20,$49,$49,$49,$20,$28
-    DC.B  $56,$33,$2E,$31,$37,$20,$31,$32,$2F,$31,$37,$2F,$39,$31,$29,$0D
-    DC.B  $42,$79,$20,$4A,$F6,$72,$67,$20,$5A,$61,$6E,$67,$65,$72,$20,$61
-    DC.B  $6E,$64,$20,$4F,$6C,$61,$66,$20,$42,$6F,$65,$68,$6D,$0D,$00,$00
-    DC.B  $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    DC.B  $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    DC.B  $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  endc
+    DC.B  $20,$18,$20,$18
+    DC.B "ACTION REPLAY V By REbEL/QTX. "  ;30
+    DC.B "Based on Action Replay MKIII (Datel Electronics) " ;51
+    DC.B "& Aktion Replay 4 PRO (Parcon Software)." ;42
+    DS.B (SECSTRT_0+$7c)-*
  
 STARTCRC:
  DC.L NMI_Entry
@@ -446,10 +402,6 @@ nmi3:
     jsr DoArTrace
     rte
 nmi:
-  fixcol $F
-  ;if arfix=1
-  ;MOVE.W #$F,$DFF180
-  ;endc
 	JSR	Freeze
 	RTE
 x:
@@ -522,18 +474,25 @@ LAB_4001C0:
 reset:
   BTST #0,FreezeState
   BEQ SoftBoot
-  
-  arfix1
+   
+  ;MOVE.L 2(a7),debuginfo1
+   
+  ;CMP.L #$fc0144,2(a7)    ;1.2/1.3
+  ;BEQ.S .hboot
+  ;BEQ.S .hboot
 
+  ;CMP.L #$f80160,2(a7)    ;2.04
+  ;BEQ.S .hboot
+
+  ;CMP.L #$f801ba,2(a7)    ;3.1
+  ;BEQ.S .hboot
+  
+  ;ST	LAB_A4824E
+  ;JMP AREntry3
 .hboot
   JMP HardBoot
 
 SoftBoot:
-  fixcol $F0
-  ;if arfix=1
-  ;MOVE.W #$0F0,$DFF180
-  ;endc
-
 	MOVE.L	A0,-(A7)
 	LEA	6(A7),A0
 	MOVEA.L	(A0),A0
@@ -1361,12 +1320,10 @@ LAB_A10240:
 	RTS
 
 RomEntry:
-  if arfix=0
   CMP.L #BRON_TAG,LAB_A481D2
   BEQ RomEntry_2
 	JMP	ArEntry1
 RomEntry_2:
-  endc
 	JMP	AREntry2
 
 ExceptionEntry:
@@ -1638,10 +1595,6 @@ LAB_A10BF4:
 
 
 getVBR:
-  if arfix=1
-  MOVEQ #0,D0
-  MOVE.W D0,vbrflag
-  else
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   SUB.L A0,A0
@@ -1652,29 +1605,21 @@ vbrtrap:
   MOVE.W #0,vbrflag
   ADD.L  #4,2(a7)
   RTE
-  endc
 
 getCACR:
-  if arfix=1
-  MOVEQ #0,D0
-  MOVE.W D0,vbrflag
-  else
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   MOVEQ #0,D0
   MOVE.W #1,vbrflag
   MOVEC CACR,D0
   MOVE.L (A7)+,ILLEG_OPC.W
-  endc
   RTS
 
 setCACR:
-  if arfix=0
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   MOVEC D0,CACR
   MOVE.L (A7)+,ILLEG_OPC.W
-  endc
   RTS
 
 CMD_CLRDMON:
@@ -2281,12 +2226,9 @@ bplConValues:
   DC.W 0,$1000,$2000,$3000,$4000,$5000,$6000,$7000,$0010
   
 GetLisaId:
-  if arfix=1
-    move.w  #$ff,d0   ;kludge this to OCS for this hack
-    rts
-  else
     MOVEM.L D1-D2,-(A7)
-    move.w $dff07c,d0    
+    move.w $dff07c,d0
+    
     moveq  #31-1,d2
     and.w  #$ff,d0
 check_loop:
@@ -2302,7 +2244,6 @@ not_ECS:
     move.w  #$ff,d0
     MOVEM.L (A7)+,D1-D2
     rts
-  endc
 RestoreDisplay1:
 	LEA	EXT_DFF000,A5
 	MOVE.W	#$0300,$96(A5)
@@ -2495,9 +2436,6 @@ MakeMainDisplay:
 	SF	LAB_A489F0
 	LEA	EXT_DFF000,A5
   MOVE.W #$80,$96(a5)
-  if arfix=1
-	CLR.W	VgaModeFlag
-  endc
 	TST.W	VgaModeFlag
 	BEQ.W	LAB_A115BA
 
@@ -2522,11 +2460,7 @@ MakeMainDisplay:
   MOVE.L #0,bplcon1(a5)
 	BRA.S	LAB_A1160C
 LAB_A115BA:
-  if arfix=1
-  MOVE.L	#$3d8105d1,diwstrt(A5)
-  else
   MOVE.L	#$2d81f5d1,diwstrt(A5)
-  endc
 	MOVE.L	#$003c00d0,ddfstrt(A5)
 	MOVE.W	#0,bpl1mod(A5)
   MOVE.W	#0,bpl2mod(A5)
@@ -2565,16 +2499,11 @@ LAB_A11652:
 	MOVE.W	currMouseX,D1
 	LSR.W	#2,D1
 	MOVE.W	currMouseY,D0
-  if arfix=0
   SUB.W #$10,D0
-  endc
 	LSL.W	#8,D0
 	OR.W	D0,D1
 	SWAP	D1
 	MOVE.W	currMouseY,D0
-  if arfix=1
-  ADD.W #$10,D0
-  endc
 	LSL.W	#8,D0
 	OR.W	D0,D1
 	MOVE.W	currMouseX,D0
@@ -2582,16 +2511,11 @@ LAB_A11652:
 	ANDI.W	#$0001,D0
 	OR.W	D0,D1
 	MOVE.W	currMouseY,D0
-  if arfix=0
   SUB.W #$10,D0
-  endc
 	LSR.W	#8,D0
 	LSL.W	#2,D0
 	OR.W	D0,D1
 	MOVE.W	currMouseY,D0
-  if arfix=1
-  ADD.W #$10,D0
-  endc
 	LSR.W	#8,D0
 	LSL.W	#1,D0
 	OR.W	D0,D1
@@ -3102,7 +3026,7 @@ LAB_A121AA:
 	ADDQ.W	#1,D1
 	TST.B	(A2)
 	BNE.S	nextCmd
-	BRA.W	PrintWTF
+	JMP	PrintWTF
 LAB_A121C4:
 	BSR.W	SUB_A1827E
 	EXG	D0,A2
@@ -3137,7 +3061,7 @@ LAB_A12216:
 	BSR.W	PrintText
 	MOVE.L	currCopper,D0
 	BSR.W	Print6DigitHex
-	BSR.W	PrintReady
+	JSR	PrintReady
 	RTS
 
 currentCopperText:
@@ -3718,6 +3642,9 @@ commandTable:
 	DC.B	"ALLEXC",0
 	DS.B	1
 	DC.L	CMD_ALLEXC
+
+  ;DC.B  "DEBUG",0
+  ;DC.L  CMD_DEBUG
 
 	DC.B	"COLOR",0
 	DC.L	CMD_COLOR
@@ -4713,9 +4640,6 @@ CMD_O:
 	BRA.W	PrintReady
 
 CMD_RC:
-  if arfix=1
-  BRA PrintWTF
-  else
   JSR getVBR
   MOVE.L ILLEG_OPC(a0),-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC(A0)
@@ -4728,23 +4652,27 @@ CMD_RC:
   BSR PrintAddressHex
 	LEA	sfcText(PC),A0
 	JSR	PrintText
+  SUB.L A0,A0
   MOVEC SFC,A0
   MOVE.L A0,D0
   BSR Print2DigitHex
 	LEA	dfcText(PC),A0
 	JSR	PrintText
+  SUB.L A0,A0
   MOVEC DFC,A0
   MOVE.L A0,D0
   BSR Print2DigitHex
 
 	LEA	ispText(PC),A0
 	JSR	PrintText
+  SUB.L A0,A0
   MOVEC ISP,A0
   MOVE.L A0,D0
   BSR PrintAddressHex
 
 	LEA	mspText(PC),A0
 	JSR	PrintText
+  SUB.L A0,A0
   MOVEC MSP,A0
   MOVE.L A0,D0
   BSR PrintAddressHex
@@ -4763,23 +4691,15 @@ ispText DC.B " ISP=",0
 mspText DC.B " MSP=",0
 cacrText DC.B " CACR=",0
   even
-  endc
 
 CMD_RF:
-  if arfix=1
-  BRA PrintWTF
-  else
   JSR getVBR
   MOVE.L LINEF_EMU(A0),-(A7)
   MOVE.L #fmovetrap,LINEF_EMU(A0)
 
-  LEA mt_samplestarts,A1
-  CLR.L (A1)
-  CLR.L 4(A1)
-  CLR.L 8(A1)
-
 	LEA	fp0Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP0,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4791,6 +4711,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp1Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP1,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4802,6 +4723,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp2Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP2,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4813,6 +4735,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp3Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP3,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4824,6 +4747,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp4Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP4,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4835,6 +4759,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp5Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP5,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4846,6 +4771,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp6Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP6,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4857,6 +4783,7 @@ CMD_RF:
   BSR PrintCR
 	LEA	fp7Text(PC),A0
 	JSR	PrintText
+  BSR initFloatData
   FMOVE.X FP7,(A1)
   MOVE.L (A1),D0
 	JSR	Print8DigitHex
@@ -4868,33 +4795,34 @@ CMD_RF:
   BSR PrintCR
 	LEA	fpiarText(PC),A0
 	JSR	PrintText
+  CLR.L D0
   FMOVE FPIAR,D0
-  ;dont remove these as they are needed in the case of no fpu
-  NOP
-  NOP
 	JSR	Print8DigitHex
 	LEA	fpcrText(PC),A0
 	JSR	PrintText
+  CLR.L D0
   FMOVE FPCR,D0
-  ;dont remove these as they are needed in the case of no fpu
-  NOP
-  NOP
 	JSR	Print4DigitHex
 	LEA	fpsrText(PC),A0
 	JSR	PrintText
   
+  CLR.L D0
   FMOVE FPSR,D0
-  ;dont remove these as they are needed in the case of no fpu
-  NOP
-  NOP
 	JSR	Print8DigitHex
   BSR PrintCR
   JSR getVBR
   MOVE.L (A7)+,LINEF_EMU(A0)
   RTS
+
+initFloatData:
+  LEA mt_samplestarts,A1
+  MOVE.L #$7fff0000,(a1)
+  MOVE.L #$7fffffff,4(A1)
+  move.l #$fffff800,8(a1)
+  RTS
   
 fmovetrap:
-  ADD.L  #8,2(a7)
+  ADD.L  #4,2(a7)
   RTE
 fp0Text DC.B "FP0=",0
 fp1Text DC.B "FP1=",0
@@ -4908,9 +4836,14 @@ fpiarText DC.B "FPIAR=",0
 fpcrText DC.B " FPCR=",0
 fpsrText DC.B " FPSR=",0
   even
-  endc
 
 printExtendedFloat:
+  MOVEM.L D0-D2/A1/a2,-(A7)
+  BSR.S extFloat
+  MOVEM.L (A7)+,D0-D2/A1/A2
+  RTS
+  
+extFloat:
   lea 12(a1),a2
 	;get the values
 	MOVE.L	-(A2),D1
@@ -5311,9 +5244,6 @@ LAB_16738:
 
 
 CMD_RM:
-  if arfix=1
-  BRA PrintWTF
-  else
   JSR getVBR
   MOVE.L ILLEG_OPC(A0),-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC(A0)
@@ -5382,7 +5312,6 @@ srpText DC.B " SRP=",0
 tcText DC.B " TC=",0
 mmusrText DC.B "MMUSER=",0
   even
-  endc
 
 CMD_R:
 	MOVEM.L	D0-D2/A1,-(A7)
@@ -6594,7 +6523,7 @@ aboutText:
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B	"                 v0.3.0.28112024 - private alpha release for TTE",$D,0
+  DC.B	"                 v0.4.0.02122024 - private alpha release for TTE",$D,0
 
 HeaderStarsText:
 	DC.B	$D,"********************************************************************************",0
@@ -10521,7 +10450,6 @@ LAB_A17C12:
 	RTS
   if arhardware=1
 HardBoot:
-  fixcol $F00
   ;TST.B startupFail
   ;BNE.S .1
 	CMPI.L	#BRON_TAG,LAB_A481D2
@@ -10530,8 +10458,12 @@ HardBoot:
 	BEQ.S	LAB_407C98
 .1
 	CLR.W	FreezeMode
-  arfix2
-  RTE
+
+  MOVEA.L	2(A7),A3
+	CLR.W	(A7)
+	CLR.L	2(A7)
+  LEA EXT_40000,A7
+  JMP (A3)
 LAB_407C98:
   ST.B startupFail
 	MOVEA.L	2(A7),A3
@@ -10551,11 +10483,13 @@ LAB_407CD0:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#BRON_TAG,LAB_A481D2
 	BEQ.W	LAB_407E64
+;  MOVE.L debuginfo1,D1
 	LEA	arramstart,A0
 	MOVE.W	#$3fff,D0
 LAB_407CF6:
 	CLR.L	(A0)+
 	DBF	D0,LAB_407CF6
+;  MOVE.L D1,debuginfo1
   ST.B startupFail
 	MOVE.L	#BRON_TAG,LAB_A481D2
 	BSR.W	GetDrivesConnected
@@ -10576,17 +10510,9 @@ LAB_407D34:
 	BSET	#1,D1
 LAB_407D40:
 	MOVE.W	D1,memoryControlPrefsValue
-  fixcol $F0F
-  ;if arfix=1
-  ;MOVE.W #$F0F,$DFF180
-  ;endc
   BSR ARInit
   JSR setActivateMode
   SF.B startupFail
-  fixcol $0FF
-  ;if arfix=1
-  ;MOVE.W #$0FF,$DFF180
-  ;endc
 	MOVEA.L	EXT_F80004,A7
 	JMP	(A7)
 LAB_407E64:
@@ -10716,7 +10642,7 @@ LAB_4080A2:
 LAB_4080A8:
 	SUBQ.L	#3,D5
 	BPL.S	LAB_4080A8
-	JSR	SUB_40D6C0
+	JSR	disableAllDma
 	SUBA.L	A0,A0
 	MOVE.W	#$2c00,D0
 LAB_4080B8:
@@ -10806,12 +10732,8 @@ ARInit:
 	NOT.B	LAB_A483DA
 	MOVE.W	DrivesConnected,DriveControlPrefsValue
 	MOVE.W	#$ffff,BootSelectPrefs
-  if arfix=1
-  MOVE.W  #6,cpuAddrSize
-  else
   MOVE.W  #8,cpuAddrSize
   MOVE.W  #6,cpuAddrSize+$ff000000
-  endc
 	SF	LAB_A483CC
 	SF	LAB_A483D8
 	SF	exceptionsActive
@@ -11186,6 +11108,16 @@ CMD_RCOLOR:
 	MOVE.W	#$0fff,ArFgCol
 	JSR	PrintReady
 	RTS
+;CMD_DEBUG
+;  MOVE.L debuginfo1,D0
+;  BSR Print8DigitHex
+;  BSR PrintCR
+;  MOVE.W debuginfo2,D0
+;  BSR Print4DigitHex
+;  BSR PrintCR
+;	JSR	PrintReady
+;	RTS
+  
 CMD_COLOR:
 	BSR.W	ReadParameter
 	TST.B	ParamFound
@@ -11399,7 +11331,7 @@ LAB_A184AE:
 	BSR.W	PrintText
 LAB_A184CC:
 	MOVE.L	D3,D0
-	BSR.W	PrintAddressHex
+	JSR	PrintAddressHex
 	MOVEQ	#2,D0
 	BSR.W	PrintSpaces
 	BRA.S	LAB_A184AE
@@ -11409,7 +11341,7 @@ LAB_A184DA:
 	LEA	NothingFoundText(PC),A0
 	BSR.W	PrintText
 	MOVE.L	trainerContinueAddress,D0
-	BSR.W	PrintAddressHex
+	JSR	PrintAddressHex
 	BRA.W	PrintCR
 LAB_A184F4:
 	RTS
@@ -11522,7 +11454,7 @@ LAB_A186FE:
 	LEA	2(A2),A2
 	TST.L	D0
 	BEQ.S	LAB_A18714
-	BSR.W	PrintAddressHex
+	JSR	PrintAddressHex
 	MOVE.W	#2,D0
 	BSR.W	PrintSpaces
 LAB_A18714:
@@ -11805,7 +11737,7 @@ PrintWTF:
 	LEA	wtfText(PC),A0
 	BSR.W	PrintText
 	MOVEA.L	saveSp,A7
-	BRA.W	arCommandLoop
+	JMP	arCommandLoop
 wtfText:
 	DC.B	"???",$D,0,0
 
@@ -11901,6 +11833,7 @@ LAB_A18BCA:
   MOVE.W D0,bitplaneCount
     
 	MOVEQ	#0,D0
+  MOVE.W #-1,CopyBeamCon0
 memPeekMainLoop:
 	CLR.W	LAB_A481D6
 	BTST	#6,EXT_BFE001
@@ -12443,7 +12376,10 @@ LAB_A19398:
 	MOVE.W	CopyBplCon2,SaveBplCon2
   MOVE.W	CopyBplCon3,SaveBplCon3
   MOVE.W	CopyBplCon4,SaveBplCon4
+  CMP.W #-1,CopyBeamCon0
+  BEQ.S .skip
   MOVE.W	CopyBeamCon0,SaveBeamCon0
+.skip:
   MOVE.W	CopyFmode,SaveFmode
 	MOVE.W	CopyBplMod1,SaveBpl1Mod
 	MOVE.W	CopyBplMod2,SaveBpl2Mod
@@ -13065,14 +13001,14 @@ LAB_A19B84:
 	DBF	D0,LAB_A19B78
 	BSR.W	PrintMemPeekerHelpLocks
 	BRA.W	LAB_A19C8E
-debugDelay:
-  MOVE.L D0,-(A7)
-  MOVE.W #10,D0
-.dloop
-  BSR.S Delay
-  DBF D0,.dloop
-  MOVE.L (A7)+,D0
-  RTS
+;debugDelay:
+;  MOVE.L D0,-(A7)
+;  MOVE.W #25,D0
+;.dloop
+;  BSR.S Delay
+;  DBF D0,.dloop
+;  MOVE.L (A7)+,D0
+;  RTS
 Delay:
 	MOVE.B	#$00,EXT_BFE801
 LAB_A19BA0:
@@ -16965,6 +16901,7 @@ LAB_A1CA90:
 	DC.W	$4e58
 BootScreenShow:
 	MOVE.W	#$0020,EXT_DFF09C
+  ;MOVE.W  $dff002,debuginfo2
 LAB_40D56A:
 	BTST	#5,EXT_DFF01F
 	BEQ.S	LAB_40D56A
@@ -16987,16 +16924,16 @@ LAB_40D5CE:
 	MOVE.L	(A0),(A1)+
 	CMPI.L	#$fffffffe,(A0)+
 	BNE.S	LAB_40D5CE
-	MOVE.L	#BOOT_LOGO_WINDOW,EXT_DFF08E
-	MOVE.L	#BOOT_LOGO_FETCH,EXT_DFF092
-	CLR.L	EXT_DFF108
-	MOVE.L	#BOOT_LOGO_BPLCON,EXT_DFF102
-	LEA	BootScreenPal(PC),A0
-	LEA	EXT_DFF180,A1
-	MOVEQ	#$F,D0
+	;MOVE.L	#BOOT_LOGO_WINDOW,EXT_DFF08E
+	;MOVE.L	#BOOT_LOGO_FETCH,EXT_DFF092
+	;CLR.L	EXT_DFF108
+	;MOVE.L	#BOOT_LOGO_BPLCON,EXT_DFF102
+	;LEA	BootScreenPal(PC),A0
+	;LEA	EXT_DFF180,A1
+	;MOVEQ	#$F,D0
 LAB_40D608:
-	MOVE.L	(A0)+,(A1)+
-	DBF	D0,LAB_40D608
+	;MOVE.L	(A0)+,(A1)+
+	;DBF	D0,LAB_40D608
 	CLR.L	EXT_DFF080
 	MOVE.W	#$04d2,EXT_DFF088
 	MOVE.W	#$7fff,EXT_DFF09C
@@ -17005,19 +16942,30 @@ LAB_40D624:
 	BEQ.S	LAB_40D624
 	MOVE.W	#$7fff,EXT_DFF096
 	MOVE.W	#$8380,EXT_DFF096
+  ;JSR debugDelay
 	RTS
 
-BootScreenPal:
-	DC.W	$0000,$0103,$0104,$0134,$0205,$0215,$0216,$0245
-	DC.W	$0317,$0328,$0356,$0429,$0467,$0539,$053A,$0578
-	DC.W	$064B,$0689,$075C,$075D,$079A,$086D,$08AB,$097E
-	DC.W	$09BC,$0A8F,$0ACD,$0BDE,$0CEF,$0DFF,$0090,$0F00
+;BootScreenPal:
+;	DC.W	$0000,$0103,$0104,$0134,$0205,$0215,$0216,$0245
+;	DC.W	$0317,$0328,$0356,$0429,$0467,$0539,$053A,$0578
+;	DC.W	$064B,$0689,$075C,$075D,$079A,$086D,$08AB,$097E
+;	DC.W	$09BC,$0A8F,$0ACD,$0BDE,$0CEF,$0DFF,$0090,$0F00
 BootScreenCopper:
+  DC.L  $01020000,$01040024,$008e2c81,$0090b7c1
+  DC.L  $00920034,$009400cc,$01080000
+	DC.L	$01800000,$01820103,$01840104,$01860134
+  DC.L  $01880205,$018a0215,$018c0216,$018e0245
+	DC.L	$01900317,$01920328,$01940356,$01960429
+  DC.L  $01980467,$019a0539,$019c053A,$019e0578
+	DC.L	$01a0064B,$01a20689,$01a4075C,$01a6075D
+  DC.L  $01a8079A,$01aa086D,$01ac08AB,$01ae097E
+	DC.L	$01b009BC,$01b20A8F,$01b40ACD,$01b60BDE
+  DC.L  $01b80CEF,$01ba0DFF,$01bc0090,$01be0F00
 	DC.L	$00e00000,$00e20100,$00e40000,$00e616e0
 	DC.L	$00e80000,$00ea2cc0,$00ec0000,$00ee42a0
 	DC.L	$00f00000,$00f25880,$01000200,$37017ffe
 	DC.L	$01005200,$db017ffe,$01000200,$fffffffe
-SUB_40D6C0:
+disableAllDma:
 	MOVE.W	#$7fff,EXT_DFF096
 	RTS
 PrintExceptions:
@@ -22681,8 +22629,8 @@ LAB_A1FD46:
 readRawMfmTrack:
 	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
 	MOVE.L	D0,D1
-	;BSR.W	SUB_A20188
-	;BMI.W	RawMfmReadDone
+	BSR.W	checkDiskBlockDone
+	BMI.W	RawMfmReadDone
 	MOVEQ	#-8,D0
 	TST.B	EscapePressed
 	BNE.W	RawMfmReadDone
@@ -22728,7 +22676,6 @@ readRawMfmTrack:
   BTST	#1,D0
 	BEQ.S .2
 
-  MOVE.W	#$0002,$9C(A5)
 	MOVE.W	#$4000,$24(A5)
   BRA.S RawMfmReadOk
 RawMfmReadErr:
@@ -22747,8 +22694,8 @@ RawMfmReadDone:
 readPdosTrack:
 	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
 	MOVE.L	D0,D1
-	;BSR.W	SUB_A20188
-	;BMI.W	PdosReadDone
+	BSR.W	checkDiskBlockDone
+	BMI.W	PdosReadDone
 	MOVEQ	#-8,D0
 	TST.B	EscapePressed
 	BNE.W	PdosReadDone
@@ -22791,7 +22738,6 @@ readPdosTrack:
   BTST	#1,D0
 	BEQ.S .2
 
-  MOVE.W	#$0002,$9C(A5)
 	MOVE.W	#$4000,$24(A5)
   BRA.S PdosReadOk
 PdosReadErr:
@@ -22810,7 +22756,7 @@ PdosReadDone:
 readTrack:
 	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
 	MOVE.L	D0,D1
-	BSR.W	SUB_A20188
+	BSR.W	checkDiskBlockDone
 	BMI.W	LAB_A1FE96
 	MOVEQ	#-8,D0
 	TST.B	EscapePressed
@@ -22888,7 +22834,6 @@ LAB_A1FE38:
 .2
   BTST	#1,$1F(A5)
 	BEQ.S .2
-	MOVE.W	#$0002,$9C(A5)
 
   BRA.S LAB_A1FE94
 .1
@@ -23333,7 +23278,7 @@ LAB_A20178:
 	DBF	D0,LAB_A20178
 	MOVEM.L	(A7)+,D0/A0
 	RTS
-SUB_A20188:
+checkDiskBlockDone:
 	MOVE.L	A5,-(A7)
 	LEA	EXT_BFE000,A5
 	BCLR	#7,$F01(A5)
@@ -23358,7 +23303,7 @@ LAB_A201D2:
 	RTS
 writeTrack:
 	MOVEM.L	D1/A1/A5,-(A7)
-	BSR.S	SUB_A20188
+	BSR.S	checkDiskBlockDone
 	BSR.W	SUB_A2071A
 	BMI.W	LAB_A20288
 	MOVEQ	#-8,D0
@@ -23395,7 +23340,7 @@ LAB_A20260:
 	MOVE.W	#$1002,$9C(A5)
 	MOVE.W	#$d955,$24(A5)
 	MOVE.W	#$d955,$24(A5)
-	BSR.W	SUB_A20188
+	BSR.W	checkDiskBlockDone
 	MOVE.W	#$4000,$24(A5)
 	BSR.W	deselectAllDrives
 LAB_A20288:
@@ -28733,7 +28678,7 @@ RncTypesTable:
 readRNCTrack:
 	MOVEM.L	D1-D2/A0-A3/A5,-(A7)
 	MOVE.L	D0,D1
-	;BSR.W	SUB_A20188
+	;BSR.W	checkDiskBlockDone
 	;BMI.W	RNCREAD_DONE
 	MOVEQ	#-8,D0
 	TST.B	EscapePressed
@@ -35531,12 +35476,17 @@ HelpText:
 	DC.B	"Diskmonitor commands:",$D,"---------------------",$D,"        rt: Read "
 	DC.B	"tracks from active drive        - rt strack (num dest)",$D,"      "
 	DC.B	"  wt: Write tracks to active drive         - wt strack num so"
-	DC.B	"urce",$D,"      dmon: Get/display disk-mon buffer          - dmon",$D
+	DC.B	"urce",$D
+  
+  DC.B  "        rp: Read pdos tracks from active drive   - rp strack (num dest)",$D
+  DC.B  "        rr: Read raw mfm tracks from active dr   - rr str sync len (num dest)",$D
+  DC.B  "       rnc: Show rnc serial track                - rnc",$D
+  DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
 	DC.B	"   clrdmon: Restore disk-mon buffer              - clrdmon",$D,"  "
 	DC.B	" bootchk: Set correct bootblockchecksum        - bootchk sect"
 	DC.B	"oraddr.",$D,"   datachk: Set correct datachecksum             - da"
 	DC.B	"tachk sectoraddr.",$D,"    bamchk: Set correct bitmapchecksum     "
-	DC.B	"      - bamchk sectoraddr.",$D,$D,"Trainer commands:",$D,"---------------"
+	DC.B	"      - bamchk sectoraddr.",$D,$A,"Trainer commands:",$D,"---------------"
 	DC.B	"--",$D,"        ts: Start trainer/trainermode            - ts star"
 	DC.B	"tlives startaddress",$D,"         t: Show addresses/continue train"
 	DC.B	"er      - t (actlives)",$D,"        tx: Exit trainermode          "
@@ -35582,9 +35532,9 @@ HelpText:
 	DC.B	"us",$D,$D,"New monitor commands/changes:",$D,"---------------------------"
 	DC.B	"--",$D,"*       ts: Start trainer/trainermode            - ts star"
 	DC.B	"tlives startaddr.",$D,"*    imode: Entering AR-PRO mode           "
-	DC.B	"      - imode X",$D,"            where X can be 0 upto 3",$D,"      rob"
-	DC.B	"d: Enable/Disable Rob Northen MODE      - robd",$D,"      kill: Re"
-	DC.B	"moves action replay from memory    - kill",$D,"    allexc: Enable/"
+	DC.B	"      - imode X",$D,"            where X can be 0 upto 3",$D
+  DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
+  DC.B  "      kill: Removes action replay from memory    - kill",$D,"    allexc: Enable/"
 	DC.B	"Disable exception activation  - allexc",$D,"    deepmw: Enable/Dis"
 	DC.B	"able deep memwatcher       - deepmw",$D,$A,"  romavoid: Change kickst"
 	DC.B	"art placement adr       - romavoid",$D,"     cache: Change cache s"
@@ -35619,6 +35569,7 @@ HelpText:
 	DC.B	"    fr: Search for relative-string           - fr string(,sta"
 	DC.B	"rt end)",$D
   DC.B  "        fc: Search for copylock code             - fc (start end)",$D
+  DC.B  "        ci: Show copylock info                   - ci <addr>",$D
   DC.B  "        fs: Search string (not casesensitive)    - fs"
 	DC.B	" string(,start end)",$D,"         g: Restart program at address   "
 	DC.B	"        - g (address)",$D,"     trans: Copy memoryblock           "
@@ -35631,8 +35582,12 @@ HelpText:
 	DC.B	"ess",$D,"        no: Show/set ascii-dump offset           - no (of"
 	DC.B	"fset)",$D,"        nq: Display memory quick as ascii        - nq a"
 	DC.B	"ddress",$D,"         o: Fill memoryblock with string         - o s"
-	DC.B	"tring, start end",$D,"         r: Show/edit processor registers   "
-	DC.B	"     - r (reg value)",$D,"         w: Show/edit cia's             "
+	DC.B	"tring, start end",$D
+  DC.B  "         r: Show/edit processor registers   - r (reg value)",$D
+  DC.B  "         rc: Show 020+ control registers    - rf",$D
+  DC.B  "         rf: Show fpu registers             - rf",$D
+  DC.B  "         rm: Show mmu registers             - rm",$D,$A
+  DC.B  "         w: Show/edit cia's             "
 	DC.B	"         - w (register)",$D,"         y: Show/edit memory as binar"
 	DC.B	"y           - y address",$D,"        ys: Show/set datawidth for th"
 	DC.B	"e y command - ys (bytes)",$D,"         ?: Calculator              "
@@ -39925,7 +39880,9 @@ checksum:
   ;DC.L $507aad91 ; v0.2
   ;DC.L $76DF1216  ;v0.2.1
   ;DC.L $91BC69e6  ;v0.2.2
-  DC.L $f694b5e4  ;v0.3.0
+  ;DC.L $f694b5e4  ;v0.3.0
+  ;DC.L $7f54738f  ;v0.3.1
+  DC.L $69f45fe2  ;v0.4.0
   
 arramstart:
 ;all of this is used to store chipmem data
@@ -40709,7 +40666,14 @@ mfmSync:
   DS.W  1
 mfmLength
   DS.W  1
+;debuginfo1
+;  DS.L  1
+;debuginfo2
+;  DS.W  1
 
+
+stringWorkspace:
+	DS.L	$14
 
 ;spare space here for more variables
 
@@ -40907,8 +40871,6 @@ trainerContinueAddress:
 	DS.L	1
 trainerWorkspacePtr:
 	DS.L	1
-stringWorkspace:
-	DS.L	$14
 AronFlag:
 	DS.L	1
 binaryBitWidth:
@@ -40931,7 +40893,7 @@ LAB_A47FC0:
 	DS.L	1
 LAB_A47FC4:
 	DS.L	1
-  ;DS.L	1
+  DS.L	1
 LAB_A47FCC:
 	DS.W	1
 LAB_A47FCE:
@@ -40942,15 +40904,15 @@ LAB_A47FD2:
 	DS.L	1
 LAB_A47FD6:
 	DS.L	1
-  ;DS.L	1
+  DS.L	1
 BranchInstructionType:
 	DS.W	1
-	;DS.L	8
+	DS.L	8
 DefaultAddress:
 	DS.L	1
 SAVE_VPOS:
 	DS.L	1
-  ;DS.L	1
+  DS.L	1
 tempD0:
 	DS.L	1
 tempD1:
