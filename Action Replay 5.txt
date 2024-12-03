@@ -1,7 +1,7 @@
 Action Replay 5 Private Alpha For TTE
 
 
-v0.1 Bug fixes/enhancements:
+v0.1 Bug fixes/enhancements (tte private members release):
   - fix: invalid sector number error sometimes occurred when disk full
   - fix: file not written when disk full
   - escape disabled during save (temporary fix until a better fix can be done)
@@ -25,7 +25,7 @@ v0.1 Bug fixes/enhancements:
        D - set disassembly address
        Cursor LRUD - scroll memory/disassembly
 
-v0.2 Updates (not released)
+v0.2 Updates (private release)
   - fix: hopefully should work on real hardware now
   - fix: floppy code - winuae turbo mode
   - fix: floppy code - fast cpu support (removed processor delay loops)
@@ -36,25 +36,32 @@ v0.2 Updates (not released)
     (used in conjunction with the info from the RNC command to get the serial)
   - Other miscellaneous minor fixes
 
-v0.2.1 Updates (not released)
+v0.2.1 Updates (private release)
   - added various tweaks to try and get it running on real AR3 hardware
 
-v0.2.2 Updates (not released)
+v0.2.2 Updates (private release)
   - added boot sequence colours to try and help work out why its not working
     on real AR3
   - aded RM command for reading raw MFM
   - some further tweaks to boot sequence to fix for AR3 hardware
   - added RC, RF, RM commands to display FPU, MMU and other registers on
     68020 and higher CPUs.
-v0.3.0 Updates (not released)
+v0.3.0 Updates (private release)
   - removed startup failure check as this was triggering incorrectly
   - fixed burst nibbler mouse clicks not registering
-v0.3.1 Updates (not released)
+v0.3.1 Updates (private release)
   - removed debug code for testing on real hardware
   - fixed RC, RF, RM commands to not crash on 68000
-v0.4.0 Updates
+v0.4.0 Updates (private release)
   - picture viewer (mempeeker) not displaying correctly
   - partially disable beamcon0 handling as it is not currently working
   - tweaks to floppy routines again to support turbo mode
   - update boot screen code as was displaying incorrectly sometimes on
     real hardware and on OS 3.2
+v0.4.1 Updates (tte private members release)
+  - setmap / safedisk resident options fix
+  - blanker enabled by default (as per AR3)
+  - fix for save prefs screen causing display corruption
+  - fix for slow memory detection
+
+  
