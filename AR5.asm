@@ -1494,6 +1494,7 @@ LAB_A10A76:
 	MOVE.W	#$0010,EXT_DFF096
 LAB_A10A88:
 	MOVEM.L	D0-D7/A0-A7,SaveCpuRegs
+  MOVE.L	2(A7),SaveOldStk1
 	MOVE.L	6(A7),SaveOldPc
 	MOVE.W	4(A7),SaveOldSr
   MOVE.W	#$7fff,EXT_DFF09C
@@ -2435,7 +2436,7 @@ MakeMainDisplay:
 	MOVEM.L	D0-D1/A0/A5,-(A7)
 	SF	LAB_A489F0
 	LEA	EXT_DFF000,A5
-  MOVE.W #$80,$96(a5)
+  ;MOVE.W #$80,$96(a5)
 	TST.W	VgaModeFlag
 	BEQ.W	LAB_A115BA
 
@@ -6523,7 +6524,7 @@ aboutText:
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B	"                 v0.4.0.02122024 - private alpha release for TTE",$D,$D
+  DC.B	"                 v0.4.1.03122024 - private alpha release for TTE",$D,$D
   DC.B	"                  Special thanks to gerbil for hardware testing",$D
   DC.B	"              and to na103 for reverse engineering the AR3 hardware",$D,0
   
@@ -10773,7 +10774,7 @@ LAB_A17D26:
 	MOVE.B	#$03,VirusCheckerSettingsPrefs
 	SF	NoresPrefsFlag
 	SF	MegaStickPrefsFlag
-	SF	BlankerPrefsFlag
+	ST	BlankerPrefsFlag
 	SF	SaveDiskResidentPrefsFlag
 	SF	SetmapDPrefsFlag
 	SF	LAB_A483D6
@@ -11256,10 +11257,12 @@ LAB_A183C2:
 	MOVE.L	autoConfigMemEnd,D7
 	BNE.S	LAB_A183AE
 	MOVE.L	SlowMemEnd,D7
-	MOVEA.L	#$00200000,A0
+	;MOVEA.L	#$00200000,A0
+  MOVEA.L	#$00c00000,A0
 	BRA.S	LAB_A183AE
 LAB_A183F6:
-	MOVEA.L	#$00200000,A0
+	;MOVEA.L	#$00200000,A0
+  MOVEA.L	#$00c00000,A0
 	MOVE.L	SlowMemEnd,D7
 	BRA.S	LAB_A183AE
 LAB_A18404:
@@ -17281,7 +17284,8 @@ CMD_SQ:
 	MOVEQ	#0,D5
 	MOVE.L	SlowMemEnd,D5
 	BEQ.S	LAB_A1D374
-	SUBI.L	#$00200000,D5
+	;SUBI.L	#$00200000,D5
+  SUBI.L	#$00c00000,D5
 LAB_A1D374:
 	ADD.L	ChipMemEnd,D5
 	ADD.L	autoConfigMemEnd,D5
@@ -17298,11 +17302,13 @@ LAB_A1D3A0:
 	SUB.L	SlowMemEnd,D0
 	TST.L	SlowMemEnd
 	BNE.S	LAB_A1D3BC
-	SUBI.L	#$00200000,D0
+	;SUBI.L	#$00200000,D0
+  SUBI.L	#$00c00000,D0
 LAB_A1D3BC:
 	CMP.L	D0,D5
 	BHI.S	LAB_A1D3D0
-	MOVE.L	#$00200000,D0
+	;MOVE.L	#$00200000,D0
+  MOVE.L	#$00c00000,D0
 	OR.L	SlowMemEnd,D0
 	MOVEA.L	D0,A1
 	BRA.S	LAB_A1D3E4
@@ -17322,7 +17328,8 @@ LAB_A1D3E4:
 	MOVE.L	#$00080000,ramDiskMem2
 	CMPI.L	#$00100000,ChipMemEnd
 	BEQ.S	LAB_A1D44E
-	MOVE.L	#$00200000,ramDiskMem2
+	;MOVE.L	#$00200000,ramDiskMem2
+  MOVE.L	#$00c00000,ramDiskMem2
 	TST.L	SlowMemEnd
 	BNE.S	LAB_A1D44E
 	MOVE.L	autoConfigMemStart,ramDiskMem2
@@ -19169,7 +19176,7 @@ PrefsExit:
 PrefsPage2:
 	MOVEQ	#0,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	LEA	PrefsSettingPage2(PC),A0
 	JSR	DrawPrefsPage(PC)
 LAB_A1E8B8:
@@ -19198,7 +19205,7 @@ LAB_A1E8DE:
 LAB_A1E8F6:
   MOVE.W #$0000,D0
   MOVE.W #$00c7,D1
-  JSR SUB_41454E
+  JSR clearScreenArea
 	JMP	PrefsPage1(PC)
 LAB_A1E8FA:
 	CMPI.W	#$0005,D0
@@ -21718,7 +21725,7 @@ LAB_414000:
 	JSR	Print6DigitHex
 	MOVEQ	#$3C,D0
 	MOVEQ	#$41,D1
-	BSR.W	SUB_41454E
+	BSR.W	clearScreenArea
 	MOVE.L	LAB_A480CA,D0
 	SUB.L	LAB_44F694,D0
 	MOVE.W	scanIncrement,D1
@@ -21835,7 +21842,7 @@ SUB_4141B6:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVE.W	#$003c,D0
 	MOVE.W	#$00c7,D1
-	BSR.W	SUB_41454E
+	BSR.W	clearScreenArea
 	BSR.W	CalcScanIncrement
 	MOVE.L	LAB_A480CA,LAB_44F694
 	MOVE.L	LAB_A480CE,LAB_44F698
@@ -21910,7 +21917,7 @@ ScanPlaySample:
 	LEA	EXT_DFF000,A5
 	MOVEQ	#$30,D0
 	MOVEQ	#$37,D1
-	BSR.W	SUB_41454E
+	BSR.W	clearScreenArea
 	MOVEQ	#0,D5
 	MOVE.L	LAB_A480CE,D0
 	SUB.L	LAB_A480CA,D0
@@ -22038,7 +22045,7 @@ LAB_4144FE:
 	MOVE.W	D3,bltsize(A5)
 	MOVEM.L	(A7)+,D0-D6/A0-A3/A5
 	RTS
-SUB_41454E:
+clearScreenArea:
 	MOVEM.L	D0-D1,-(A7)
 	EXG	D0,D1
 LAB_414554:
@@ -25931,7 +25938,7 @@ LAB_A22380:
 	BEQ.S	LAB_A22394
 	SF	LAB_A4839A
 	TST.W	D0
-	BEQ.W	SUB_A266E4
+	BEQ.W	displayFileSelector
 LAB_A22394:
 	RTS
 SUB_A22396:
@@ -26442,7 +26449,8 @@ LAB_A22C36:
 	TST.L	LAB_A48350
 	BEQ.S	LAB_A22C6A
 	SUB.L	LAB_A48350,D0
-	ADDI.L	#$00200000,D0
+	;ADDI.L	#$00200000,D0
+  ADDI.L	#$00c00000,D0
 LAB_A22C6A:
 	TST.L	LAB_A484CA
 	BEQ.S	LAB_A22C7E
@@ -28345,7 +28353,7 @@ LAB_41A256:
 	MOVE.L	D0,-(A7)
 	MOVEQ	#0,D0
 	MOVE.W	#$00c7,D1
-	BSR.W	SUB_41454E
+	BSR.W	clearScreenArea
 	JSR	redrawTextPage
 	MOVE.W	#$8100,EXT_DFF096
 	BSR.W	restoreMfmBuffer
@@ -30818,15 +30826,24 @@ fileDialog:
 	DS.B	1
 	DS.W	1
 
-SUB_A266E4:
+displayFileSelector:
 	CLR.B	stringWorkspace
-SUB_A266EA:
+displayFileSelector2:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
 	MOVE.L	LAB_A480DE,-(A7)
 	MOVE.B	currDriveNo,-(A7)
 	LEA	EXT_70000,A0
 	JSR	backupMfmBuffer(PC)
+  MOVE.B viewingPrefs,viewingPrefsCopy
+  BEQ notalreadyviewing
+  MOVEQ #0,D0
+  MOVE.W #$c7,D1
+  JSR clearScreenArea
+  BRA alreadyviewing
+
+notalreadyviewing:
 	JSR	setupPrefsViewer
+alreadyviewing:
 	LEA	fileDialog(PC),A6
 	EXG	A6,A0
 	JSR	DrawPrefsPage
@@ -30914,7 +30931,7 @@ LAB_A26828:
 	MOVE.W	#$ffff,LAB_A4841E
 	BRA.W	LAB_A269C0
 LAB_A26856:
-	TST.B	LAB_A483D2
+	TST.B	viewingPrefsCopy
 	BNE.S	LAB_A26864
 	JSR	cleanupPrefsViewer
 LAB_A26864:
@@ -31035,7 +31052,7 @@ LAB_A269CA:
 LAB_A269E6:
 	MOVE.B	D1,(A2)+
 	BNE.S	LAB_A269CA
-	TST.B	LAB_A483D2
+	TST.B	viewingPrefsCopy
 	BNE.S	LAB_A269F8
 	JSR	cleanupPrefsViewer
 LAB_A269F8:
@@ -31526,9 +31543,9 @@ LAB_A27018:
 	PEA	arCommandLoop
 	MOVE.L	(A1),-(A7)
 	CLR.L	(A1)+
-	CMPI.L	#$00000120,SaveOldPc
+	CMPI.L	#$00000120,SaveOldStk1
 	BNE.S	LAB_A27080
-	MOVE.L	SaveOldPc,LAB_A480CA
+	MOVE.L	SaveOldStk1,LAB_A480CA
 	MOVE.L	A0,SaveOldPc
 	ST	LAB_A483CD
 	MOVE.W	#$0100,EXT_DFF096
@@ -32240,11 +32257,13 @@ LAB_A27B88:
 	BEQ.S	LAB_A27BAA
 	MOVE.L	SlowMemEnd,D1
 	BNE.S	LAB_A27B9E
-	MOVE.L	#$00200000,D1
+	;MOVE.L	#$00200000,D1
+  MOVE.L	#$00c00000,D1
 LAB_A27B9E:
 	SUB.L	D1,D0
 	BEQ.S	LAB_A27BAA
-	LEA	EXT_200000,A0
+	;LEA	EXT_200000,A0
+  LEA	EXT_C00000,A0
 	BRA.S	LAB_A27BC2
 LAB_A27BAA:
 	MOVE.L	foundChipMemEnd,D0
@@ -33222,7 +33241,7 @@ LAB_A28D78:
 SUB_A28D8C:
 	MOVEM.L	D1-D5/A1-A2,-(A7)
 	SF	forceUpper
-	JSR	SUB_A266E4(PC)
+	JSR	displayFileSelector(PC)
 	ST	forceUpper
 	TST.W	D0
 	BNE.S	LAB_A28DAE
@@ -33312,7 +33331,7 @@ LAB_A28EB0:
 	MOVEM.L	D0-D1/A0,-(A7)
 	MOVEQ	#0,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	LEA	LAB_A283D0(PC),A0
 	JSR	DrawPrefsPage
 	JSR	SUB_A289BA(PC)
@@ -33326,7 +33345,7 @@ LAB_A28EB0:
 SUB_A28EDA:
 	MOVEM.L	D1-D5/A1-A2,-(A7)
 	SF	forceUpper
-	JSR	SUB_A266E4(PC)
+	JSR	displayFileSelector(PC)
 	ST	forceUpper
 	TST.W	D0
 	BEQ.W	LAB_A290B4
@@ -33449,7 +33468,7 @@ LAB_A2908E:
 	MOVEM.L	D0-D1/A0,-(A7)
 	MOVEQ	#0,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	LEA	LAB_A283D0(PC),A0
 	JSR	DrawPrefsPage
 	JSR	SUB_A289BA(PC)
@@ -33574,7 +33593,7 @@ SUB_A2924E:
 	MOVEM.L	D1-D7/A0-A5,-(A7)
 	MOVEQ	#0,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	LEA	LAB_A28878(PC),A0
 	JSR	DrawPrefsPage
 	MOVEA.L	DiskMonBuffer,A2
@@ -35161,7 +35180,7 @@ LoadPrefs:
 	JSR	backupMfmBuffer
 	LEA	prefsFilename(PC),A1
 	JSR	SUB_42101A(PC)
-	JSR	SUB_A266EA(PC)
+	JSR	displayFileSelector2(PC)
 	MOVE.W	#$0100,EXT_DFF096
 	TST.W	D0
 	BEQ.W	LAB_4210BC
@@ -35212,7 +35231,7 @@ LAB_4210EA:
 LAB_4210FA:
 	MOVE.W	#$0000,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	MOVE.W	#$8100,EXT_DFF096
 	MOVEM.L	(A7)+,D0-D3/A0-A3
 	RTS
@@ -35222,7 +35241,7 @@ SavePrefs:
 	JSR	backupMfmBuffer
 	LEA	prefsFilename(PC),A1
 	JSR	SUB_42101A(PC)
-	JSR	SUB_A266EA(PC)
+	JSR	displayFileSelector2(PC)
 	MOVE.W	#$0100,EXT_DFF096
 	TST.W	D0
 	BEQ.W	LAB_42119A
@@ -35276,7 +35295,7 @@ LAB_4211C8:
 LAB_4211D8:
 	MOVE.W	#$0000,D0
 	MOVE.W	#$00c7,D1
-	JSR	SUB_41454E
+	JSR	clearScreenArea
 	MOVE.W	#$8100,EXT_DFF096
 	MOVEM.L	(A7)+,D0-D3/A0-A3
 	RTS
@@ -35368,7 +35387,7 @@ LAB_A2A2DE:
 	JSR	PrintDiskOpResult
 	JSR	SUB_A25314(PC)
 	SF	forceUpper
-	JSR	SUB_A266E4(PC)
+	JSR	displayFileSelector(PC)
 	ST	forceUpper
 	TST.W	D0
 	BNE.S	LAB_A2A2D0
@@ -39884,7 +39903,8 @@ checksum:
   ;DC.L $91BC69e6  ;v0.2.2
   ;DC.L $f694b5e4  ;v0.3.0
   ;DC.L $7f54738f  ;v0.3.1
-  DC.L $1f089d31  ;v0.4.0
+  ;DC.L $1f089d31  ;v0.4.0
+  DC.L $1cc7ba4e  ;v0.4.1
   
 arramstart:
 ;all of this is used to store chipmem data
@@ -40557,7 +40577,7 @@ TestPrefsFlag:
 	DS.B	1
 LAB_A483D1:
 	DS.B	1
-LAB_A483D2:
+viewingPrefsCopy:
 	DS.B	1
 LAB_A483D3:
 	DS.B	1
@@ -40670,7 +40690,8 @@ mfmLength
 ;  DS.L  1
 ;debuginfo2
 ;  DS.W  1
-
+SaveOldStk1
+  DS.L 1
 
 stringWorkspace:
 	DS.L	$14
