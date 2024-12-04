@@ -63,5 +63,8 @@ v0.4.1 Updates (tte private members release)
   - blanker enabled by default (as per AR3)
   - fix for save prefs screen causing display corruption
   - fix for slow memory detection
-
-  
+v0.4.2  Updates (private release)
+  - fix for burst nibbler crashing
+  - end of chip mem now correctly identified on AGA
+  - boot logo delay now based on CIA timings an not cpu loop
+  - tweaks to beamcon0 handling

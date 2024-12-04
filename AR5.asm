@@ -100,6 +100,7 @@ EXT_BFE000	EQU	$BFE000
 EXT_BFE001	EQU	$BFE001
 EXT_BFE201	EQU	$BFE201
 EXT_BFE801	EQU	$BFE801
+EXT_BFE901  EQU	$BFE901
 EXT_BFEC01	EQU	$BFEC01
 EXT_BFED01	EQU	$BFED01
 EXT_BFEE01	EQU	$BFEE01
@@ -1503,7 +1504,7 @@ LAB_A10A88:
 	LEA	StackEnd,A7
 	LEA	EXT_DFF000,A5
 	LEA	RegSnoop,A6
-	CLR.W	LAB_A489F0
+	;CLR.W	LAB_A489F0
 	CLR.L	EXT_DFF144
 	CLR.L	EXT_DFF14C
 	CLR.L	EXT_DFF154
@@ -2207,6 +2208,9 @@ LAB_A11406:
 	MOVE.L	$92(A6),SaveDdfStrt
   MOVE.W  $1e4(A6),SaveDiwHigh
   MOVE.W	$1dc(A6),SaveBeamCon0
+  CMP.W #-1,SaveBeamCon0
+  SNE updateBeamcon
+
 	MOVE.L	AUTO_INT3.W,Int3Save
 	BSR.W	MakeMainDisplay
 	MOVE.L	#VBlankIntHandler,AUTO_INT3.W
@@ -2365,6 +2369,8 @@ LAB_A11A7E_4:
   TST.B updateBeamcon
   BEQ.S LAB_A11A8A
 	MOVE.W	SaveBeamCon0,D0
+  CMP.W #-1,D0
+	BEQ.S	LAB_A11A8A
   if rsnoop=0
 	BEQ.S	LAB_A11A8A
   endc
@@ -2434,7 +2440,7 @@ LAB_A11548:
   endc
 MakeMainDisplay:
 	MOVEM.L	D0-D1/A0/A5,-(A7)
-	SF	LAB_A489F0
+	;SF	LAB_A489F0
 	LEA	EXT_DFF000,A5
   ;MOVE.W #$80,$96(a5)
 	TST.W	VgaModeFlag
@@ -2467,6 +2473,15 @@ LAB_A115BA:
   MOVE.W	#0,bpl2mod(A5)
 	MOVE.W	#$9000,bplcon0(A5)
 	MOVE.L  #0,bplcon1(A5)
+
+  TST.B updateBeamcon
+  BEQ.S LAB_A1160C
+  MOVE.W SaveBeamCon0,D0
+  EOR.W #$20,D0
+  MOVE.W D0,beamcon0(a5)
+  MOVE.W SaveBeamCon0,beamcon0(a5)
+LAB_A1160C:
+
   JSR GetLisaId
   
   BTST #1,D0      ;ecs
@@ -2482,11 +2497,8 @@ LAB_A115BA:
 .agaskip1
   ;MOVE.W #$2100,diwhigh(a5)
   ;MOVE.W #$a080,diwhigh(a5)
-  TST.B updateBeamcon
-  BEQ.S LAB_A1160C
-  MOVE.W SaveBeamCon0,beamcon0(a5)
 .ecsskip:
-LAB_A1160C:
+
 LAB_A11652:
 	MOVE.L	ArBgCol,color00(A5)
 	MOVE.L	#EXT_1000,bpl1pth(A5)
@@ -2545,13 +2557,13 @@ LAB_A116E0:
 
 LAB_A1170A:
 	;MOVE.L	#EXT_1EDD00,LAB_A489F2
-	ST	LAB_A489F0
+	;ST	LAB_A489F0
 	MOVEM.L	(A7)+,D0-D1/A0/A5
 	RTS
 MakeMempeekerDisplay:
 	MOVEM.L	D0-D4/A0/A3-A5,-(A7)
 	LEA	EXT_DFF000,A5
-	SF	LAB_A489F0
+	;SF	LAB_A489F0
   JSR GetLisaId
   BTST #2,D2      ;aga
   BNE.S   .skip1
@@ -2640,17 +2652,17 @@ LAB_A118D2:
   MOVE.W #$8020,dmacon(a5)
 LAB_A118F2:
 	;MOVE.L	#EXT_1EDE90,LAB_A489F2
-	ST	LAB_A489F0
+	;ST	LAB_A489F0
 	MOVEM.L	(A7)+,D0-D4/A0/A3-A5
 	RTS
 VBlankInt:
 	MOVE.W	D0,-(A7)
 	BTST	#5,EXT_DFF01F
 	BEQ.W	LAB_A119D0
-	TST.W	LAB_A489F0
-	BEQ.S	LAB_A11934
-	MOVE.W	#$0000,EXT_DFF08A
-LAB_A11934:
+;	TST.W	LAB_A489F0
+;	BEQ.S	LAB_A11934
+;	MOVE.W	#$0000,EXT_DFF08A
+;LAB_A11934:
 	MOVE.W	#$0020,EXT_DFF09C
 	TST.B	picViewerMode
 	BEQ.S	LAB_A1194A
@@ -6524,7 +6536,7 @@ aboutText:
 	DC.B	"                           (c)2024 by REbEL / QUARTEX",$D
 	DC.B	"               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B	"                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B	"                 v0.4.1.03122024 - private alpha release for TTE",$D,$D
+  DC.B	"                 v0.4.2.04122024 - private alpha release for TTE",$D,$D
   DC.B	"                  Special thanks to gerbil for hardware testing",$D
   DC.B	"              and to na103 for reverse engineering the AR3 hardware",$D,0
   
@@ -10483,6 +10495,7 @@ LAB_407CD0:
 	ORI.L	#$00f80000,D0
 	MOVEA.L	D0,A3
 	MOVE.L	(A7)+,D0
+
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#BRON_TAG,LAB_A481D2
 	BEQ.W	LAB_407E64
@@ -10537,10 +10550,11 @@ LAB_407E64:
 	MOVE.W	#$ff00,EXT_DFF034
 	SF	LAB_A480CA
 	CLR.L	AronFlag
-	JMP	LAB_42C63A
+	JMP	doBurst
 LAB_407EE0:
 	AND.W	D0,DriveControlPrefsValue
-	SF	DeepTrainerActive
+
+  SF	DeepTrainerActive
 	SF	LAB_A483CC
 	SF	LAB_A483D8
 	SF	exceptionsActive
@@ -10567,6 +10581,7 @@ LAB_407EE0:
 	SF	LAB_A4839A
 	SF	virusFound
 	JSR	setActivateMode
+ 
 	BSR.W	SUB_408140
 	MOVE.L	LAB_A483B6,D0
 	CMP.L	LAB_A48452,D0
@@ -10610,13 +10625,17 @@ LAB_408036:
 	MOVE.L	(A7)+,EXT_0.W
 	BTST	#4,memoryControlPrefsValueLo
 	BEQ.W	LAB_4080C6
+  
+  MOVE.B	#$00,EXT_BFE801
+  MOVE.B	#$00,EXT_BFE901
+  
 	JSR	BootScreenShow
-	MOVE.L	#$00300000,D5
+	;MOVE.L	#$00300000,D5
 	LEA	EXT_C00000,A0
 	MOVE.L	SlowMemEnd,D0
 	BEQ.W	LAB_40806C
-	ADD.L	A0,D5
-	SUB.L	D0,D5
+	;ADD.L	A0,D5
+	;SUB.L	D0,D5
 LAB_408066:
 	CLR.L	(A0)+
 	CMP.L	A0,D0
@@ -10635,7 +10654,7 @@ LAB_40807A:
 	MOVE.L	autoConfigMemEnd,D0
 	SUB.L	A0,D0
 	BEQ.W	LAB_4080A8
-	SUB.L	D0,D5
+	;SUB.L	D0,D5
 	LSR.L	#2,D0
 	SUBQ.L	#1,D0
 LAB_4080A2:
@@ -10643,8 +10662,15 @@ LAB_4080A2:
 	SUBQ.L	#1,D0
 	BPL.S	LAB_4080A2
 LAB_4080A8:
-	SUBQ.L	#3,D5
-	BPL.S	LAB_4080A8
+	;SUBQ.L	#3,D5
+	;BPL.S	LAB_4080A8
+
+  MOVE.B	EXT_BFE901,D5
+  LSL.W #8,D5
+  MOVE.B	EXT_BFE801,D5
+  CMP.W #175,D5
+  BLE.S LAB_4080A8
+  
 	JSR	disableAllDma
 	SUBA.L	A0,A0
 	MOVE.W	#$2c00,D0
@@ -10707,7 +10733,7 @@ LAB_40818C:
 	MOVE.L	#$00080000,ChipMemEnd
 	BTST	#3,memoryControlPrefsValueLo
 	BEQ.W	LAB_4081AC
-	MOVE.L	#$00100000,ChipMemEnd
+	MOVE.L	foundChipMemEnd,ChipMemEnd
 LAB_4081AC:
 	MOVE.L	foundSlowMemEnd,SlowMemEnd
 	BTST	#2,memoryControlPrefsValueLo
@@ -10758,6 +10784,7 @@ LAB_A17D26:
 	MOVE.W	#$0aaa,ArBgCol
 	MOVE.W	#$0000,ArFgCol
 	CLR.W	BlankerCount
+  MOVE.W #-1,RegSnoop+$1dc  ;flag beamcon0 as not written
 	ST	keymap
 	MOVE.L	#$5052494e,PrinFlag
 	SF	LAB_A483CC
@@ -11838,7 +11865,6 @@ LAB_A18BCA:
   MOVE.W D0,bitplaneCount
     
 	MOVEQ	#0,D0
-  MOVE.W #-1,CopyBeamCon0
 memPeekMainLoop:
 	CLR.W	LAB_A481D6
 	BTST	#6,EXT_BFE001
@@ -12381,6 +12407,7 @@ LAB_A19398:
 	MOVE.W	CopyBplCon2,SaveBplCon2
   MOVE.W	CopyBplCon3,SaveBplCon3
   MOVE.W	CopyBplCon4,SaveBplCon4
+  
   CMP.W #-1,CopyBeamCon0
   BEQ.S .skip
   MOVE.W	CopyBeamCon0,SaveBeamCon0
@@ -13499,7 +13526,6 @@ LAB_A1A2C8:
 
   MOVE.W RegSnoop+beamcon0,D0
 	MOVE.W	D0,CopyBeamCon0
-
   MOVE.W RegSnoop+fmode,D0
 	MOVE.W	D0,CopyFmode
 
@@ -16947,7 +16973,6 @@ LAB_40D624:
 	BEQ.S	LAB_40D624
 	MOVE.W	#$7fff,EXT_DFF096
 	MOVE.W	#$8380,EXT_DFF096
-  ;JSR debugDelay
 	RTS
 
 ;BootScreenPal:
@@ -16968,8 +16993,10 @@ BootScreenCopper:
   DC.L  $01b80CEF,$01ba0DFF,$01bc0090,$01be0F00
 	DC.L	$00e00000,$00e20100,$00e40000,$00e616e0
 	DC.L	$00e80000,$00ea2cc0,$00ec0000,$00ee42a0
-	DC.L	$00f00000,$00f25880,$01000200,$37017ffe
-	DC.L	$01005200,$db017ffe,$01000200,$fffffffe
+	DC.L	$00f00000,$00f25880
+  ;,$01000200,$37017ffe
+	DC.L	$01005200,$fffffffe
+  ;,$db017ffe,$01000200,$fffffffe
 disableAllDma:
 	MOVE.W	#$7fff,EXT_DFF096
 	RTS
@@ -38169,7 +38196,7 @@ CMD_BURST:
 	BEQ.W	LAB_42C608
 	JSR	ReadParameter
 	TST.B	ParamFound
-	BEQ.W	LAB_42C63A
+	BEQ.W	doBurst
 LAB_42C608:
 	ST	LAB_A480CA
 	MOVE.L	D0,D6
@@ -38186,7 +38213,7 @@ LAB_42C630:
 	MOVEQ	#0,D6
 	BSET	D0,D6
 	BRA.W	LAB_42C64E
-LAB_42C63A:
+doBurst:
 	MOVE.W	DrivesConnected,D6
 	CMPI.B	#$01,D6
 	BNE.W	LAB_42C64E
@@ -38195,6 +38222,8 @@ LAB_42C64E:
 	MOVE.L	#BurstNibPatch,UnpackSourceEnd
 	MOVE.L	#BURST_NIB_DEST,UnpackDest
 	JSR	UnpackNoFlash
+  MOVE.W #$7fff,EXT_DFF09A
+  JSR disableAllDma
 	LEA	EXT_32000,A0
 	LEA	BurstNibPatch(PC),A1
 	MOVE.W	#$00ac,D0
@@ -39904,7 +39933,8 @@ checksum:
   ;DC.L $f694b5e4  ;v0.3.0
   ;DC.L $7f54738f  ;v0.3.1
   ;DC.L $1f089d31  ;v0.4.0
-  DC.L $1cc7ba4e  ;v0.4.1
+  ;DC.L $1cc7ba4e  ;v0.4.1
+  DC.L $49c1f66a  ;v0.4.2
   
 arramstart:
 ;all of this is used to store chipmem data
@@ -40054,8 +40084,8 @@ CopyDiwHigh:
 	DS.W	1
 copperPos:
 	DS.L	1
-LAB_A489F0:
-	DS.W	1
+;LAB_A489F0:
+;	DS.W	1
 LAB_A489FC:
 	DS.W	1
 LAB_A489FE:
