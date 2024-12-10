@@ -68,3 +68,12 @@ v0.4.2  Updates (private release)
   - end of chip mem now correctly identified on AGA
   - boot logo delay now based on CIA timings an not cpu loop
   - tweaks to beamcon0 handling
+v0.5.0  Updates (private release)
+  - added DISKIO command
+  - added DOSIO command
+  - added test for full 64k of ram and use extra ram for full PAL screen
+  - fix screen blanker
+  - more tweaks to beamcon0 handling
+  - save/restore full 24 bit aga colour palette
+  - add EA command to dump full 256 colour info
+
