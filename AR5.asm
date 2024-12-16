@@ -7,6 +7,9 @@ dbg=0
 pistorm=0
 arhardware=1
 
+;trap 8 - breakpoint 
+;trap 15 - called by trap 8
+
 EXT_0   EQU $0
 EXT_4   EQU $4
 EXT_7   EQU $7
@@ -304,6 +307,14 @@ rsnoop SET 1
 rsnoop SET 1
   endc
 
+;fixcol macro 
+;  MOVE.W #\1,$DFF180
+;  JSR debugDelay
+;  endm
+
+fixcol macro
+  endm
+
 
  if dbg=1
   move.l SECSTRT_0+$7c,$80
@@ -381,6 +392,14 @@ nmi2:
   jsr ExceptionEntry2
   rte
 nmi3:
+  tst.b apiActive
+  beq.s nmi4
+  cmp.l #$106,2(a7)
+  bne.s x
+  jsr ApiEntry
+  rte
+
+nmi4:
   cmp.l #$156,2(a7)
   bne.s x
   JSR getCACR
@@ -1299,6 +1318,12 @@ RomEntry:
 RomEntry_2:
   JMP AREntry2
 
+ApiEntry:
+  ST.B apiCall
+  JSR ExceptionEntry2
+  SF.B apiCall
+  RTS
+
 ExceptionEntry:
   TST.W ignoreExceptions
   BNE.S LAB_A103E2
@@ -1688,6 +1713,7 @@ LAB_A10DD2:
   OR.B  MegaStickPrefsFlag,D0
   OR.B  MemwatchActive,D0
   OR.B  TraceActive,D0
+  OR.B  apiActive,D0
   BEQ.S LAB_A10E00
   BSET  #1,newActivateModeLo
 LAB_A10E00:
@@ -2539,19 +2565,42 @@ MakeMainDisplay:
   TST.W VgaModeFlag
   BEQ.W LAB_A115BA
 
-  MOVE.W  #$9201,bplcon0(A5)
-  MOVE.L  #$334b33eb,diwstrt(A5)
-  MOVE.L  #$00180068,ddfstrt(A5)
-  MOVE.W  #$1b88,beamcon0(A5)
-  ST.B updateBeamcon
-  MOVE.W  #0,bpl1mod(A5)
-  MOVE.W  #0,bpl2mod(A5)
+  MOVE.W #$b,$1de(a5) ;hsstrt
+  MOVE.W #$15,$1c2(a5)  ;hsstop
+  MOVE.W #$47,$1e2(a5)  ;hcenter
+  MOVE.W #$79,$1c0(a5)  ;htotal
 
-  MOVE.W  #$001,bplcon3(A5)
+  MOVE.W #8,$1e0(a5)  ;vsstrt
+  MOVE.W #$10,$1ca(a5)  ;vsstop
+  TST.B fullPal
+  BNE.S .3
+
+  MOVE.W #$1ec,$1c8(a5) ;vtotal
+  MOVE.L #$1ed0018,$1cc(a5) ;vbstrt+vbstop
+  MOVE.L  #$2d4bbaef,diwstrt(A5)
+  
+  MOVE.W #$0100,diwhigh(a5)
+  BRA.S .4
+.3:
+  MOVE.W #$24d,$1c8(a5) ;vtotal
+  MOVE.L #$24e0018,$1cc(a5) ;vbstrt+vbstop
+  MOVE.L  #$2d4b1def,diwstrt(A5)
+  MOVE.W #$0200,diwhigh(a5)
+.4
+  MOVE.L #$00010021,$1c4(a5) ;hbstrt+hbstop
+
+  MOVE.W  #$1241,bplcon0(A5)
+  MOVE.L  #$0024006c,ddfstrt(A5)
+
+  ST.B updateBeamcon
+  MOVE.W  #-80,bpl1mod(A5)
+  MOVE.W  #0,bpl2mod(A5)
+  
+  MOVE.W  #$c81,bplcon3(A5)
   MOVE.W  #$11,bplcon4(A5)
-  MOVE.W #$0280,diwhigh(a5)
-  MOVE.W #3,fmode(a5)
-  MOVE.L #0,bplcon1(a5)
+  MOVE.W  #$1b88,beamcon0(A5)
+  MOVE.W #$c000,fmode(a5)
+  MOVE.W #$aa,bplcon1(a5)
   BRA.S LAB_A1160C
 LAB_A115BA:
   TST.B fullPal
@@ -2570,7 +2619,6 @@ LAB_A115BA:
   TST.B updateBeamcon
   BEQ.S LAB_A1160C
   MOVE.W SaveBeamCon0,beamcon0(a5)
-LAB_A1160C:
 
   JSR GetLisaId
 
@@ -2587,14 +2635,15 @@ LAB_A1160C:
 .agaskip1
 .ecsskip:
 
-LAB_A11652:
+LAB_A1160C:
+
   MOVE.L  ArBgCol,color00(A5)
   MOVE.L  #EXT_1000,bpl1pth(A5)
   MOVE.L  #EXT_200,spr0pth(A5)
 
   TST.B viewingPrefs
   BEQ.W LAB_A116E0
-  MOVE.W  #$0024,$104(A5)
+  MOVE.W  #$0024,bplcon2(A5)
 
   MOVEQ #0,D1
   MOVE.W  currMouseX,D1
@@ -3075,7 +3124,10 @@ LAB_A1211E:
   BEQ.S LAB_A1212C
   JSR SUB_A25462
 LAB_A1212C:
+  TST.B apiCall
+  BNE.S .1
   JSR PrintVirusWarning
+.1
   JSR SUB_A1D0A8
   JSR SUB_A2DDB0
   MOVE.W  #$8300,EXT_DFF096
@@ -3087,8 +3139,11 @@ arCommandLoop:
   BEQ.S .1
 
   JSR debugger
-
 .1
+  TST.B apiCall
+  BEQ.S .2
+  JSR handleApiCall
+.2
   TST.B restartFlag
   BNE.S LAB_A12108
   BSR.W PrintInputChar
@@ -3170,6 +3225,29 @@ LAB_A12216:
 
 currentCopperText:
   DC.B  $D,"Current Copper 0: ",0
+
+handleApiCall
+  ST  restartFlag
+  MOVE.L SaveCpuRegs,D0
+  TST.W D0
+  BEQ.S apiPrintText
+  SUB.W #1,D0
+  BEQ.S apiPrintValue
+  RTS
+
+apiPrintText:
+  MOVE.L SaveCpuRegs+32,A0
+  BSR PrintText
+  RTS
+
+apiPrintValue:
+  MOVE.L SaveCpuRegs+4,D0
+  MOVE.L SaveCpuRegs+8,D1
+  JSR PrintValue
+  RTS
+
+  
+
 
 debugger:
   SF  cursorEnabled
@@ -3698,6 +3776,14 @@ commandTable:
   DC.B  "DELETE",0
   DS.B  1
   DC.L  CMD_DELETE
+  
+  DC.B  "SETAPI",0
+  DS.B  1
+  DC.L  CMD_SETAPI
+
+  DC.B  "CLRAPI",0
+  DS.B  1
+  DC.L  CMD_CLRAPI
 
   DC.B  "FORMAT",0
   DS.B  1
@@ -6638,7 +6724,7 @@ aboutText:
   DC.B  "                           (c)2024 by REbEL / QUARTEX",$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.5.0.10122024 - private alpha release for TTE",$D,$D
+  DC.B  "                 v0.6.1.16122024 - private alpha release for TTE",$D,$D
   DC.B  "                  Special thanks to gerbil for hardware testing",$D
   DC.B  "              and to na103 for reverse engineering the AR3 hardware",$D,0
 
@@ -9400,9 +9486,12 @@ LAB_A16E50:
   CMP.W cursorY,D7
   BNE.W LAB_A16F1A
   MOVEM.L D0-D1/D7/A0-A1,-(A7)
-  MOVEQ #0,D1
   MOVEA.L CurrentPage,A0
-  LEA $780(A0),A0
+  MOVE.W PageHeight,D1
+  MULU #80,D1
+  ADD.L D1,A0
+  ;LEA $780(A0),A0
+  MOVEQ #0,D1
   MOVE.B  (A0)+,D1
   MOVEQ #$46,D7
   JSR ReadParameter
@@ -9592,11 +9681,7 @@ PrintF10:
   TST.B ShiftKey
   BEQ.W LAB_A170E6
   NOT.W VgaModeFlag
-  TST.W VgaModeFlag
-  BEQ.S LAB_A170D4
-  MOVE.W  #$0018,PageHeight
-  BRA.S LAB_A170DC
-LAB_A170D4:
+  MOVE.W  #0,beamcon0(A5) 
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
   BEQ LAB_A170DC
@@ -9750,7 +9835,11 @@ redrawTextPage:
   SF  cursorEnabled
   CLR.L cursorX
   MOVEA.L CurrentPage,A0
-  MOVE.W  #$07ce,D1
+  MOVE.W PageHeight,D1
+  ADD.W #1,D1
+ MULU #80,D1
+ SUB.W #2,D1
+  ;MOVE.W  #$07ce,D1
 LAB_A1730C:
   MOVE.B  (A0)+,D0
   BNE.S LAB_A17312
@@ -10327,7 +10416,7 @@ LAB_A178D2:
   DBF D3,LAB_A178D2
   JSR PrintCRToPrinter
   MOVE.W  #8,cursorX
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D3/A0
   RTS
 CMD_AMP:
@@ -11940,11 +12029,15 @@ wtfText:
   DC.B  "???",$D,0,0
 
 PrintReady:
+  TST.B apiCall
+  BNE.S .1
   MOVE.L  A0,-(A7)
   BSR.W PrintCrIfNotBlankLine
   LEA ReadyText(PC),A0
   BSR.W PrintText
   MOVEA.L (A7)+,A0
+
+.1
   RTS
 
 ReadyText:
@@ -13199,14 +13292,14 @@ LAB_A19B84:
   DBF D0,LAB_A19B78
   BSR.W PrintMemPeekerHelpLocks
   BRA.W LAB_A19C8E
-;debugDelay:
-;  MOVE.L D0,-(A7)
-;  MOVE.W #25,D0
-;.dloop
-;  BSR.S Delay
-;  DBF D0,.dloop
-;  MOVE.L (A7)+,D0
-;  RTS
+debugDelay:
+  MOVE.L D0,-(A7)
+  MOVE.W #25,D0
+.dloop
+  BSR.S Delay
+  DBF D0,.dloop
+  MOVE.L (A7)+,D0
+  RTS
 Delay:
   MOVE.B  #0,EXT_BFE801
 LAB_A19BA0:
@@ -22838,9 +22931,12 @@ readRawMfmTrack:
   MOVE.W  #$9500,$9E(A5)
   MOVE.W  #$4000,$24(A5)
 
-  MOVE.L  A2,$20(A5)
+  MOVE.L A2,D2
+  ADDQ.L #2,D2
+  MOVE.L  D2,$20(A5)
   MOVE.W  #2,$9C(A5)
   MOVE.W  mfmLength,D2
+  SUB.W #2,D2
   OR.W    #$8000,D2
   MOVE.W  D2,$24(A5)
   MOVE.W  D2,$24(A5)
@@ -22863,6 +22959,7 @@ readRawMfmTrack:
   BEQ.S .2
 
   MOVE.W  #$4000,$24(A5)
+  MOVE.W  mfmSync,(A2)
   BRA.S RawMfmReadOk
 RawMfmReadErr:
   MOVEQ #-2,D0    ;read error
@@ -24075,6 +24172,7 @@ LAB_A20C24:
   BSR.W writeTrack
   BMI.S LAB_A20CDE
   DBF D1,LAB_A20BF6
+  ST LAB_A48249
   JSR PrintCrIfNotBlankLine
   MOVEA.L A0,A1
   TST.B VerifyFormat
@@ -24083,12 +24181,12 @@ LAB_A20C24:
   MOVEQ #$23,D0
   JSR PrintSpaces
   CLR.W cursorX
-  BSR.W SUB_A20D5C
+  BSR.W doVerify
   MOVEA.L A0,A1
   TST.W D0
   BMI.S LAB_A20CDC
 LAB_A20CD8:
-  BSR.W SUB_A20E12
+  BSR.W formatInitialise
 LAB_A20CDC:
   MOVEA.L A1,A0
 LAB_A20CDE:
@@ -24120,7 +24218,7 @@ HeadText:
 VerifyingText:
   DC.B  "Verifying track !",0
 
-SUB_A20D5C:
+doVerify:
   MOVEM.L D1-D2/A1,-(A7)
   ST  LAB_A4824D
   MOVE.W  #0,D2
@@ -24174,7 +24272,7 @@ LAB_A20E02:
   MOVE.B  (A7)+,currDriveNo
   MOVEM.L (A7)+,D0-D1/A0
   RTS
-SUB_A20E12:
+formatInitialise:
   MOVEM.L D1-D4/A0-A2,-(A7)
   MOVEA.L A1,A0
   MOVEQ #0,D0
@@ -27437,7 +27535,7 @@ LAB_A2372E:
   TST.W D0
   RTS
 CMD_INSTALL:
-  MOVEQ #1,D1
+  MOVEQ #0,D1     ;default install type
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A23744
@@ -27546,12 +27644,12 @@ LAB_A23860:
   TST.W D0
   RTS
 LAB_A23868:
-  DS.W  1
-  DC.L  LAB_A2387A
-  DC.L  LAB_A238A2
-  DC.L  LAB_A238A2
-  DC.L  PrintPagedText
-LAB_A2387A:
+  DC.W  1 ;max install type
+  DC.L  stdboot
+  DC.L  stdbootend
+  DC.L  arboot
+  DC.L  arbootend
+stdboot:
   LEA DosLibName(PC),A1
   JSR -96(A6)
   TST.L D0
@@ -27567,8 +27665,8 @@ LAB_A23890:
 DosLibName:
   DC.B  "dos.library",0
   DS.W  1
-
-LAB_A238A2:
+stdbootend:
+arboot:
   MOVEM.L A0-A6,-(A7)
   MOVEA.L EXT_4,A6
   BSR.S SUB_A238CA
@@ -27778,6 +27876,7 @@ IntuitionLibName:
 
 DosLibName2:
   DC.B  "dos.library",0,0,0
+arbootend:
 
 clearPagePointers:
   MOVEM.L A0/D0,-(A7)
@@ -28031,6 +28130,9 @@ FindVirus:
   MOVE.L  #VBlankIntHandler,AUTO_INT3.W
   MOVE.W  #$c000,EXT_DFF09A
   MOVE.W  #$8200,EXT_DFF096
+  TST.B apiCall
+  BNE.S skipv
+  JSR PrintCrIfNotBlankLine
   MOVE.W  D0,D1
 LAB_A23F38:
   SUBQ.W  #1,D0
@@ -28052,6 +28154,7 @@ LAB_A23F6A:
   JSR PrintText
 LAB_A23F74:
   JSR PrintReady
+skipv:
   MOVEM.L (A7)+,D0-D1/A0
   RTS
 PrintVirusWarning:
@@ -28913,8 +29016,6 @@ dosiohelp:
 
   even
 CMD_RNC:
-  MOVE.B  currDriveNo,-(A7)
-  MOVE.B  #0,currDriveNo
   LEA EXT_5000.W,A0
   JSR backupMfmBuffer
   MOVE.W #2,D6
@@ -29100,7 +29201,6 @@ CMD_RNC:
   JSR PrintCR
   BSR.W PrintDiskOpResult
   BSR.W restoreMfmBuffer
-  MOVE.B (A7)+,currDriveNo
   RTS
 
 RncTypesTable:
@@ -29929,7 +30029,7 @@ LAB_A254E6:
   DBF D1,LAB_A254E6
   BRA.W LAB_A256BA
 LAB_A254FE:
-  LEA LAB_A2387A(PC),A1
+  LEA stdboot(PC),A1
   MOVE.L  #$0000002a,D1
 LAB_A25508:
   JSR PrintCR
@@ -29947,7 +30047,7 @@ LAB_A25532:
   TST.W D0
   BMI.S LAB_A2554E
   LEA NormalBBText(PC),A0
-  CMPA.L  LAB_A2387A(PC),A1
+  CMPA.L  stdboot(PC),A1
   BEQ.S LAB_A25548
   LEA VirusProBBText(PC),A0
 LAB_A25548:
@@ -29959,7 +30059,7 @@ LAB_A25552:
   BSR.S SUB_A255A2
   BRA.W LAB_A2547E
 LAB_A2555E:
-  LEA LAB_A238A2(PC),A1
+  LEA arboot(PC),A1
   MOVE.L  #$000003ec,D1
   BRA.S LAB_A25508
 NormalBBText:
@@ -35442,6 +35542,49 @@ CMD_EA:
 NoAgaText:
   DC.B "No AGA detected",0
   even
+CMD_SETAPI:
+  ST.B apiActive
+  LEA EXT_100.W,A0
+
+  if arhardware=1
+  MOVE.L  #$4a3900bf,(A0)+
+  MOVE.L  #$e0014e73,(A0)+
+  else
+  MOVE.L  #$4e4e4e73,(A0)+
+  MOVE.W  #$4e71,(A0)+
+  endc
+
+  MOVE.L A0,A1
+  JSR getVBR
+
+  if arhardware=0
+  MOVE.L a1,TRAP_14(A0)
+
+  MOVE.W #$4eb9,(a1)+
+  MOVE.L #ApiEntry,(a1)+
+  MOVE.W #$4e73,(a1)+
+  endc
+
+  MOVE.L  #$00000100,TRAP_07(A0)
+  LEA ApiHandlerInsText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+
+ApiHandlerInsText:
+  DC.B  "Api Exception handler installed!",$D,0
+  even
+
+CMD_CLRAPI:
+  SF.B apiActive
+
+  LEA ApiHandlerRemText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+
+ApiHandlerRemText:
+  DC.B  "Api Exception handler removed!",$D,0
+  even
+
 CMD_ED:
   TST.B TBufferAllocated
   BNE.W LAB_420C92
@@ -40443,7 +40586,9 @@ checksum:
   ;DC.L $1f089d31  ;v0.4.0
   ;DC.L $1cc7ba4e  ;v0.4.1
   ;DC.L $49c1f66a  ;v0.4.2
-  DC.L $900b3e36  ;v0.5.0
+  ;DC.L $e93aa3a2 ;v0.5.0
+  ;DC.L $ea3aa3a2 ;v0.6.0
+  DC.L $5a46e2fc ;v0.6.1
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -41239,12 +41384,14 @@ TextPage2Addr
 ;  DS.W  1
 SaveOldStk1
   DS.L 1
-
 SaveAgaColor0
   DS.L 1
-
 SaveAgaColor1
   DS.L 1
+apiActive
+  DS.B 1
+apiCall
+  DS.B 1
 
 stringWorkspace:
   DS.L  $14

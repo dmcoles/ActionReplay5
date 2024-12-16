@@ -75,5 +75,26 @@ v0.5.0  Updates (private release)
   - fix screen blanker
   - more tweaks to beamcon0 handling
   - save/restore full 24 bit aga colour palette
-  - add EA command to dump full 256 colour info
-
+  - add EA command to dump full 256 AGA colour info
+v0.6.0  Updates (tte private members release)
+  - added SETAPI / CLRAPI for enabling disabling the new api calls using TRAP #7
+       just 2 calls are implemented for now
+         1) Print Text To AR console display
+          D0 = 0
+          A0 = Text
+         2) Print Number to AR console display
+          D0 = 1
+          D1 = number
+          D2 = number of digits
+v0.6.1  Updates (private release)
+  - fix scrolling issue when full PAL screen enabled
+  - fix page switch issue when full PAL screen enabled
+  - write sync value to memory when using RR command
+  - enable installing action replay virus bootblock 
+  - make the standard dos bootblock the default install type
+  - change RNC command to use the current selected drive
+  - fix winuae extended disk format warning on FORMAT
+  - fix vga mode settings
+  
+  
+  
