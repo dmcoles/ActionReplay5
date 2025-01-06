@@ -1,15 +1,20 @@
 
 ;Action Replay 5
 
-  OPT p=68040
 
 dbg=0
 pistorm=0
-arhardware=1
+arhardware=0
+arsoft=1
 
-;trap 8 - breakpoint 
+;trap 8 - breakpoint
 ;trap 15 - called by trap 8
 
+
+  if arsoft=1
+    opt d-,s-
+  endc
+  
 EXT_0   EQU $0
 EXT_4   EQU $4
 EXT_7   EQU $7
@@ -59,9 +64,6 @@ EXT_124   EQU $124
 EXT_130   EQU $130
 EXT_13E   EQU $13E
 EXT_150   EQU $150
-EXT_152   EQU $152
-EXT_154   EQU $154
-EXT_156   EQU $156
 EXT_15A   EQU $15A
 EXT_180   EQU $180
 EXT_184   EQU $184
@@ -79,9 +81,11 @@ EXT_41E   EQU $41E
 EXT_1000  EQU $1000
 EXT_100E  EQU $100E
 EXT_4E80  EQU $4E80
-EXT_5000  EQU $7000
-EXT_8400  EQU $a400
-EXT_8500  EQU $a500
+
+EXT_7000  EQU $7000
+EXT_A400  EQU $a400
+EXT_A500  EQU $a500
+
 EXT_B000  EQU $B000
 EXT_20000 EQU $20000
 EXT_21A6E EQU $21A6E
@@ -91,6 +95,7 @@ EXT_7C000 EQU $7C000
 EXT_40000 EQU $40000
 EXT_70000 EQU $70000
 EXT_80000 EQU $80000
+
 EXT_200000  EQU $200000
 EXT_BFD000  EQU $BFD000
 EXT_BFD100  EQU $BFD100
@@ -307,7 +312,7 @@ rsnoop SET 1
 rsnoop SET 1
   endc
 
-;fixcol macro 
+;fixcol macro
 ;  MOVE.W #\1,$DFF180
 ;  JSR debugDelay
 ;  endm
@@ -317,13 +322,41 @@ fixcol macro
 
 
  if dbg=1
+
+  move.l  4.w,a6
+  lea gfxname,a1
+  moveq #0,d0
+  jsr -552(a6)
+  move.l  d0,gfxbase
+
+  move.l  gfxbase,a6
+  move.l  $22(a6),oldview   ;save old view
+  sub.l a1,a1
+  moveq #$7f,d0
+  jsr -$de(a6)    ;LoadView()
+
+
   move.l SECSTRT_0+$7c,$80
   trap #0
   nop
   nop
   ;dc.w $f000
   nop
-   rts
+
+  move.l  gfxbase,a6
+  move.l  oldview,a1
+  moveq #$7f,d0
+  jsr -$de(a6)
+
+  move.l  $4,a6
+  move.l  gfxbase,a1
+  jsr -414(a6)
+  rts
+
+oldview: DS.L 1
+gfxbase: DS.L 1
+gfxname: DC.B "graphics.library",0
+  even
   endc
 
  if pistorm=1
@@ -335,15 +368,565 @@ fixcol macro
  endc
 
 SECSTRT_0:
+  if arsoft=1
+  BRA.W ArInstall
+  BRA.W ArUninstall
+AllocSize:
+  DC.L $60000
+AllocAddr:
+  DC.L SECSTRT_0
+
+  DC.B "AR5_"
+NEWVBR:
+  DS.L  2
+VbrBusError:
+  DS.L  1
+VbrAddressError:
+  DS.L  1
+VbrIllegal:
+  DS.L  1
+VbrDivZero:
+  DS.L  1
+VbrChk:
+  DS.L  1
+VbrTrapV:
+  DS.L  1
+VbrPriv:
+  DS.L  1
+VbrTrace:
+  DS.L  1
+VbrLineA:
+  DS.L  1
+VbrLineF:
+  DS.L  $D
+VbrSpurious:
+  DS.L  1
+VbrLevel1:
+  DS.L  1
+VbrLevel2:
+  DS.L  1
+VbrLevel3:
+  DS.L  1
+VbrLevel4:
+  DS.L  1
+VbrLevel5:
+  DS.L  1
+VbrLevel6:
+  DS.L  1
+VbrLevel7:
+  DS.L  1
+VbrTrap0:
+  DS.L  1
+VbrTrap1:
+  DS.L  1
+VbrTrap2:
+  DS.L  1
+VbrTrap3:
+  DS.L  1
+VbrTrap4:
+  DS.L  1
+VbrTrap5:
+  DS.L  1
+VbrTrap6:
+  DS.L  1
+VbrTrap7:
+  DS.L  1
+VbrTrap8:
+  DS.L  1
+VbrTrap9:
+  DS.L  1
+VbrTrap10:
+  DS.L  1
+VbrTrap11:
+  DS.L  1
+VbrTrap12:
+  DS.L  1
+VbrTrap13:
+  DS.L  1
+VbrTrap14:
+  DS.L  1
+VbrTrap15:
+  DS.L  $11
+InstallSettings:
+  DC.l 3
+ColdCaptFlag:
+  DC.B 0
+  cnop 0,4
+  else
+
   DC.B  $20,$18,$20,$18
   DC.B "ACTION REPLAY V By REbEL/QTX. "  ;30
   DC.B "Based on Action Replay MKIII (Datel Electronics) " ;51
   DC.B "& Aktion Replay 4 PRO (Parcon Software)." ;42
   DS.B (SECSTRT_0+$7c)-*
+  endc
 
 STARTCRC:
  DC.L NMI_Entry
 
+  if arsoft=1
+ArInstall:
+  MOVE.L  D0,InstallSettings
+SUB_A1002A:
+  LEA ChipramSave1,A0
+  LEA dataend,A1
+LAB_A100DE:
+  CLR.W (A0)+
+  CMPA.L  A1,A0
+  BNE.S LAB_A100DE
+  BSR setupDefaults
+  TST.L AllocedMem
+  BNE.W LAB_A10142
+  MOVE.L  AllocSize,D0
+  MOVEA.L AllocAddr,A1
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOAllocAbs(A6)
+  MOVE.L  D0,AllocedMem
+  TST.L D0
+  BNE.S LAB_A10088
+  MOVEQ #$1E,D0
+  MOVE.W  #$00f0,D1
+  BSR.W LAB_A101D8
+  ST  AllocFail
+LAB_A10088:
+  TST.B IgnoreAllocErr
+  BNE.S LAB_A100AA
+  TST.B AllocFail
+  BEQ.S LAB_A100AA
+  LEA SECSTRT_0(PC),A0
+  MOVE.W  #$001e,D0
+LAB_A100A0:
+  CLR.L (A0)+
+  DBF D0,LAB_A100A0
+  MOVEQ #-1,D0
+  RTS
+LAB_A100AA:
+  TST.B ResetProof
+  BEQ.S noreset
+  MOVEA.L EXT_4.W,A6
+  MOVE.L  #ColdCapture,$2A(A6)
+  MOVE.L  #CoolCapture,$2E(A6)
+  LEA $22(A6),A0
+  MOVEQ #$16,D0
+  MOVEQ #0,D1
+LAB_A100C6:
+  ADD.W (A0)+,D1
+  DBF D0,LAB_A100C6
+  NOT.W D1
+  MOVE.W  D1,$52(A6)
+
+noreset:
+
+; remove
+  ;MOVE.W  #$ffff,ignoreExceptions
+  BSR.W InstallExceptionHandlers
+  JSR calcArChecksum
+  ST  LAB_A10019
+  TST.B ColdCaptFlag
+  BNE.S LAB_A10142
+  BSR.W DisplayArInstalLogo
+  MOVEA.L EXT_4.W,A6
+  MOVEA.L $9C(A6),A6
+  MOVE.L  $26(A6),EXT_DFF080
+  MOVE.W  #$0000,EXT_DFF088
+  TST.W VgaModeFlag
+  BEQ.S LAB_A10142
+  MOVE.W  #$0a8c,EXT_DFF1DC
+LAB_A10142:
+  MOVEQ #0,D0
+  RTS
+
+setupDefaults:
+  MOVE.B D0,D1
+  AND.B #$F,D1
+  MOVE.B  D1,imode
+  MOVE.B D0,D1
+
+  LSR.B #4,D1
+  SUB.B #1,D1
+  MOVE.B D1,keymap
+
+  LSR.L #8,D0
+  
+  BTST #0,D0
+  SNE D1
+  MOVE.B  D1,RomAvoidFlag
+
+  BTST #1,D0
+  SNE D1
+  EXT.W D1
+  MOVE.W  D1,VgaModeFlag
+
+  BTST #2,D0
+  SNE D1
+  MOVE.B  D1,IgnoreAllocErr
+
+  BTST #3,D0
+  SEQ D1    ;this flag is inverse
+  MOVE.B  D1,insertmode
+
+  BTST #4,D0
+  SNE D1
+  MOVE.B  D1,MoveVbr
+
+  BTST #5,D0
+  SNE D1
+  MOVE.B  D1,ResetProof
+
+  BTST #6,D0
+  SNE D1
+  MOVE.B  D1,DisableVposWrite
+  
+  RTS
+
+ColdCapture:
+  CLR.L bronFlag
+  SF  LAB_A10019
+  ST  ColdCaptFlag
+  CLR.L AllocedMem
+  CLR.L AronFlag
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  BSR.W DoRebootLogo
+  MOVEA.L EXT_4.W,A6
+  MOVE.L  #ColdCapture,$2A(A6)
+  MOVE.L  #CoolCapture,$2E(A6)
+  LEA $22(A6),A0
+  MOVEQ #$16,D0
+  MOVEQ #0,D1
+LAB_A1018C:
+  ADD.W (A0)+,D1
+  DBF D0,LAB_A1018C
+  NOT.W D1
+  MOVE.W  D1,$52(A6)
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  JMP (A5)
+CoolCapture:
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  JSR calcChecksum
+  CMP.L checksum,D0
+  BEQ.S LAB_A101CA
+  MOVEQ #$1E,D0
+  MOVE.W  #$000f,D1
+  BSR.S LAB_A101D8
+  MOVEA.L EXT_4.W,A6
+  CLR.L $2A(A6)
+  CLR.L $2E(A6)
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+LAB_A101CA:
+  MOVE.L  InstallSettings,D0
+  BSR.W SUB_A1002A
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+LAB_A101D8:
+  MOVE.B  #$00,EXT_BFE801
+LAB_A101E0:
+  MOVE.W  D1,EXT_DFF180
+  CMP.B #2,EXT_BFE801
+  ;TST.B EXT_BFE801
+  ;BEQ.S LAB_A101E0
+  BNE.S LAB_A101E0
+  MOVE.B  #$00,EXT_BFE801
+  DBF D0,LAB_A101E0
+  RTS
+ArExceptionHandler:
+  CMPI.L  #SECSTRT_0,6(A7)
+  BLT.S LAB_A10258
+  CMPI.L  #dataend,6(A7)
+  BLT.W LAB_A10340
+LAB_A10258:
+  TST.B RomAvoidFlag
+  BEQ.S LAB_A10276
+LAB_A10260:
+  CMPI.L  #$00f80000,6(A7)
+  BLO.S LAB_A10276
+LAB_A1026A:
+  CMPI.L  #$00fffff0,6(A7)
+  BLO.W LAB_A102FA
+LAB_A10276:
+  TST.B imode
+  BNE.S LAB_A102AE
+; imode 0 (left + right button)
+  BTST  #6,EXT_BFE001
+  BNE.W LAB_A102FA
+; BTST #$A,$DFF016
+  DC.W  $0839
+  DC.W  $000a
+  DC.W  $00df
+  DC.W  $f016
+  BNE.W LAB_A102FA
+  CMPI.B  #$c9,EXT_BFEC01   ;keypad ]
+  BEQ.W LAB_A102FA
+  CMPI.B  #$b9,EXT_BFEC01   ;f up
+  BNE.S LAB_A102FA
+  BRA.S TriggerArEntry
+LAB_A102AE:
+  CMPI.B  #1,imode
+  BNE.S LAB_A102CC
+; imode 1 (* on keypad)
+  BTST  #7,EXT_BFE001
+  BEQ.S TriggerArEntry      ;fire button?
+  CMPI.B  #$45,EXT_BFEC01   ;keypad *
+  BEQ.S TriggerArEntry
+LAB_A102CC:
+  CMPI.B  #2,imode
+  BNE.S LAB_A102FA
+; imode 2 (rmb)
+  CMPI.B  #$c9,EXT_BFEC01   ;keypad ]
+  BEQ.S LAB_A102FA
+  BTST  #2,EXT_DFF016       ;rmb
+  BEQ.S TriggerArEntry
+  BRA.S LAB_A102FA
+TriggerArEntry:
+  MOVE.B  #$00,EXT_BFEC01
+  JMP RomEntry
+LAB_A102FA:
+  CMPI.B  #$c9,EXT_BFEC01
+  BNE.S LAB_A10322
+; disable monitor
+  MOVE.B  #$00,EXT_BFEC01
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  BSR.W UninstallAr
+  MOVEQ #$1E,D0
+  MOVE.W  #$0f00,D1
+  BSR.W LAB_A101D8
+  MOVEM.L (A7)+,D0-D7/A0-A6
+LAB_A10322:
+  TST.B deepMemWatch
+  BEQ.S LAB_A10340
+  TST.L memWatchSlotsUsed1
+  BNE.S LAB_A1033A
+  TST.W memWatchSlotsUsed2
+  BEQ.S LAB_A10340
+LAB_A1033A:
+  ORI.W #$8000,4(A7)
+LAB_A10340:
+  RTS
+DoRebootLogo:
+  MOVE.W  #$7fff,EXT_DFF09A
+  MOVE.W  #$0380,EXT_DFF096
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  BSR.S DisplayArInstalLogo
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  MOVE.W  #$0380,EXT_DFF096
+  RTS
+DisplayArInstalLogo:
+  MOVE.W dmaconr+EXT_DFF000,D7
+  OR.W #$8000,D7
+  SWAP D7
+  MOVE.W intenar+EXT_DFF000,D7
+  OR.W #$8000,D7
+  
+  MOVE.W #$7fff,dmacon+EXT_DFF000
+  MOVE.W #$7fff,intena+EXT_DFF000
+  MOVE.L A7,A6
+  LEA StackEnd,A7
+  LEA EXT_0,A0
+  LEA ChipramSave1,A1
+  MOVE.L A0,A2
+  MOVE.W #$1f40-1,D0
+.sav
+  MOVE.L (A0)+,(A1)+
+  DBF D0,.sav
+
+  MOVEM.L D7/A0-A2,-(a7)
+  JSR BootScreenShow
+  MOVE.W  #$0048,D0
+  MOVE.W  #$0000,D1
+  BSR.W LAB_A101D8
+  MOVEM.L (A7)+,D7/A0-A2
+
+.res
+  MOVE.L -(A1),-(A0)
+  CMP.L A0,A2
+  BNE.S .res
+  MOVE.L A6,A7
+
+  MOVE.W  D7,intena+EXT_DFF000
+  SWAP D7
+  MOVE.W  D7,dmacon+EXT_DFF000
+  RTS
+  
+InstallExceptionHandlers:
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  TST.B LAB_A10019
+  BNE.W LAB_A10718
+  MOVE.W  #$4000,EXT_DFF09A
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOSuperState(A6)
+  MOVE.L  D0,LAB_A48A0C
+
+
+  JSR getVBR
+  MOVE.L  A0,OldVbr
+
+  LEA oldVecs,A2
+  MOVE.W  #$003f,D0
+.savevecs
+  MOVE.L  (A0)+,(A2)+
+  DBF D0,.savevecs
+
+  MOVE.L OldVbr,A0
+  
+  TST.B MoveVbr
+  BEQ.S nomove
+
+  LEA NEWVBR,A1
+
+  LEA EXT_0.W,A3
+  MOVE.W  #$003f,D0
+LAB_A1059A:
+  MOVE.L  (A0),(A3)+
+  MOVE.L  (A0)+,(A1)+
+  DBF D0,LAB_A1059A
+  LEA NEWVBR,A0
+
+  OPT p=68040
+  MOVEC A0,VBR
+  OPT p=68000
+
+nomove:
+  MOVE.L  #BusError,VbrBusError-NEWVBR(A0)
+  MOVE.L  #AddressError,VbrAddressError-NEWVBR(A0)
+  MOVE.L  #Illegal,VbrIllegal-NEWVBR(A0)
+  MOVE.L  #DivZero,VbrDivZero-NEWVBR(A0)
+  MOVE.L  #ChkInstruction,VbrChk-NEWVBR(A0)
+  MOVE.L  #TrapVInstruction,VbrTrapV-NEWVBR(A0)
+  MOVE.L  #PrivViolation,VbrPriv-NEWVBR(A0)
+  MOVE.L  #TraceException,VbrTrace-NEWVBR(A0)
+  MOVE.L  #LineAInstruction,VbrLineA-NEWVBR(A0)
+  MOVE.L  #LineFInstruction,VbrLineF-NEWVBR(A0)
+  MOVE.L  #SpuriousException,VbrSpurious-NEWVBR(A0)
+  MOVE.L  #Level1IntHandler,VbrLevel1-NEWVBR(A0)
+  MOVE.L  #Level2IntHandler,VbrLevel2-NEWVBR(A0)
+  MOVE.L  #Level3IntHandler,VbrLevel3-NEWVBR(A0)
+  MOVE.L  #Level4IntHandler,VbrLevel4-NEWVBR(A0)
+  MOVE.L  #Level5IntHandler,VbrLevel5-NEWVBR(A0)
+  MOVE.L  #Level6IntHandler,VbrLevel6-NEWVBR(A0)
+  MOVE.L  #NMI_SoftEntry,VbrLevel7-NEWVBR(A0)
+  MOVE.L  #Trap0Handler,VbrTrap0-NEWVBR(A0)
+  MOVE.L  #Trap1Handler,VbrTrap1-NEWVBR(A0)
+  MOVE.L  #Trap2Handler,VbrTrap2-NEWVBR(A0)
+  MOVE.L  #Trap3Handler,VbrTrap3-NEWVBR(A0)
+  MOVE.L  #Trap4Handler,VbrTrap4-NEWVBR(A0)
+  MOVE.L  #Trap5Handler,VbrTrap5-NEWVBR(A0)
+  MOVE.L  #Trap6Handler,VbrTrap6-NEWVBR(A0)
+  MOVE.L  #Trap7Handler,VbrTrap7-NEWVBR(A0)
+  MOVE.L  #Trap8Handler,VbrTrap8-NEWVBR(A0)
+  MOVE.L  #Trap9Handler,VbrTrap9-NEWVBR(A0)
+  MOVE.L  #Trap10Handler,VbrTrap10-NEWVBR(A0)
+  MOVE.L  #Trap11Handler,VbrTrap11-NEWVBR(A0)
+  MOVE.L  #Trap12Handler,VbrTrap12-NEWVBR(A0)
+  MOVE.L  #Trap13Handler,VbrTrap13-NEWVBR(A0)
+  MOVE.L  #Trap14Handler,VbrTrap14-NEWVBR(A0)
+  MOVE.L  #Trap15Handler,VbrTrap15-NEWVBR(A0)
+  MOVE.L  LAB_A48A0C,D0
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOUserState(A6)
+  MOVE.W  #$c000,EXT_DFF09A
+LAB_A10718:
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+ArUninstall:
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  TST.B LAB_A10019
+  BNE.S LAB_A10730
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+LAB_A10730:
+  SF  LAB_A10019
+  MOVE.W  #$4000,EXT_DFF09A
+  MOVEQ #0,D0
+  MOVEQ #0,D1
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOSuperState(A6)
+  MOVE.L  D0,LAB_A48A0C
+  LEA oldVecs,A2
+  MOVEA.L OldVbr,A1
+  MOVE.W  #$003f,D0
+LAB_A10760:
+  MOVE.L  (A2)+,(A1)+
+  DBF D0,LAB_A10760
+  TST.B MoveVbr
+  BEQ.S .1
+  MOVEA.L OldVbr,A1
+  OPT p=68040
+  MOVEC A1,VBR
+  OPT p=68000
+.1
+  MOVE.L  LAB_A48A0C,D0
+  MOVEQ #0,D1
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOUserState(A6)
+  MOVEA.L EXT_4.W,A6
+  CLR.L $2A(A1)
+  CLR.L $2E(A1)
+  CLR.L $32(A1)
+  CLR.L $222(A1)
+  CLR.L $226(A1)
+  CLR.L $22A(A1)
+  LEA $22(A6),A0
+  MOVEQ #$16,D0
+  MOVEQ #0,D1
+LAB_A107A4:
+  ADD.W (A0)+,D1
+  DBF D0,LAB_A107A4
+  NOT.W D1
+  MOVE.W  D1,$52(A6)
+  TST.L AllocedMem
+  BEQ.S LAB_A107CE
+  CLR.L AllocedMem
+  MOVE.L  AllocSize,D0
+  MOVEA.L AllocAddr,A1
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOFreeMem(A6)
+LAB_A107CE:
+  MOVE.W  #$c000,EXT_DFF09A
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+UninstallAr:
+  MOVEM.L D0-D7/A0-A6,-(A7)
+  LEA oldVecs,A2
+  MOVEA.L OldVbr,A1
+  MOVE.W  #$003f,D0
+LAB_A107F0:
+  MOVE.L  (A2)+,(A1)+
+  DBF D0,LAB_A107F0
+  MOVEA.L OldVbr,A1
+  TST.B MoveVbr
+  BEQ.S .nomove
+  OPT p=68040
+  MOVEC A1,VBR
+  OPT p=68000
+
+.nomove
+  MOVEA.L EXT_4.W,A6
+  CLR.L $2A(A1)
+  CLR.L $2E(A1)
+  CLR.L $32(A1)
+  CLR.L $222(A1)
+  CLR.L $226(A1)
+  CLR.L $22A(A1)
+  LEA $22(A6),A0
+  MOVEQ #$16,D0
+  MOVEQ #0,D1
+LAB_A10824:
+  ADD.W (A0)+,D1
+  DBF D0,LAB_A10824
+  NOT.W D1
+  MOVE.W  D1,$52(A6)
+  TST.L AllocedMem
+  BEQ.S LAB_A1084E
+  CLR.L AllocedMem
+  MOVE.L  AllocSize,D0
+  MOVEA.L AllocAddr,A1
+  MOVEA.L EXT_4.W,A6
+  JSR _LVOFreeMem(A6)
+LAB_A1084E:
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  RTS
+
+  endc
 KeyboardIntHandler:
   BRA.W KeyboardInt
 VBlankIntHandler:
@@ -1302,17 +1885,23 @@ LAB_A10212:
   BEQ.S LAB_A10230
 LAB_A1021A:
   CMPI.L  #$00f80000,6(A7)
-  BLT.S LAB_A10230
+  BLO.S LAB_A10230
 LAB_A10224:
   CMPI.L  #$00fffff0,6(A7)
-  BLT.W LAB_A10240
+  BLO.W LAB_A10240
 LAB_A10230:
+  if arsoft=1
+  CMP.B #3,imode
+  BNE.S LAB_A10240
   JMP RomEntry
+  else
+  JMP RomEntry
+  endc
 LAB_A10240:
   RTS
 
 RomEntry:
-  CMP.L #BRON_TAG,LAB_A481D2
+  CMP.L #BRON_TAG,bronFlag
   BEQ RomEntry_2
   JMP ArEntry1
 RomEntry_2:
@@ -1455,7 +2044,7 @@ AREntry3:
   MOVE.L  RegSnoop+$24,SaveDskLen
   endc
   MOVE.L  RegSnoopColor00,SaveColor00
-    
+
   MOVE.L  #0,EXT_DFF180
   BTST  #6,EXT_DFF003
   BEQ.S LAB_A10A50
@@ -1555,16 +2144,18 @@ LAB_A10B9C:
   BTST  #5,EXT_DFF01F
   BEQ.S LAB_A10B9C
   MOVE.W  #$0020,EXT_DFF09C
-  BTST  #7,SaveDmaCon1
-  BEQ.S LAB_A10BD2
-  MOVE.L  SAVE_VPOS,EXT_DFF02A
-  MOVE.W  #0,EXT_DFF088
-  MOVE.W  #$8300,EXT_DFF096
-LAB_A10BD2:
+
   MOVE.L  D0,tempD0
   MOVE.L  D1,tempD1
   MOVE.L  SAVE_CACR,D0
   JSR setCACR
+
+  BTST  #7,SaveDmaCon1
+  BEQ.S LAB_A10BD2
+  JSR restoreVpos
+  MOVE.W  #0,EXT_DFF088
+  MOVE.W  #$8300,EXT_DFF096
+LAB_A10BD2:
   MOVE.L  SAVE_VPOS,D0
   ANDI.L  #$0001ffff,D0
 LAB_A10BF4:
@@ -1598,8 +2189,16 @@ getVBR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   SUB.L A0,A0
+  OPT p=68040
   MOVEC VBR,A0
+  OPT p=68000
   MOVE.L (A7)+,ILLEG_OPC.W
+  if arsoft=1
+  CMP.L #NEWVBR,A0
+  BNE.S .1
+  MOVE.L OldVbr,A0
+.1
+  endc
   RTS
 vbrtrap:
   MOVE.W #0,vbrflag
@@ -1611,14 +2210,18 @@ getCACR:
   MOVE.L #vbrtrap,ILLEG_OPC.W
   MOVEQ #0,D0
   MOVE.W #1,vbrflag
+  OPT p=68040
   MOVEC CACR,D0
+  OPT p=68000
   MOVE.L (A7)+,ILLEG_OPC.W
   RTS
 
 setCACR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
+  OPT p=68040
   MOVEC D0,CACR
+  OPT p=68000
   MOVE.L (A7)+,ILLEG_OPC.W
   RTS
 
@@ -2086,7 +2689,7 @@ LAB_A112D8:
   LEA $50(A0),A1
   MOVE.W PageHeight,D0
   MULU #80/8,D0
-  SUB.W #1,D0 
+  SUB.W #1,D0
   ;MOVE.W  #$00ef,D0
 LAB_A112E6:
   MOVE.L  (A1)+,(A0)+
@@ -2212,7 +2815,7 @@ LAB_A11406:
   if arhardware=1
   tst.b full64k
   bne.s .1
-  
+
   MOVEP.L 0(A1),D2
   MOVEP.L D1,0(A1)
   ADDQ.W  #8,A1
@@ -2227,6 +2830,7 @@ LAB_A11406:
   endc
   MOVE.L  D2,(A0)+
   DBF D0,LAB_A11406
+
   MOVE.L  $80(A6),SaveCop1Lch
   MOVE.L  $E0(A6),SaveBpl1Pth
   MOVE.L  $100(A6),SaveBplCon0
@@ -2255,21 +2859,22 @@ LAB_A11486:
 
 CheckPalMode
   MOVE.L D0,tempD0
-  MOVE.L A5,tempD1
-  LEA EXT_DFF000,A5
+  MOVE.L D1,tempD1
   MOVE.W #0,SaveBeamCon0
   ST.B updateBeamcon
   SF.B fullPal
 
-  MOVE.W  #$0020,$9C(A5)
+  MOVE.W EXT_DFF01C,D1
+  MOVE.W  #$0020,EXT_DFF09A
+  MOVE.W  #$0020,EXT_DFF09C
 .1:
-  BTST  #5,$1F(A5)
+  BTST  #5,EXT_DFF01F
   BEQ.S .1
 
-  MOVE.W  #$0020,$9C(A5)
+  MOVE.W  #$0020,EXT_DFF09C
 
 .2
-  MOVE.L vposr(a5),D0
+  MOVE.L vposr+EXT_DFF000,D0
   AND.L #$1FF00,D0
 
   CMP.L #$12000,D0
@@ -2278,15 +2883,19 @@ CheckPalMode
   TST.B full64k
   SNE.B fullPal
   MOVE.W #$20,SaveBeamCon0
- 
+
 .3
 
-  BTST  #5,$1F(A5)
+  BTST  #5,EXT_DFF01F
   BEQ.S .2
-  MOVE.L tempD0,D0
-  MOVE.L tempD1,A5
 
-  RTS  
+  OR.W #$8000,D1
+  MOVE.W D1,EXT_DFF09A
+  
+  MOVE.L tempD0,D0
+  MOVE.L tempD1,D1
+
+  RTS
 
 BplCountToBplCon:
   ADD.W D0,D0
@@ -2333,7 +2942,7 @@ saveAgaColors:
   MOVE.W $180(a5),D2
   MOVE.W $182(a5),D3
   SWAP D2
-  SWAP D3  
+  SWAP D3
   MOVE.L D2,SaveAgaColor0
   MOVE.L D3,SaveAgaColor1
   MOVE.W D4,bplcon3(A5)
@@ -2374,7 +2983,7 @@ LAB_A119F6:
   MOVE.L  (A0),D1
   if arhardware=1
   tst.b full64k
-  bne.s .1 
+  bne.s .1
   MOVEP.L 0(A1),D2
   MOVEP.L D1,0(A1)
   ADDQ.W  #8,A1
@@ -2392,6 +3001,7 @@ LAB_A119F6:
   if rsnoop=1
   MOVE.L  SaveCop1Lch,cop1lch(A5)
   endc
+
   JSR GetLisaId
   MOVE.W D0,D1
 
@@ -2560,7 +3170,7 @@ LAB_A11548:
   RTS
   endc
 MakeMainDisplay:
-  MOVEM.L D0-D1/A0/A5,-(A7)
+  MOVEM.L D0-D3/A0/A5,-(A7)
   LEA EXT_DFF000,A5
   TST.W VgaModeFlag
   BEQ.W LAB_A115BA
@@ -2578,7 +3188,7 @@ MakeMainDisplay:
   MOVE.W #$1ec,$1c8(a5) ;vtotal
   MOVE.L #$1ed0018,$1cc(a5) ;vbstrt+vbstop
   MOVE.L  #$2d4bbaef,diwstrt(A5)
-  
+
   MOVE.W #$0100,diwhigh(a5)
   BRA.S .4
 .3:
@@ -2595,11 +3205,11 @@ MakeMainDisplay:
   ST.B updateBeamcon
   MOVE.W  #-80,bpl1mod(A5)
   MOVE.W  #0,bpl2mod(A5)
-  
+
   MOVE.W  #$c81,bplcon3(A5)
   MOVE.W  #$11,bplcon4(A5)
   MOVE.W  #$1b88,beamcon0(A5)
-  MOVE.W #$c000,fmode(a5)
+  MOVE.W #$4000,fmode(a5)
   MOVE.W #$aa,bplcon1(a5)
   BRA.S LAB_A1160C
 LAB_A115BA:
@@ -2645,30 +3255,47 @@ LAB_A1160C:
   BEQ.W LAB_A116E0
   MOVE.W  #$0024,bplcon2(A5)
 
+  MOVE.W  currMouseX,D2
+  MOVE.W  currMouseY,D3
+  TST.W VgaModeFlag
+  BEQ.S .nv
+
+  ADD.W #$38,D2
+  LSR.W #1,D2
+  SUB.W #$20,D3
+  ADD.W D3,D3
+
+.nv
   MOVEQ #0,D1
-  MOVE.W  currMouseX,D1
-  LSR.W #2,D1
-  MOVE.W  currMouseY,D0
-  SUB.W #$10,D0
+  MOVE.W  D2,D1   ;currMouseX
+  LSR.W #2,D1     ;drop lower two bits
+
+  MOVE.W  D3,D0   ;currMouseY
+  SUB.W #$10,D0   ;find top
   LSL.W #8,D0
   OR.W  D0,D1
   SWAP  D1
-  MOVE.W  currMouseY,D0
+
+  MOVE.W  D3,D0   ;currMouseY (bottom)
   LSL.W #8,D0
   OR.W  D0,D1
-  MOVE.W  currMouseX,D0
+
+  MOVE.W  D2,D0      ;currMouseX
   LSR.W #1,D0
-  ANDI.W  #1,D0
+  ANDI.W  #1,D0      ;get higher of the two lowest bits
   OR.W  D0,D1
-  MOVE.W  currMouseY,D0
-  SUB.W #$10,D0
-  LSR.W #8,D0
-  LSL.W #2,D0
+
+  MOVE.W  D3,D0        ;currMouseY
+  SUB.W #$10,D0        ;find top
+  LSR.W #8,D0          ;get high bit only
+  LSL.W #2,D0          ;shift into place
   OR.W  D0,D1
-  MOVE.W  currMouseY,D0
-  LSR.W #8,D0
-  LSL.W #1,D0
+
+  MOVE.W  D3,D0        ;currMouseY (bottom)
+  LSR.W #8,D0          ;get high bit only
+  LSL.W #1,D0          ;shift into place
   OR.W  D0,D1
+
   MOVE.L  D1,$204.W
   CLR.L EXT_200.W
   MOVE.L #EXT_200,D0
@@ -2693,7 +3320,7 @@ LAB_A116E0:
   MOVE.L  #$204,spr0pth(A5)
 
 LAB_A1170A:
-  MOVEM.L (A7)+,D0-D1/A0/A5
+  MOVEM.L (A7)+,D0-D3/A0/A5
   RTS
 MakeMempeekerDisplay:
   MOVEM.L D0-D4/A0/A3-A5,-(A7)
@@ -3226,13 +3853,19 @@ LAB_A12216:
 currentCopperText:
   DC.B  $D,"Current Copper 0: ",0
 
+maxApiCall EQU 8
+
 handleApiCall
   ST  restartFlag
   MOVE.L SaveCpuRegs,D0
-  TST.W D0
-  BEQ.S apiPrintText
-  SUB.W #1,D0
-  BEQ.S apiPrintValue
+  CMP.W #maxApiCall,D0
+  BGT.S .1
+  LEA apiTable,A0
+  ADD.W D0,D0
+  ADD.W D0,D0
+  MOVE.L (A0,D0.W),A0
+  JSR (A0)
+.1
   RTS
 
 apiPrintText:
@@ -3246,7 +3879,115 @@ apiPrintValue:
   JSR PrintValue
   RTS
 
+apiLoadFile:
+  MOVE.L SaveCpuRegs+36,D0 ;load address from A1 to D0
+  MOVE.L SaveCpuRegs+32,A1  ;filename from A0 to A1
+  LEA stringWorkspace,A2
+  MOVEQ #-1,D1
+.copyfname
+  ADDQ #1,D1
+  MOVE.B (A1)+,(A2)+
+  BNE.S .copyfname
+  JSR apiLoadFile2
+
+  RTS
+
+apiSaveFile:
+  MOVE.L SaveCpuRegs+36,A1 ;save address from A1 to  A1
+  MOVE.L SaveCpuRegs+32,A0  ;filename from A0 to A0
+  MOVE.L SaveCpuRegs+40,D0  ;end address from A2 to D0
+
+  LEA stringWorkspace,A2
+  MOVE.W #-1,D2
+.copyfname
+  ADD.W #1,D2
+  MOVE.B (A0)+,(A2)+
+  BNE.S .copyfname
+
+  JSR apiSaveFile2
+  RTS
+
+apiSaveData:
+  MOVE.L SaveCpuRegs+36,A1 ;save address from A1 to  A1
+  MOVE.L SaveCpuRegs+32,A0  ;filename from A0 to A0
+  MOVE.L SaveCpuRegs+40,D0  ;end address from A2 to D0
+
+  LEA stringWorkspace,A2
+  MOVE.W #-1,D2
+.copyfname
+  ADD.W #1,D2
+  MOVE.B (A0)+,(A2)+
+  BNE.S .copyfname
+
+  ST  LAB_A480CA
+
+  JSR apiSaveData2
+  RTS
+
+apiReadTracks:
+  MOVE.L SaveCpuRegs+4,D1  ;start track from D1 to D1
+  MOVE.L SaveCpuRegs+8,D2  ;track count from D2 to D2
+
+  SUBQ.W  #1,D2
+  MOVE.W  D1,D3
+  ADD.W D2,D3
+  CMPI.W  #$009f,D3
+  BHI.W .1
+
+  SF  LAB_A480CA
+
+  MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
+  JSR apiReadTracks2
+.1
+  RTS
+
+apiWriteTracks:
+  MOVE.L SaveCpuRegs+4,D1  ;start track from D1 to D1
+  MOVE.L SaveCpuRegs+8,D2  ;track count from D2 to D2
+
+  MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
+  JSR apiWriteTracks2
+.1
+  RTS
+
+apiCls:
+  BSR.W Cls
+  RTS
   
+apiSelectScreen
+  MOVE.L SaveCpuRegs+4,D1  ;screen number
+  CMP.W #1,D1
+  BEQ.S screen1
+  CMP.W #2,D1
+  BEQ.S screen2
+  RTS
+screen1:
+  MOVE.B  #$31,D0
+  MOVE.L TextPage1Addr,A0
+  CMP.L CurrentPage,A0
+  BNE.S switch
+  RTS
+screen2:
+  MOVE.B  #$32,D0
+  MOVE.L TextPage2Addr,A0
+  CMP.L CurrentPage,A0
+  BNE.S switch
+  RTS
+switch:
+  MOVE.B  #$50,$4A(A0)
+  MOVE.B  #$61,$4B(A0)
+  MOVE.B  #$67,$4C(A0)
+  MOVE.B  #$65,$4D(A0)
+  MOVE.B  #$20,$4E(A0)
+  MOVE.B  D0,$4F(A0)
+  MOVE.L  A0,CurrentPage
+  JSR redrawTextPage
+  RTS  
+
+apiTable 
+  DC.L apiPrintText,apiPrintValue,apiCls,apiSelectScreen
+  DC.L apiLoadFile,apiSaveFile,apiSaveData
+  DC.L apiReadTracks,apiWriteTracks
 
 
 debugger:
@@ -3619,770 +4360,910 @@ debuggerSetMemPage:
 debuggerSetDisasmPage:
   DC.W 30,11,50,14
   DC.B  "Disassemble From:",0
+  even
   DC.W 0
-;CMD_IMODE:
-; BSR.W ReadParameter
-; TST.B ParamFound
-; BEQ.S LAB_A1225E
-; CMPI.L  #4,D0
-; BGE.W PrintWTF
-; MOVE.W  D0,imode
-;LAB_A1225E:
-; LEA imode0Text(PC),A0
-; BSR.W PrintText
-; MOVEQ #0,D0
-; MOVE.W  imode,D0
-; ADD.L D0,D0
-; ADD.L D0,D0
-; MOVEA.L imode_table(PC,D0.W),A0
-; BSR.W PrintText
-; BSR.W PrintReady
-; RTS
-;imode_table:
-; DC.L  imode1Text
-; DC.L  imode2Text
-; DC.L  imode3Text
-; DC.L  imode4Text
-;imode0Text:
-;
-; DC.B  $D,"Interrupt Mode set to: ",$D,0
-;imode1Text:
-;
-; DC.B  "-> Left & Right Mouse Button + 'F' Key -+-  ']' key disable m"
-; DC.B  "onitor.",0
-;imode2Text:
-;
-; DC.B  "-> '*' Key on Keypad   -+-  ']' on keypad disables montitor ",0
-;imode3Text:
-;
-; DC.B  "-> Right Mouse Button  -+-  ']' on keypad disables montitor ",0
-;imode4Text:
-;
-; DC.B  "-> Level 7 Int./button -+-  ']' on keypad disables montitor ",0
+CMD_IMODE:
+ if arsoft=0
+ LEA noimodetext(PC),A0
+ BSR.W PrintText
+ BRA PrintReady
+
+noimodetext:
+ DC.B "Imode is not available in hardware",$D,0
+ even
+ else
+ BSR.W ReadParameter
+ TST.B ParamFound
+ BEQ.S LAB_A1225E
+ CMPI.L  #4,D0
+ BGE.W PrintWTF
+ MOVE.B  D0,imode
+LAB_A1225E:
+ LEA imode0Text(PC),A0
+ BSR.W PrintText
+ MOVEQ #0,D0
+ MOVE.B  imode,D0
+ ADD.L D0,D0
+ ADD.L D0,D0
+ MOVEA.L imode_table(PC,D0.W),A0
+ BSR.W PrintText
+ BSR.W PrintReady
+ RTS
+
+imode_table:
+ DC.L  imode1Text
+ DC.L  imode2Text
+ DC.L  imode3Text
+ DC.L  imode4Text
+
+imode0Text:
+ DC.B  $D,"Interrupt Mode set to: ",$D,0
+
+imode1Text:
+ DC.B  "-> Left & Right Mouse Button + 'F' Key -+-  ']' key disable m"
+ DC.B  "onitor.",0
+
+imode2Text:
+ DC.B  "-> '*' Key on Keypad   -+-  ']' on keypad disables montitor ",0
+
+imode3Text:
+ DC.B  "-> Right Mouse Button  -+-  ']' on keypad disables montitor ",0
+
+imode4Text:
+ DC.B  "-> Level 7 Int./button -+-  ']' on keypad disables montitor ",0
+ endc
 
 commandTable:
   DC.B  "INTERRUPTS",0
-  DS.B  1
+  even
   DC.L  CMD_INTERRUPTS
 
   DC.B  "EXCEPTIONS",0
-  DS.B  1
+  even
   DC.L  CMD_EXCEPTIONS
 
   DC.B  "NORMALCHAR",0
-  DS.B  1
+  even
   DC.L  CMD_NORMALCHAR
 
   DC.B  "KICKROMADR",0
-  DS.B  1
+  even
   DC.L  CMD_KICKROMADR
 
   DC.B  "SETEXCEPT",0
+  even
   DC.L  CMD_SETEXCEPT
 
   DC.B  "LIBRARIES",0
+  even
   DC.L  CMD_LIBRARIES
 
   DC.B  "RESOURCES",0
+  even
   DC.L  CMD_RESOURCES
 
   DC.B  "KILLVIRUS",0
   DC.L  CMD_KILLVIRUS
 
   DC.B  "DISKCHECK",0
+  even
   DC.L  CMD_DISKCHECK
 
   DC.B  "MEGASTICK",0
+  even
   DC.L  CMD_MEGASTICK
 
   DC.B  "SMALLCHAR",0
+  even
   DC.L  CMD_SMALLCHAR
 
   DC.B  "CHIPREGS",0
-  DS.B  1
+  even
   DC.L  CMD_CHIPREGS
 
   DC.B  "EXECBASE",0
-  DS.B  1
+  even
   DC.L  CMD_EXECBASE
 
   DC.B  "BOOTCODE",0
-  DS.B  1
+  even
   DC.L  CMD_BOOTCODE
 
   DC.B  "BOOTPROT",0
-  DS.B  1
+  even
   DC.L  CMD_BOOTPROT
 
   DC.B  "ROMAVOID",0
-  DS.B  1
+  even
   DC.L  CMD_ROMAVOID
 
   DC.B  "DISKWIPE",0
-  DS.B  1
+  even
   DC.L  CMD_DISKWIPE
 
   DC.B  "CODECOPY",0
-  DS.B  1
+  even
   DC.L  CMD_CODECOPY
 
   DC.B  "CLRSTICK",0
-  DS.B  1
+  even
   DC.L  CMD_CLRSTICK
 
   DC.B  "SAFEDISK",0
-  DS.B  1
+  even
   DC.L  CMD_SAFEDISK
 
   DC.B  "MAKEDIR",0
+  even
   DC.L  CMD_MAKEDIR
 
   DC.B  "INSTALL",0
+  even
   DC.L  CMD_INSTALL
 
   DC.B  "RAMTEST",0
+  even
   DC.L  CMD_RAMTEST
 
   DC.B  "DEVICES",0
+  even
   DC.L  CMD_DEVICES
 
   DC.B  "TRACKER",0
+  even
   DC.L  CMD_TRACKER
 
   DC.B  "SLOADER",0
+  even
   DC.L  CMD_SLOADER
 
   DC.B  "CLRDMON",0
+  even
   DC.L  CMD_CLRDMON
 
   DC.B  "BOOTCHK",0
+  even
   DC.L  CMD_BOOTCHK
 
   DC.B  "DATACHK",0
+  even
   DC.L  CMD_DATACHK
 
   DC.B  "MEMCODE",0
+  even
   DC.L  CMD_MEMCODE
 
   DC.B  "VERSION",0
+  even
   DC.L  CMD_VERSION
 
   DC.B  "NOSTICK",0
+  even
   DC.L  CMD_NOSTICK
 
   DC.B  "RELABEL",0
+  even
   DC.L  CMD_RELABEL
 
   DC.B  "DELETE",0
-  DS.B  1
+  even
   DC.L  CMD_DELETE
-  
+
   DC.B  "SETAPI",0
-  DS.B  1
+  even
   DC.L  CMD_SETAPI
 
   DC.B  "CLRAPI",0
-  DS.B  1
+  even
   DC.L  CMD_CLRAPI
 
   DC.B  "FORMAT",0
-  DS.B  1
+  even
   DC.L  CMD_FORMAT
 
   DC.B  "UNPACK",0
-  DS.B  1
+  even
   DC.L  CMD_UNPACK
 
   DC.B  "BAMCHK",0
-  DS.B  1
+  even
   DC.L  CMD_BAMCHK
 
   DC.B  "RCOLOR",0
-  DS.B  1
+  even
   DC.L  CMD_RCOLOR
 
   DC.B  "SMDATA",0
-  DS.B  1
+  even
   DC.L  CMD_SMDATA
 
   DC.B  "LSTICK",0
-  DS.B  1
+  even
   DC.L  CMD_LSTICK
 
   DC.B  "SSTICK",0
-  DS.B  1
+  even
   DC.L  CMD_SSTICK
 
   DC.B  "RENAME",0
-  DS.B  1
+  even
   DC.L  CMD_RENAME
 
   DC.B  "SETMAP",0
-  DS.B  1
+  even
   DC.L  CMD_SETMAP
 
   DC.B  "SETCOP",0
-  DS.B  1
+  even
   DC.L  CMD_SETCOP
 
   DC.B  "DEEPMW",0
-  DS.B  1
+  even
   DC.L  CMD_DEEPMW
 
   DC.B  "ALLEXC",0
-  DS.B  1
+  even
   DC.L  CMD_ALLEXC
 
   DC.B  "DISKIO",0
-  DS.B  1
+  even
   DC.L  CMD_DISKIO
 
+  DC.B  "FLASH2",0
+  even
+  DC.L  CMD_FLASH2
+
   DC.B  "DOSIO",0
+  even
   DC.L  CMD_DOSIO
 
+  if arhardware=1
+  DC.B  "ARRAM",0
+  even
+  DC.L  CMD_ARRAM
+  endc
+
   DC.B  "DEBUG",0
+  even
   DC.L  CMD_DEBUG
 
+  DC.B  "FLASH",0
+  even
+  DC.L  CMD_FLASH
+
+
   DC.B  "COLOR",0
+  even
   DC.L  CMD_COLOR
 
   DC.B  "CACHE",0
+  even
   DC.L  CMD_CACHE
 
   DC.B  "AVAIL",0
+  even
   DC.L  CMD_AVAIL
 
   DC.B  "TASKS",0
+  even
   DC.L  CMD_TASKS
 
   DC.B  "PORTS",0
+  even
   DC.L  CMD_PORTS
 
   DC.B  "VIRUS",0
+  even
   DC.L  CMD_VIRUS
 
   DC.B  "DCOPY",0
+  even
   DC.L  CMD_DCOPY
 
   DC.B  "TRANS",0
+  even
   DC.L  CMD_TRANS
 
   DC.B  "SQMEM",0
+  even
   DC.L  CMD_SQMEM
 
   DC.B  "RESET",0
+  even
   DC.L  CMD_RESET
 
   DC.B  "NCHAR",0
+  even
   DC.L  CMD_NORMALCHAR
 
   DC.B  "SCHAR",0
+  even
   DC.L  CMD_SMALLCHAR
 
   DC.B  "BCODE",0
+  even
   DC.L  CMD_BOOTCODE
 
   DC.B  "BPROT",0
+  even
   DC.L  CMD_BOOTPROT
 
   DC.B  "DWIPE",0
+  even
   DC.L  CMD_DISKWIPE
 
   DC.B  "CCOPY",0
+  even
   DC.L  CMD_CODECOPY
 
   DC.B  "SDISK",0
+  even
   DC.L  CMD_SAFEDISK
 
   DC.B  "BURST",0
+  even
   DC.L  CMD_BURST
 
   DC.B  "ASCII",0
+  even
   DC.L  CMD_ASCII
 
   DC.B  "ALERT",0
+  even
   DC.L  CMD_ALERT
 
   DC.B  "DCHIP",0
+  even
   DC.L  CMD_DCHIP
 
-; DC.B  "IMODE",0
-; DC.L  CMD_IMODE
+  DC.B  "IMODE",0
+  even
+  DC.L  CMD_IMODE
 
   DC.B  "DMON",0
-  DS.B  1
+  even
   DC.L  CMD_DMON
 
   DC.B  "INFO",0
-  DS.B  1
+  even
   DC.L  CMD_INFO
 
   DC.B  "COMP",0
-  DS.B  1
+  even
   DC.L  CMD_COMP
 
   DC.B  "PACK",0
-  DS.B  1
+  even
   DC.L  CMD_PACK
 
   DC.B  "CODE",0
-  DS.B  1
+  even
   DC.L  CMD_CODE
 
   DC.B  "SCAN",0
-  DS.B  1
+  even
   DC.L  CMD_SCAN
 
   DC.B  "TYPE",0
-  DS.B  1
+  even
   DC.L  CMD_TYPE
 
   DC.B  "SMDC",0
-  DS.B  1
+  even
   DC.L  CMD_SMDC
 
   DC.B  "EXQR",0
-  DS.B  1
+  even
   DC.L  CMD_EXQR
 
   DC.B  "NTSC",0
-  DS.B  1
+  even
   DC.L  CMD_NTSC
 
   DC.B  "COPY",0
-  DS.B  1
+  even
   DC.L  CMD_COPY
 
   DC.B  "SEXC",0
-  DS.B  1
+  even
   DC.L  CMD_SETEXCEPT
 
   DC.B  "KVIR",0
-  DS.B  1
+  even
   DC.L  CMD_KILLVIRUS
 
   DC.B  "DCHK",0
-  DS.B  1
+  even
   DC.L  CMD_DISKCHECK
 
   DC.B  "CREG",0
-  DS.B  1
+  even
   DC.L  CMD_CHIPREGS
 
   DC.B  "EXEC",0
-  DS.B  1
+  even
   DC.L  CMD_EXECBASE
 
   DC.B  "MDIR",0
-  DS.B  1
+  even
   DC.L  CMD_MAKEDIR
 
   DC.B  "INST",0
-  DS.B  1
+  even
   DC.L  CMD_INSTALL
 
   DC.B  "SRIP",0
-  DS.B  1
+  even
   DC.L  CMD_TRACKER
 
   DC.B  "ROBD",0
-  DS.B  1
+  even
   DC.L  CMD_ROBD
 
   DC.B  "KILL",0
-  DS.B  1
+  even
   DC.L  CMD_KILL
 
   DC.B  "BDA",0
+  even
   DC.L  CMD_BDA
 
   DC.B  "FAQ",0
+  even
   DC.L  CMD_FAQ
 
   DC.B  "DIR",0
+  even
   DC.L  CMD_DIR
 
   DC.B  "RNC",0
+  even
   DC.L  CMD_RNC
 
   DC.B  "DBG",0
+  even
   DC.L  CMD_DBG
 
   DC.B  "MMM",0
+  even
   DC.L  CMD_MMM
 
   DC.B  "NNN",0
+  even
   DC.L  CMD_NNN
 
   DC.B  "YYY",0
+  even
   DC.L  CMD_YYY
 
   DC.B  "DDD",0
+  even
   DC.L  CMD_DDD
 
   DC.B  "SPM",0
+  even
   DC.L  CMD_SPM
 
   DC.B  "SQR",0
+  even
   DC.L  CMD_SQR
 
   DC.B  "LQR",0
+  even
   DC.L  CMD_LQR
 
   DC.B  "TFD",0
+  even
   DC.L  CMD_TFD
 
   DC.B  "TMS",0
+  even
   DC.L  CMD_TMS
 
   DC.B  "TMD",0
+  even
   DC.L  CMD_TMD
 
   DC.B  "SPR",0
+  even
   DC.L  CMD_SPR
 
   DC.B  "PRT",0
+  even
   DC.L  CMD_PRT
 
   DC.B  "EXQ",0
+  even
   DC.L  CMD_EXQ
 
   DC.B  "TDX",0
+  even
   DC.L  CMD_TDX
 
   DC.B  "TDS",0
+  even
   DC.L  CMD_TDS
 
   DC.B  "TDC",0
+  even
   DC.L  CMD_TDC
 
   DC.B  "TDI",0
+  even
   DC.L  CMD_TDI
 
   DC.B  "TDD",0
+  even
   DC.L  CMD_TDD
 
   DC.B  "MDA",0
+  even
   DC.L  CMD_MDA
 
   DC.B  "LED",0
+  even
   DC.L  CMD_LED
 
   DC.B  "PAL",0
+  even
   DC.L  CMD_PAL
 
   DC.B  "ADD",0
+  even
   DC.L  CMD_ADD
 
   DC.B  "INT",0
+  even
   DC.L  CMD_INTERRUPTS
 
   DC.B  "EXC",0
+  even
   DC.L  CMD_EXCEPTIONS
 
   DC.B  "LIB",0
+  even
   DC.L  CMD_LIBRARIES
 
   DC.B  "RES",0
+  even
   DC.L  CMD_RESOURCES
 
   DC.B  "MST",0
+  even
   DC.L  CMD_MEGASTICK
 
   DC.B  "CST",0
+  even
   DC.L  CMD_CLRSTICK
 
   DC.B  "DEV",0
+  even
   DC.L  CMD_DEVICES
 
   DC.B  "NST",0
+  even
   DC.L  CMD_NOSTICK
 
   DC.B  "REL",0
+  even
   DC.L  CMD_RELABEL
 
   DC.B  "DEL",0
+  even
   DC.L  CMD_DELETE
 
   DC.B  "LST",0
+  even
   DC.L  CMD_LSTICK
 
   DC.B  "SST",0
+  even
   DC.L  CMD_SSTICK
 
   DC.B  "REN",0
+  even
   DC.L  CMD_RENAME
 
   DC.B  "KEY",0
+  even
   DC.L  CMD_SETMAP
 
   DC.B  "CD",0
-  DS.B  1
+  even
   DC.L  CMD_CD
 
   DC.B  "SA",0
-  DS.B  1
+  even
   DC.L  CMD_SA
 
   DC.B  "LA",0
-  DS.B  1
+  even
   DC.L  CMD_LA
 
   DC.B  "LQ",0
-  DS.B  1
+  even
   DC.L  CMD_LQ
 
   DC.B  "SQ",0
-  DS.B  1
+  even
   DC.L  CMD_SQ
 
   DC.B  "SP",0
-  DS.B  1
+  even
   DC.L  CMD_SP
 
   DC.B  "SM",0
-  DS.B  1
+  even
   DC.L  CMD_SM
 
   DC.B  "LM",0
-  DS.B  1
+  even
   DC.L  CMD_LM
 
   DC.B  "BS",0
-  DS.B  1
+  even
   DC.L  CMD_BS
 
   DC.B  "BD",0
-  DS.B  1
+  even
   DC.L  CMD_BD
 
   DC.B  "FA",0
-  DS.B  1
+  even
   DC.L  CMD_FA
 
   DC.B  "CI",0
-  DS.B  1
+  even
   DC.L  CMD_CI
 
   DC.B  "FC",0
-  DS.B  1
+  even
   DC.L  CMD_FC
 
   DC.B  "FR",0
-  DS.B  1
+  even
   DC.L  CMD_FR
 
   DC.B  "FS",0
-  DS.B  1
+  even
   DC.L  CMD_FS
 
   DC.B  "NO",0
-  DS.B  1
+  even
   DC.L  CMD_NO
 
   DC.B  "NQ",0
-  DS.B  1
+  even
   DC.L  CMD_NQ
 
   DC.B  "PC",0
-  DS.B  1
+  even
   DC.L  CMD_PC
 
   DC.B  "TS",0
-  DS.B  1
+  even
   DC.L  CMD_TS
 
   DC.B  "TF",0
-  DS.B  1
+  even
   DC.L  CMD_TF
 
   DC.B  "TX",0
-  DS.B  1
+  even
   DC.L  CMD_TX
 
   DC.B  "TM",0
-  DS.B  1
+  even
   DC.L  CMD_TM
 
   DC.B  "RR",0
-  DS.B  1
+  even
   DC.L  CMD_RR
 
   DC.B  "RP",0
-  DS.B  1
+  even
   DC.L  CMD_RP
 
-
   DC.B  "RC",0
-  DS.B  1
+  even
   DC.L  CMD_RC
 
   DC.B  "RM",0
-  DS.B  1
+  even
   DC.L  CMD_RM
 
   DC.B  "RF",0
-  DS.B  1
+  even
   DC.L  CMD_RF
 
   DC.B  "RT",0
-  DS.B  1
+  even
   DC.L  CMD_RT
 
   DC.B  "WT",0
-  DS.B  1
+  even
   DC.L  CMD_WT
 
   DC.B  "YS",0
-  DS.B  1
+  even
   DC.L  CMD_YS
 
   DC.B  "LR",0
-  DS.B  1
+  even
   DC.L  CMD_LR
 
   DC.B  "SR",0
-  DS.B  1
+  even
   DC.L  CMD_SR
 
   DC.B  "WS",0
-  DS.B  1
+  even
   DC.L  CMD_WS
 
   DC.B  "TD",0
-  DS.B  1
+  even
   DC.L  CMD_TD
 
   DC.B  "MS",0
-  DS.B  1
+  even
   DC.L  CMD_MS
 
   DC.B  "MD",0
-  DS.B  1
+  even
   DC.L  CMD_MD
 
   DC.B  "MM",0
-  DS.B  1
+  even
   DC.L  CMD_MM
 
   DC.B  "NN",0
-  DS.B  1
+  even
   DC.L  CMD_NN
 
   DC.B  "YY",0
-  DS.B  1
+  even
   DC.L  CMD_YY
 
   DC.B  "DD",0
-  DS.B  1
+  even
   DC.L  CMD_DD
 
   DC.B  "MW",0
-  DS.B  1
+  even
   DC.L  CMD_MW
 
   DC.B  "ED",0
-  DS.B  1
+  even
   DC.L  CMD_ED
 
   DC.B  "EA",0
-  DS.B  1
+  even
   DC.L  CMD_EA
 
   DC.B  "TR",0
-  DS.B  1
+  even
   DC.L  CMD_TR
 
   DC.B  "ST",0
-  DS.B  1
+  even
   DC.L  CMD_ST
 
   DC.B  "A",0
+  even
   DC.L  CMD_A
 
   DC.B  "B",0
+  even
   DC.L  CMD_B
 
   DC.B  "X",0
+  even
   DC.L  CMD_X
 
   DC.B  "C",0
+  even
   DC.L  CMD_C
 
   DC.B  "D",0
+  even
   DC.L  CMD_D
 
   DC.B  "E",0
+  even
   DC.L  CMD_E
 
   DC.B  "F",0
+  even
   DC.L  CMD_F
 
   DC.B  "G",0
+  even
   DC.L  CMD_G
 
   DC.B  "I",0
+  even
   DC.L  CMD_TRANS
 
   DC.B  "M",0
+  even
   DC.L  CMD_M
 
   DC.B  "N",0
+  even
   DC.L  CMD_N
 
   DC.B  "O",0
+  even
   DC.L  CMD_O
 
   DC.B  "P",0
+  even
   DC.L  CMD_P
 
   DC.B  "R",0
+  even
   DC.L  CMD_R
 
   DC.B  "T",0
+  even
   DC.L  CMD_T
 
   DC.B  "V",0
+  even
   DC.L  CMD_COMP
 
   DC.B  "W",0
+  even
   DC.L  CMD_W
 
   DC.B  "Y",0
+  even
   DC.L  CMD_Y
 
   DC.B  "?",0
+  even
   DC.L  CMD_QMARK
 
   DC.B  "'",0
+  even
   DC.L  CMD_APOS
 
   DC.B  "~",0
+  even
   DC.L  CMD_TILDE
 
   DC.B  ".",0
+  even
   DC.L  CMD_DOT
 
   DC.B  ":",0
+  even
   DC.L  CMD_COLON
 
   DC.B  ";",0
+  even
   DC.L  CMD_SEMICOLON
 
   DC.B  ",",0
+  even
   DC.L  CMD_COMMA
 
   DC.B  "|",0
+  even
   DC.L  CMD_BAR
 
   DC.B  $a7,00
+  even
   DC.L  CMD_A7CHAR
 
   DC.B  "&",0
+  even
   DC.L  CMD_AMP
 
   DC.B  "^",0
+  even
   DC.L  CMD_UPARROW
+
   DS.W  1
 
 CMD_X:
@@ -4694,13 +5575,13 @@ CMD_TILDE:
   BRA.S SUB_A12F08
 CMD_DDD:
   MOVE.W #15,repeatCount
-  BRA.S d2
+  BRA.S dcont
 CMD_DD:
   MOVE.W #7,repeatCount
-  BRA.S d2
+  BRA.S dcont
 CMD_D:
   CLR.W repeatCount
-d2:
+dcont:
   SF  LAB_A48205
   BSR.W ReadParameter
   TST.B ParamFound
@@ -4848,33 +5729,43 @@ CMD_RC:
   LEA vbrText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC VBR,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA sfcText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC SFC,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR Print2DigitHex
   LEA dfcText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC DFC,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR Print2DigitHex
 
   LEA ispText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC ISP,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
 
   LEA mspText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC MSP,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA cacrText(PC),A0
@@ -4901,7 +5792,9 @@ CMD_RF:
   LEA fp0Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP0,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4913,7 +5806,9 @@ CMD_RF:
   LEA fp1Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP1,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4925,7 +5820,9 @@ CMD_RF:
   LEA fp2Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP2,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4937,7 +5834,9 @@ CMD_RF:
   LEA fp3Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP3,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4949,7 +5848,9 @@ CMD_RF:
   LEA fp4Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP4,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4961,7 +5862,9 @@ CMD_RF:
   LEA fp5Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP5,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4973,7 +5876,9 @@ CMD_RF:
   LEA fp6Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP6,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4985,7 +5890,9 @@ CMD_RF:
   LEA fp7Text(PC),A0
   JSR PrintText
   BSR initFloatData
+  OPT p=68040
   FMOVE.X FP7,(A1)
+  OPT p=68000
   MOVE.L (A1),D0
   JSR Print8DigitHex
   MOVE.L 4(A1),D0
@@ -4997,18 +5904,24 @@ CMD_RF:
   LEA fpiarText(PC),A0
   JSR PrintText
   CLR.L D0
+  OPT p=68040
   FMOVE FPIAR,D0
+  OPT p=68000
   JSR Print8DigitHex
   LEA fpcrText(PC),A0
   JSR PrintText
   CLR.L D0
+  OPT p=68040
   FMOVE FPCR,D0
+  OPT p=68000
   JSR Print4DigitHex
   LEA fpsrText(PC),A0
   JSR PrintText
 
   CLR.L D0
+  OPT p=68040
   FMOVE FPSR,D0
+  OPT p=68000
   JSR Print8DigitHex
   BSR PrintCR
   JSR getVBR
@@ -5139,12 +6052,12 @@ LAB_135EC:
   RTS
 
 ;LAB_16466:
-;	MOVE.B	$65(A6),D6
-;	AND.B	#$05,D6
-;	BNE.S	LAB_16474
-;	ST	$33(A6)
+; MOVE.B  $65(A6),D6
+; AND.B #$05,D6
+; BNE.S LAB_16474
+; ST  $33(A6)
 ;LAB_16474:
-;	RTS
+; RTS
 
 LAB_16500:
   DS.L  1
@@ -5203,7 +6116,7 @@ LAB_16564:
 LAB_1656C:
   TST.L D0
   BMI.S LAB_1657C
-	;BSR.W	LAB_16466
+  ;BSR.W  LAB_16466
   ADD.L D1,D1
   ADDX.L  D0,D0
   SUBQ.W  #1,D2
@@ -5452,52 +6365,68 @@ CMD_RM:
   LEA itt0Text(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC ITT0,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA itt1Text(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC ITT1,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   BSR PrintCR
   LEA dtt0Text(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC DTT0,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA dtt1Text(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC DTT1,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   BSR PrintCR
   LEA urpText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC URP,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA srpText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC SRP,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA tcText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC TC,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR Print4DigitHex
   BSR PrintCR
   LEA mmusrText(PC),A0
   JSR PrintText
   SUB.L A0,A0
+  OPT p=68040
   MOVEC MMUSR,A0
+  OPT p=68000
   MOVE.L A0,D0
   BSR PrintAddressHex
   BSR PrintCR
@@ -6597,7 +7526,9 @@ LAB_A13B4A:
   AND.B D0,DriveControlPrefsValueLo
 LAB_A13B62:
   JSR checkARChecksum
-  ;JSR  checkRamAlloc
+  if arsoft=1
+  JSR  checkRamAlloc
+  endc
   TST.B LAB_A483CC
   BNE.S LAB_A13B7C
   SF  LAB_A483CD
@@ -6626,6 +7557,12 @@ LAB_A13BEC:
   BSR.W SUB_A188AE
   TST.W D0
   BEQ.S LAB_A13C0E
+  
+  if arsoft=1
+  CMP.L #ColdCapture,D0
+  BEQ.S LAB_A13C0E  ;ignore ourself
+  endc
+  
   LEA ResidentProgramText(PC),A0
   BSR.W PrintText
   BSR.W PrintAddressHex
@@ -6724,7 +7661,7 @@ aboutText:
   DC.B  "                           (c)2024 by REbEL / QUARTEX",$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.6.1.16122024 - private alpha release for TTE",$D,$D
+  DC.B  "                 v0.7.0.03012025 - private alpha release for TTE",$D,$D
   DC.B  "                  Special thanks to gerbil for hardware testing",$D
   DC.B  "              and to na103 for reverse engineering the AR3 hardware",$D,0
 
@@ -6782,7 +7719,7 @@ memSafeReadByte:
   if arhardware=1
   tst.b full64k
   bne.s .1
-  
+
   ADD.L A0,A0
   ADDA.L  #ChipramSave1-(EXT_1000*2),A0
   bra.s .2
@@ -9681,7 +10618,7 @@ PrintF10:
   TST.B ShiftKey
   BEQ.W LAB_A170E6
   NOT.W VgaModeFlag
-  MOVE.W  #0,beamcon0(A5) 
+  MOVE.W  #0,beamcon0(A5)
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
   BEQ LAB_A170DC
@@ -10336,7 +11273,7 @@ LAB_A177CC:
   DBF D4,LAB_A177CC
   JSR PrintCRToPrinter
   MOVE.W  #$000f,cursorX
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D4/A0-A3
   RTS
 CMD_A7CHAR:
@@ -10700,7 +11637,7 @@ LAB_A17C12:
   RTS
   if arhardware=1
 HardBoot:
-  CMPI.L  #BRON_TAG,LAB_A481D2
+  CMPI.L  #BRON_TAG,bronFlag
   BNE.S LAB_407C98
   TST.B NoresPrefsFlag
   BEQ.S LAB_407C98
@@ -10729,7 +11666,7 @@ LAB_407CD0:
   MOVE.L  (A7)+,D0
 
   MOVEM.L D0-D7/A0-A6,-(A7)
-  CMPI.L  #BRON_TAG,LAB_A481D2
+  CMPI.L  #BRON_TAG,bronFlag
   BEQ.W LAB_407E64
 ;  MOVE.L debuginfo1,D1
   LEA arramstart,A0
@@ -10738,7 +11675,7 @@ LAB_407CF6:
   CLR.L (A0)+
   DBF D0,LAB_407CF6
 ;  MOVE.L D1,debuginfo1
-  MOVE.L  #BRON_TAG,LAB_A481D2
+  MOVE.L  #BRON_TAG,bronFlag
   CLR.W arramstart+16384
   MOVE.W #$1234,arramstart
   MOVE.L #EXT_4E80,memSaveEnd
@@ -10940,7 +11877,7 @@ LAB_408104:
   MOVEM.L (A7)+,D0-D7/A0-A6
   CLR.L AronFlag
   LEA EXT_40000,A7
-  MOVE.L  #0,EXT_DFF02A
+  BSR dovpos0
   JMP (A3)
 
 LAB_408120:
@@ -10983,6 +11920,21 @@ LAB_4081AC:
 LAB_4081DE:
   RTS
   endc
+
+dovpos0
+  TST.B DisableVposWrite
+  BNE.S .1 
+  MOVE.L  #0,EXT_DFF02A
+.1
+  RTS
+
+restoreVpos
+  TST.B DisableVposWrite
+  BNE.S .1 
+  MOVE.L  SAVE_VPOS,EXT_DFF02A
+.1
+  RTS
+
 ARInit:
   MOVE.B  #$13,kickstartVersion
   CMPI.B  #$f8,EXT_F80005
@@ -11012,11 +11964,8 @@ ARInit:
   CLR.B currDriveNo
   SF  LAB_A48397
   ST  BurstNibblerFastStartPrefsFlag
-  TST.B VgaModeFlag
-  BEQ.S LAB_A17D1E
-  MOVE.W  #$0018,PageHeight
-  BRA.S LAB_A17D26
-LAB_A17D1E:
+  ST  DisableVposWrite
+
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
   BEQ LAB_A17D26
@@ -11026,11 +11975,13 @@ LAB_A17D26:
   MOVE.W  #0,ArFgCol
   CLR.W BlankerCount
   MOVE.W #-1,RegSnoop+$1dc  ;flag beamcon0 as not written
-  ST  keymap
   MOVE.L  #$5052494e,PrinFlag
   SF  LAB_A483CC
   SF  BootblockCoderPrefsFlag
+  if arsoft=0
+  ST  keymap
   ST  insertmode
+  endc
   SF  sqInRamdisk
   CLR.W P1AutoFirePrefsSetting
   CLR.W P2AutoFirePrefsSetting
@@ -11081,7 +12032,7 @@ ArEntry1:
   ORI.L #$00f80000,D0
   MOVEA.L D0,A3
   MOVE.L  (A7)+,D0
-  MOVE.L  #BRON_TAG,LAB_A481D2
+  MOVE.L  #BRON_TAG,bronFlag
   BSR.W GetDrivesConnected
   MOVE.W  #$0020,RegSnoopColor00
   CLR.L memWatchSlotsUsed1
@@ -11395,15 +12346,129 @@ CMD_RCOLOR:
   JSR PrintReady
   RTS
 CMD_DEBUG
-  MOVE.B full64k,D0
-;  MOVE.L debuginfo1,D0
-;  BSR Print8DigitHex
-;  BSR PrintCR
-;  MOVE.W debuginfo2,D0
-  BSR Print2DigitHex
-  BSR PrintCR
- JSR PrintReady
+  MOVE.W #-1,FreezeMode
+  MOVE.W #$4e75,$40000
+  JSR $40000
  RTS
+
+CMD_FLASH
+
+  LEA flashcode(PC),A0
+  LEA mt_sin,A1
+.copy
+  MOVE.W (A0)+,(A1)+
+  CMP.L #flashend,A0
+  BNE.S .copy
+
+  ;see if this helps?
+  MOVE.W #-1,FreezeMode
+  
+  JSR mt_sin
+  JMP PrintReady
+
+CMD_FLASH2
+
+  LEA flashcode(PC),A0
+  LEA $40000,A1
+.copy
+  MOVE.W (A0)+,(A1)+
+  CMP.L #flashend,A0
+  BNE.S .copy
+
+  ;see if this helps?
+  MOVE.W #-1,FreezeMode
+  
+  JSR $40000
+  JMP PrintReady
+
+
+flashcode
+  LEA SECSTRT_0+4,A0
+  CMP.L #"ACTI",(A0)
+  BNE.W badflash
+
+  LEA identtext,A0
+  JSR PrintText
+  
+  MOVE.W #1,D0
+  JSR Print1DigitHex
+  MOVE.W #":",D0
+  JSR PrintChar
+  JSR PrintSpace
+
+  MOVE.B #$AA,SECSTRT_0+($5555*2)
+  MOVE.B #$55,SECSTRT_0+($2AAA*2)
+  MOVE.B #$90,SECSTRT_0+($5555*2)
+  JSR Delay
+
+  MOVEQ #0,D0
+  MOVE.B SECSTRT_0+4,D0
+  LSL.W #8,D0
+  MOVE.B SECSTRT_0+6,D0
+  
+  MOVE.B #$AA,SECSTRT_0+($5555*2)
+  MOVE.B #$55,SECSTRT_0+($2AAA*2)
+  MOVE.B #$F0,SECSTRT_0+($5555*2)
+  JSR Delay
+
+  CMP.W #"AT",D0
+  BEQ noflash1
+
+  JSR Print4DigitHex
+  JSR PrintCR
+  BRA.S chip2
+
+noflash1
+  LEA noflashtext,A0
+  JSR PrintText
+  JSR PrintCR
+  
+chip2
+  LEA identtext,A0
+  JSR PrintText
+  
+  MOVE.W #2,D0
+  JSR Print1DigitHex
+  MOVE.W #":",D0
+  JSR PrintChar
+  JSR PrintSpace
+
+  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
+  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
+  MOVE.B #$90,SECSTRT_0+1+($5555*2)
+  JSR Delay
+
+  MOVEQ #0,D0
+  MOVE.B SECSTRT_0+4+1,D0
+  LSL.W #8,D0
+  MOVE.B SECSTRT_0+6+1,D0
+  
+  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
+  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
+  MOVE.B #$F0,SECSTRT_0+1+($5555*2)
+  JSR Delay
+
+  CMP.W #"CI",D0
+  BEQ noflash2
+
+  JSR Print4DigitHex
+  JSR PrintCR
+  RTS
+
+noflash2
+  LEA noflashtext,A0
+  JSR PrintText
+  JSR PrintCR
+
+  RTS
+badflash
+  MOVE.W #$7fff,EXT_DFF096
+  MOVE.W #$f00,EXT_DFF180
+  BRA.S badflash
+flashend
+
+identtext DC.B "Attempting to indentify chip ",0
+noflashtext DC.B "N/A",0
 
 CMD_COLOR:
   BSR.W ReadParameter
@@ -11829,12 +12894,13 @@ LAB_A1884E:
   MOVE.L  #$4a3900bf,(a3)+
   MOVE.L  #$e00160f8,(a3)+
   else
-  MOVE.L  #$4e714e71,(a3)+
-  MOVE.L  #$4e4f4e73,(a3)+
+  MOVE.L  #$4e714e71,(a3)+  ;nop nop
+  MOVE.L  #$4e4f4e73,(a3)+  ;trap 15 rte
+
   MOVE.L  a3,TRAP_15-TRAP_00(A0)
   MOVE.W #$4eb9,(a3)+
-  MOVE.L #ExceptionEntry2,(a3)+
-  MOVE.W #$4e73,(a3)+
+  MOVE.L #ExceptionEntry2,(a3)+ ;jsr ExceptionEntry2
+  MOVE.W #$4e73,(a3)+           ;rte
   endc
 
   ST  breakpointsActive
@@ -14395,7 +15461,7 @@ LAB_A1AC0A:
   BEQ.S LAB_A1AC80
   MOVEA.L A0,A2
   LEA SubFoundText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   MOVE.L  A2,D0
   SUBQ.L  #2,D0
   BSR.W SUB_A1A3FA
@@ -14432,12 +15498,12 @@ LAB_A1AC80:
   TST.B LAB_A480CA
   BEQ.S LAB_A1AC98
   LEA SubsEliminatedText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
 LAB_A1AC98:
   TST.B LAB_A480CA
   BNE.S LAB_A1ACA8
   LEA NotFoundText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
 LAB_A1ACA8:
   MOVEM.L (A7)+,D0-D1/D6-D7/A0-A2
   RTS
@@ -14667,6 +15733,7 @@ LAB_A1AEBA:
 
 QuickDunpText:
   DC.B  "Quick-dump up to address: ",0
+  even
 
 CMD_RAMTEST:
   BSR.W ReadParameter
@@ -14683,9 +15750,9 @@ CMD_RAMTEST:
   MOVEA.L D0,A3
   CMPA.L  A2,A3
   BLS.W PrintWTF
-  CMPA.L  #EXT_5000,A2
+  CMPA.L  #EXT_7000,A2
   BCC.S LAB_A1AF2A
-  LEA EXT_5000.W,A2
+  LEA EXT_7000.W,A2
 LAB_A1AF2A:
   LEA RamTesterHeaderText(PC),A0
   JSR PrintText
@@ -15168,7 +16235,7 @@ LAB_40B958:
   LEA EXT_C00000,A0
   LEA EXT_DC0000,A1
   MOVEA.L SlowMemEnd,A4
-  MOVE.L  #0,EXT_DFF02A
+  BSR dovpos0
   JMP EXT_F802C2
 LAB_40B9CC:
   MOVE.L  A1,(A0)+
@@ -15193,7 +16260,7 @@ LAB_40BA12:
   LEA EXT_200000,A1
   MOVEA.L ChipMemEnd,A3
   LEA EXT_FC0240,A5
-  MOVE.L  #0,EXT_DFF02A
+  BSR dovpos0
   JMP (A5)
 GetDrivesConnected:
   MOVEM.L D0-D4,-(A7)
@@ -17480,6 +18547,20 @@ ExceptionTypesTable:
 RaisedAtText:
   DC.B  " raised at address: ",0,0
 
+  if arsoft=1
+checkRamAlloc:
+  TST.L AllocedMem
+  BNE.S LAB_A1D1F4
+  LEA RamAllocFailTable(PC),A0
+  JSR PrintText
+LAB_A1D1F4:
+  RTS
+RamAllocFailTable:
+  DC.B  $D,"ProgramRam-Allocation Failure!!",$D,0
+  ;DC.B $D,"ChipRam-Allocation Failure!!",$D,0,0
+  even
+  endc
+  
 calcArChecksum:
   BSR.W calcChecksum
   MOVE.L  D0,checksum
@@ -18833,421 +19914,422 @@ LAB_A1DE2C:
 PrefsSettingPage1:
   DC.L  $000b0003,$00110003
   DC.B  "No Fast",0
-
+  even
   DC.L  $00150003,$001b0003
-  DC.B  " 0.5MB",0,0
-
+  DC.B  " 0.5MB",0
+  even
   DC.L  $001f0003,$00250003
   DC.B  "Maximum",0
-
+  even
   DC.L  $000b0005,$00110005
   DC.B  "0.5MB",0
-
+  even
   DC.L  $00150005,$001b0005
   DC.B  "Maximum",0
-
+  even
   DC.L  $00040009,$00070009
   DC.B  " On",0
-
+  even
   DC.L  $00220009,$00250009
   DC.B  "Add",0
-
+  even
   DC.L  $0004000e,$0008000e
   DC.B  "NoRes",0
-
+  even
   DC.L  $000c000e,$0010000e
   DC.B  "Test1",0
-
+  even
   DC.L  $0014000e,$0018000e
   DC.B  "Test2",0
-
+  even
   DC.L  $001e000e,$0024000e
   DC.B  "Blanker",0
-
+  even
   DC.L  $00130011,$001b0011
-  DC.B  " BACKGND",0,0
-
+  DC.B  " BACKGND",0
+  even
   DC.L  $001e0011,$00260011
-  DC.B  " FOREGND",0,0
-
+  DC.B  " FOREGND",0
+  even
   DC.L  $00070013,$00070013
   DC.B  "0",0
-
+  even
   DC.L  $00090013,$00090013
   DC.B  "1",0
-
+  even
   DC.L  $000b0013,$000b0013
   DC.B  "2",0
-
+  even
   DC.L  $000d0013,$000d0013
   DC.B  "3",0
-
+  even
   DC.L  $000f0013,$000f0013
   DC.B  "4",0
-
+  even
   DC.L  $00110013,$00110013
   DC.B  "5",0
-
+  even
   DC.L  $00130013,$00130013
   DC.B  "6",0
-
+  even
   DC.L  $00150013,$00150013
   DC.B  "7",0
-
+  even
   DC.L  $00170013,$00170013
   DC.B  "8",0
-
+  even
   DC.L  $00190013,$00190013
   DC.B  "9",0
-
+  even
   DC.L  $001b0013,$001b0013
   DC.B  "A",0
-
+  even
   DC.L  $001d0013,$001d0013
   DC.B  "B",0
-
+  even
   DC.L  $001f0013,$001f0013
   DC.B  "C",0
-
+  even
   DC.L  $00210013,$00210013
   DC.B  "D",0
-
+  even
   DC.L  $00230013,$00230013
   DC.B  "E",0
-
+  even
   DC.L  $00250013,$00250013
   DC.B  "F",0
-
+  even
   DC.L  $00070015,$00070015
   DC.B  "0",0
-
+  even
   DC.L  $00090015,$00090015
   DC.B  "1",0
-
+  even
   DC.L  $000b0015,$000b0015
   DC.B  "2",0
-
+  even
   DC.L  $000d0015,$000d0015
   DC.B  "3",0
-
+  even
   DC.L  $000f0015,$000f0015
   DC.B  "4",0
-
+  even
   DC.L  $00110015,$00110015
   DC.B  "5",0
-
+  even
   DC.L  $00130015,$00130015
   DC.B  "6",0
-
+  even
   DC.L  $00150015,$00150015
   DC.B  "7",0
-
+  even
   DC.L  $00170015,$00170015
   DC.B  "8",0
-
+  even
   DC.L  $00190015,$00190015
   DC.B  "9",0
-
+  even
   DC.L  $001b0015,$001b0015
   DC.B  "A",0
-
+  even
   DC.L  $001d0015,$001d0015
   DC.B  "B",0
-
+  even
   DC.L  $001f0015,$001f0015
   DC.B  "C",0
-
+  even
   DC.L  $00210015,$00210015
   DC.B  "D",0
-
+  even
   DC.L  $00230015,$00230015
   DC.B  "E",0
-
+  even
   DC.L  $00250015,$00250015
   DC.B  "F",0
-
+  even
   DC.L  $00070017,$00070017
   DC.B  "0",0
-
+  even
   DC.L  $00090017,$00090017
   DC.B  "1",0
-
+  even
   DC.L  $000b0017,$000b0017
   DC.B  "2",0
-
+  even
   DC.L  $000d0017,$000d0017
   DC.B  "3",0
-
+  even
   DC.L  $000f0017,$000f0017
   DC.B  "4",0
-
+  even
   DC.L  $00110017,$00110017
   DC.B  "5",0
-
+  even
   DC.L  $00130017,$00130017
   DC.B  "6",0
-
+  even
   DC.L  $00150017,$00150017
   DC.B  "7",0
-
+  even
   DC.L  $00170017,$00170017
   DC.B  "8",0
-
+  even
   DC.L  $00190017,$00190017
   DC.B  "9",0
-
+  even
   DC.L  $001b0017,$001b0017
   DC.B  "A",0
-
+  even
   DC.L  $001d0017,$001d0017
   DC.B  "B",0
-
+  even
   DC.L  $001f0017,$001f0017
   DC.B  "C",0
-
+  even
   DC.L  $00210017,$00210017
   DC.B  "D",0
-
+  even
   DC.L  $00230017,$00230017
   DC.B  "E",0
-
+  even
   DC.L  $00250017,$00250017
   DC.B  "F",0
-
+  even
   DC.L  $00300003,$00330003
   DC.B  " On",0
-
+  even
   DC.L  $002e000f,$00350011
-  DC.B  "  Next            Page",0,0
-
+  DC.B  "  Next            Page",0
+  even
   DC.L  $002e0014,$00350016
   DC.B  "           Ok",0
-
+  even
   DC.L  $003e0002,$00410002
-  DC.B  "100%",0,0
-
+  DC.B  "100%",0
+  even
   DC.L  $003e0004,$00410004
-  DC.B  " 90%",0,0
-
+  DC.B  " 90%",0
+  even
   DC.L  $003e0006,$00410006
-  DC.B  " 80%",0,0
-
+  DC.B  " 80%",0
+  even
   DC.L  $003e0008,$00410008
-  DC.B  " 70%",0,0
-
+  DC.B  " 70%",0
+  even
   DC.L  $003e000a,$0041000a
-  DC.B  " 60%",0,0
-
+  DC.B  " 60%",0
+  even
   DC.L  $003e000c,$0041000c
-  DC.B  " 50%",0,0
-
+  DC.B  " 50%",0
+  even
   DC.L  $003e000e,$0041000e
-  DC.B  " 40%",0,0
-
+  DC.B  " 40%",0
+  even
   DC.L  $003e0010,$00410010
-  DC.B  " 30%",0,0
-
+  DC.B  " 30%",0
+  even
   DC.L  $003e0012,$00410012
-  DC.B  " 20%",0,0
-
+  DC.B  " 20%",0
+  even
   DC.L  $003e0014,$00410014
-  DC.B  " 10%",0,0
-
+  DC.B  " 10%",0
+  even
   DC.L  $003e0016,$00410016
-  DC.B  "  0%",0,0
-
+  DC.B  "  0%",0
+  even
   DC.L  $00470002,$004a0002
-  DC.B  "100%",0,0
-
+  DC.B  "100%",0
+  even
   DC.L  $00470004,$004a0004
-  DC.B  " 90%",0,0
-
+  DC.B  " 90%",0
+  even
   DC.L  $00470006,$004a0006
-  DC.B  " 80%",0,0
-
+  DC.B  " 80%",0
+  even
   DC.L  $00470008,$004a0008
-  DC.B  " 70%",0,0
-
+  DC.B  " 70%",0
+  even
   DC.L  $0047000a,$004a000a
-  DC.B  " 60%",0,0
-
+  DC.B  " 60%",0
+  even
   DC.L  $0047000c,$004a000c
-  DC.B  " 50%",0,0
-
+  DC.B  " 50%",0
+  even
   DC.L  $0047000e,$004a000e
-  DC.B  " 40%",0,0
-
+  DC.B  " 40%",0
+  even
   DC.L  $00470010,$004a0010
-  DC.B  " 30%",0,0
-
+  DC.B  " 30%",0
+  even
   DC.L  $00470012,$004a0012
-  DC.B  " 20%",0,0
-
+  DC.B  " 20%",0
+  even
   DC.L  $00470014,$004a0014
-  DC.B  " 10%",0,0
-
+  DC.B  " 10%",0
+  even
   DC.L  $00470016,$004a0016
-  DC.B  "  0%",0,0
-
+  DC.B  "  0%",0
+  even
   DC.L  $80100009,$00150009,$00008018,$0009001d,$00090000
 
   DC.L  $00300008,$00330008
   DC.B  " On",0
-
+  even
   DC.L  $00010001,$0027000a
   DC.B  " Memory Control",0
-
+  even
   DC.L  $80030003,$00070005
   DC.B  "Fast:     Chip:",0
-
+  even
   DC.L  $80010007,$000a000b
   DC.B  " ClearMem",0
-
+  even
   DC.L  $800c0007,$00270008
-  DC.B  " External Memory",0,0
-
+  DC.B  " External Memory",0
+  even
   DC.L  $800e0009,$00180009
   DC.B  "$       -$",0
-
+  even
   DC.L  $0001000c,$0027000f
   DC.B  " Module Interna",0
-
+  even
   DC.L  $00010011,$00270017
-  DC.B  " Color Control",0,0
-
+  DC.B  " Color Control",0
+  even
   DC.L  $80040013,$00040017
   DC.B  "R G B",0
-
+  even
   DC.L  $002a0001,$00380004
-  DC.B  "   Megastick",0,0
-
+  DC.B  "   Megastick",0
+  even
   DC.L  $002a0006,$00380009
   DC.B  "   Autoconfig",0
-
+  even
   DC.L  $003b0001,$004d0017,$0000803c
   DC.W  $0002
 
   DC.L  $003c0018
-  DC.B  "Player 1",0,0
-
+  DC.B  "Player 1",0
+  even
   DC.L  $804c0002,$004c0018
-  DC.B  "Player 2",0,0
-
+  DC.B  "Player 2",0
+  even
   DC.L  $80440005,$00440018
   DC.B  "A u t o f i r e",0
+  even
   DS.W  1
 PrefsSettingPage2:
   DC.L  $000f0005,$00110005
   DC.B  "Off",0
-
+  even
   DC.L  $00030003,$00050003
   DC.B  "DF0",0
-
+  even
   DC.L  $00090003,$000b0003
   DC.B  "DF1",0
-
+  even
   DC.L  $000f0003,$00110003
   DC.B  "DF2",0
-
+  even
   DC.L  $00150003,$00170003
   DC.B  "DF3",0
-
+  even
   DC.L  $00030005,$000a0005
-  DC.B  "Variable",0,0
-
+  DC.B  "Variable",0
+  even
   DC.L  $0006000a,$0009000a
   DC.B  " On",0
-
+  even
   DC.L  $0010000a,$0017000a
   DC.W  $0000
-
   DC.L  $0006000e,$0009000e
-  DC.B  "DF0:",0,0
-
+  DC.B  "DF0:",0
+  even
   DC.L  $00060010,$00090010
-  DC.B  "DF1:",0,0
-
+  DC.B  "DF1:",0
+  even
   DC.L  $00060012,$00090012
-  DC.B  "DF2:",0,0
-
+  DC.B  "DF2:",0
+  even
   DC.L  $00060014,$00090014
-  DC.B  "DF3:",0,0
-
+  DC.B  "DF3:",0
+  even
   DC.L  $0010000e,$0017000e,$00000010,$00100017
   DC.L  $00100000,$00100012,$00170012,$00000010
   DC.L  $00140017,$00140000
 
   DC.L  $00270003,$002a0003
-  DC.B  "DF0:",0,0
-
+  DC.B  "DF0:",0
+  even
   DC.L  $002f0003,$00320003
-  DC.B  "DF1:",0,0
-
+  DC.B  "DF1:",0
+  even
   DC.L  $00270005,$002a0005
-  DC.B  "DF2:",0,0
-
+  DC.B  "DF2:",0
+  even
   DC.L  $002f0005,$00320005
-  DC.B  "DF3:",0,0
-
+  DC.B  "DF3:",0
+  even
   DC.L  $001e000a,$0022000a
-  DC.B  "Find",0,0
-
+  DC.B  "Find",0
+  even
   DC.L  $0026000a,$002a000a
-  DC.B  "Kill",0,0
-
+  DC.B  "Kill",0
+  even
   DC.L  $002e000a,$0032000a
-  DC.B  "Boot",0,0
-
+  DC.B  "Boot",0
+  even
   DC.L  $001e000f,$0025000f
-  DC.B  "Resident",0,0
-
+  DC.B  "Resident",0
+  even
   DC.L  $001e0013,$00250015
-  DC.B  "          Load",0,0
-
+  DC.B  "          Load",0
+  even
   DC.L  $002a0013,$00310015
-  DC.B  "          Save",0,0
-
+  DC.B  "          Save",0
+  even
   DC.L  $00360013,$003d0015
-  DC.B  "  Next            Page",0,0
-
+  DC.B  "  Next            Page",0
+  even
   DC.L  $00420013,$00490015
   DC.B  "           Ok",0
-
+  even
   DC.L  $002a000f,$0031000f
-  DC.B  "No Click",0,0
-
+  DC.B  "No Click",0
+  even
   DC.L  $003a0003,$00410003
-  DC.B  "Resident",0,0
-
+  DC.B  "Resident",0
+  even
   DC.L  $003a0008,$00420008
   DC.B  "Faststart",0
-
+  even
   DC.L  $00010001,$00190006
   DC.B  " BootSelector",0
-
+  even
   DC.L  $00010008,$00190015
   DC.B  " BootBlockCoder",0
-
+  even
   DC.L  $8002000c,$000a000c
   DC.B  "DiskCoder",0
-
+  even
   DC.L  $001c0001,$00340006
   DC.B  " DriveControl",0
-
+  even
   DC.L  $801e0003,$00230003
-  DC.B  "On/Off",0,0
-
+  DC.B  "On/Off",0
+  even
   DC.L  $001c0008,$0034000b
-  DC.B  " VirusTest",0,0
-
+  DC.B  " VirusTest",0
+  even
   DC.L  $001c000d,$00340010
-  DC.B  " Safe Disk",0,0
-
+  DC.B  " Safe Disk",0
+  even
   DC.L  $00370001,$00440004
   DC.B  "   Setmap D",0
-
+  even
   DC.L  $00370006,$00450009
-  DC.B  " Burst Nibbler",0,0
+  DC.B  " Burst Nibbler",0
+  even
   DS.W  1
 
 DoPrefs:
@@ -19659,6 +20741,30 @@ LAB_A1EB2E:
 drawPrefsHighlightsPage2:
   MOVEM.L D0-D7/A0-A6,-(A7)
   LEA PrefsSettingPage2(PC),A0
+
+  CMP.B #$13,kickstartVersion
+  BEQ.S .is13
+
+  MOVEQ #0,D0
+.dis
+  JSR disablePrefsBox(PC)   ;disable boot selector, drive control & coder
+  ADDQ #1,D0
+  CMP.L #20,D0
+  BNE.S .dis
+
+  MOVEQ #22,D0    ;disable virus boot
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #23,D0    ;disable safedisk resident
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #28,D0    ;disable safedisk noclick
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #29,D0    ;disable setmap resident
+  JSR disablePrefsBox(PC)
+
+.is13:
   MOVE.W  DrivesConnected,D2
   MOVEQ #1,D0
   MOVEQ #$10,D1
@@ -19775,8 +20881,26 @@ LAB_A1EC88:
   RTS
 drawPrefsHighlightsPage1:
   MOVEM.L D0-D7/A0-A6,-(A7)
-  MOVEQ #0,D0
   LEA PrefsSettingPage1(PC),A0
+
+  CMP.B #$13,kickstartVersion
+  BEQ.S .is13
+
+  MOVEQ #0,D0
+.dis
+  JSR disablePrefsBox(PC)   ;disable memory controls
+  ADDQ #1,D0
+  CMP.L #5,D0
+  BNE.S .dis
+
+  MOVEQ #6,D0    ;disable memory add
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #88,D0    ;disable autoconfig button
+  JSR disablePrefsBox(PC)
+
+.is13:
+  MOVEQ #0,D0
   MOVE.W  LAB_A4822E,D1
   MOVEQ #2,D2
 LAB_A1ECA0:
@@ -21025,13 +22149,13 @@ SUB_412F72:
   JSR PrintText
   JSR PrintInputChar
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
   MOVE.L  D0,D1
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W LAB_412FFC
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   CMPI.L  #$00010000,ModPointer
   BCC.W LAB_412FB8
   LEA EXT_7C000,A0
@@ -21891,11 +23015,11 @@ SUB_413E48:
 LAB_413E5E:
   MOVE.L  LAB_44F694,LAB_A480CA
   MOVE.L  LAB_44F698,LAB_A480CE
-  SUBI.L  #$00005000,LAB_A480CA
+  SUBI.L  #EXT_7000,LAB_A480CA
   BPL.W LAB_413E86
   CLR.L LAB_A480CA
 LAB_413E86:
-  ADDI.L  #$00005000,LAB_A480CE
+  ADDI.L  #EXT_7000,LAB_A480CE
   MOVE.L  LAB_A480CE,D0
   CMP.L ChipMemEnd,D0
   BLS.W LAB_413EAA
@@ -23902,7 +25026,7 @@ LAB_A20906:
   BSR.W SUB_A2231A
   LEA stringWorkspace,A2
   MOVE.B  currDriveNo,-(A7)
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   BSR.W getDirBlock
   BMI.W LAB_A209C4
@@ -24106,7 +25230,7 @@ LAB_A20B88:
 LAB_A20BB4:
   MOVE.L  #$00000370,currentDirBlock
   SF  cursorEnabled
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   MOVEA.L A0,A1
   TST.B QuickFormat
@@ -24468,7 +25592,7 @@ LAB_A21070:
 
 CMD_SM:
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
   TST.W D0
   BNE.S LAB_A21090
@@ -24483,6 +25607,7 @@ LAB_A21090:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A21070
+apiSaveFile2:
   EXG D0,A1
   EXG D0,A1
   MOVE.L  D0,D1
@@ -24490,7 +25615,7 @@ LAB_A21090:
   BCS.S LAB_A21070
   BEQ.S LAB_A21070
   MOVEA.L A1,A2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.L  D2,D0
@@ -25073,12 +26198,12 @@ LAB_A2173C:
   TST.W D0
   RTS
 CMD_DELETE:
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   MOVE.L  D0,D1
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W PrintDiskOpResult
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   MOVE.B  currDriveNo,-(A7)
   LEA stringWorkspace,A1
@@ -25483,7 +26608,7 @@ LAB_A21B40:
   TST.W D0
   RTS
 CMD_LM:
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   MOVE.W  D0,D1
   MOVEQ #-14,D0
   TST.W D1
@@ -25491,9 +26616,10 @@ CMD_LM:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
+apiLoadFile2:
   MOVEA.L D0,A1
   MOVEA.L D0,A2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
@@ -25528,11 +26654,11 @@ LoadingToText:
 SUB_A21BEA:
   MOVEM.L D1-D2/A1,-(A7)
   MOVE.L  D0,D1
-  CMPA.L  #EXT_8400,A2
+  CMPA.L  #EXT_A400,A2
   BHI.S LAB_A21C48
   MOVEA.L A2,A1
   ADDA.L  D0,A1
-  CMPA.L  #EXT_8500,A1
+  CMPA.L  #EXT_A500,A1
   BHI.S LAB_A21C20
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
@@ -25544,7 +26670,7 @@ SUB_A21BEA:
   BRA.S LAB_A21C58
 LAB_A21C20:
   MOVE.L  D0,D1
-  MOVE.L  #EXT_8500,D0
+  MOVE.L  #EXT_A500,D0
   SUB.L A2,D0
   SUB.L D0,D1
   MOVE.L  D0,D2
@@ -25556,7 +26682,7 @@ LAB_A21C20:
   BSR.W SUB_A21D10
   BMI.S LAB_A21C58
 LAB_A21C48:
-  LEA EXT_5000.W,A1
+  LEA EXT_7000.W,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D1,D0
@@ -25575,11 +26701,11 @@ SaveFileData:
   BMI.W LAB_A21D08
 LAB_A21C7C:
   MOVE.L  D1,D0
-  CMPA.L  #EXT_8400,A2
+  CMPA.L  #EXT_A400,A2
   BHI.S LAB_A21CD6
   MOVEA.L A2,A1
   ADDA.L  D0,A1
-  CMPA.L  #EXT_8500,A1
+  CMPA.L  #EXT_A500,A1
   BHI.S LAB_A21CAE
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
@@ -25591,7 +26717,7 @@ LAB_A21C7C:
   BRA.S LAB_A21D08
 LAB_A21CAE:
   MOVE.L  D0,D1
-  MOVE.L  #EXT_8500,D0
+  MOVE.L  #EXT_A500,D0
   SUB.L A2,D0
   SUB.L D0,D1
   MOVE.L  D0,D2
@@ -25607,7 +26733,7 @@ LAB_A21CD6:
   SUBI.L  #$00003800,D0
   CMPA.L  D0,A2
   BLS.S LAB_A21CF0
-  LEA EXT_5000.W,A1
+  LEA EXT_7000.W,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21D08
 LAB_A21CF0:
@@ -25615,7 +26741,7 @@ LAB_A21CF0:
   ADD.L D1,D2
   CMP.L D0,D2
   BLS.S LAB_A21D02
-  LEA EXT_5000.W,A1
+  LEA EXT_7000.W,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21D08
 LAB_A21D02:
@@ -26168,7 +27294,7 @@ LAB_A22304:
   MOVEM.L (A7)+,D1-D7/A1-A4
   TST.W D0
   RTS
-SUB_A22312:
+GetFilename:
   ST  LAB_A4839A
   BRA.S LAB_A22320
 SUB_A2231A:
@@ -26369,7 +27495,7 @@ CMD_SA:
   SF  LAB_A480DE
 LAB_A2266E:
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
   TST.W D0
   BEQ.W LAB_A21070
@@ -26641,7 +27767,7 @@ CMD_LA:
   SF  LAB_A480DE
 LAB_A22B04:
   SF  TBufferAllocated
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   TST.W D0
   BEQ.W LAB_A21070
   MOVE.L  D0,D1
@@ -27134,7 +28260,7 @@ LAB_A2326C:
   BRA.S LAB_A23296
 LAB_A23286:
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
 LAB_A23296:
   TST.W D0
@@ -27563,7 +28689,7 @@ LAB_A23744:
   MOVEQ #-8,D0
   BRA.W PrintDiskOpResult
 LAB_A2378C:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer(PC)
   BSR.S SUB_A237D2
   MOVE.W  D0,D1
@@ -28241,6 +29367,7 @@ PrintExecbase:
   LEA ExecbaseOffsetsTable(PC),A2
   MOVEA.L EXT_4,A6
 LAB_A24366:
+  JSR Delay
   MOVE.W  (A2)+,D2
   EXT.L D2
   BMI.W LAB_A2442E
@@ -28567,7 +29694,7 @@ ExecbaseOffsetsTable:
 
 AllocTBuff:
   MOVEM.L D0-D2/A0,-(A7)
-  LEA EXT_8400,A0
+  LEA EXT_A400,A0
   MOVE.L  ChipMemEnd,D2
   SUB.L A0,D2
   BSR.W SUB_A1F99A
@@ -28613,7 +29740,7 @@ CMD_SLOADER:
   LEA ALoadDataEnd,A0
   MOVE.L  A0,UnpackSourceEnd
   JSR UnpackNoFlash(PC)
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   MOVE.L  #5,D0
   LEA ALoadName(PC),A1
@@ -28661,7 +29788,7 @@ SUB_41A28A:
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W LAB_41A33A
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   CMPI.L  #$00010000,LAB_A480CA
   BHI.W LAB_41A2EE
   LEA EXT_7C000,A0
@@ -28765,7 +29892,7 @@ CMD_DISKIO:
   BEQ.S .2
   MOVE.L  D0,A0
   MOVE.L  D0,D7
-  
+
   LEA diskio(PC),A1
   LEA diskioend(PC),A2
 .1
@@ -28775,7 +29902,7 @@ CMD_DISKIO:
   CMP.L A1,A2
   BNE.S .1
   MOVE.L A0,D6
-  
+
   LEA diskiocopied(PC),A0
   JSR PrintText
   MOVE.L D7,D0
@@ -28784,7 +29911,7 @@ CMD_DISKIO:
   JSR PrintChar
   MOVE.L D6,D0
   SUBQ.L #1,D0
-  JSR PrintAddressHex  
+  JSR PrintAddressHex
   LEA diskiohelp(PC),A0
   JSR PrintText
   JMP PrintReady
@@ -28810,150 +29937,150 @@ diskiohelp:
   DC.B "  2 = format track",$D
   DC.B "  3 = find which drive(s) attached, result returned in d0.b",$D
   DC.B "  bit 15 of d3.w controls whether the drive motor is turned off",$D
-	DC.B "  after use. If bit 15 is clear the drive motor is left on.",$D
+  DC.B "  after use. If bit 15 is clear the drive motor is left on.",$D
   DC.B " a0.l = disk buffer address for transfer",$D
   DC.B " a1.l = workspace buffer, ($3300 bytes of CHIPMEM required)",$D,$D,0
 
   even
 dosio:
-		dc.l $48E7FFFE,$2C002E01,$28482A49,$2C4A6100,$071C4A86,$660A6100,$02082F41,$00046066
-		dc.l $BC3C0001,$66066100,$02D0605A,$BC3C0002,$66066100,$045E604E,$BC3C0003,$660A6100
-		dc.l $054E2F41,$0004603E,$BC3C0004,$66066100,$05A46032,$BC3C0005,$66086140,$48D70003
-		dc.l $6032BC3C,$00066604,$6178601A,$BC3C0007,$660A6100,$008C48D7,$00036018,$BC3C0008
-		dc.l $66046168,$600E2E80,$72007400,$363C8000,$61000804,$4CDF7FFF,$4A804E75,$7A0147FA
-		dc.l $078A4AAB,$000A6710,$D6FC0012,$5205BA3C,$00026FEE,$70004E75,$204D6100,$05CE66F4
-		dc.l $36BA0796,$426B0002,$70FF3740,$000442AB,$0006274D,$000A2228,$01442741,$000E2005
-		dc.l $4E756100,$012242AC,$000A4E75,$61000118,$B2AC000E,$6F04222C,$000E2941,$00064E75
-		dc.l $42A76100,$0102202C,$000E90AC,$00066700,$00C0B087,$6C022E00,$41FA073E,$3094202C
-		dc.l $00066100,$00B0206C,$000A302C,$0002B440,$672E5280,$B4806714,$426C0002,$22280004
-		dc.l $7002B090,$670E2228,$01F46008,$222801F8,$526C0002,$610006A0,$6676B46C,$000266EC
-		dc.l $B86C0004,$671C3003,$E548323C,$01349240,$22301000,$D0FC0200,$6100067C,$66523944
-		dc.l $0004206C,$000AD0FC,$0200203C,$000001E8,$9085D1C5,$BE806C02,$20079E80,$D1AC0006
-		dc.l $D1976100,$00FE2007,$67265283,$226C000A,$234301FC,$45E90138,$E54B95C3,$6176D397
-		dc.l $D3AC0006,$202C0006,$53806108,$39420002,$221F4E75,$28000280,$000001FF,$7A09EAAC
-		dc.l $2A04CAFC,$0018DA80,$8AFC01E8,$D8454245,$48452404,$84FC0048,$26024243,$48430282
-		dc.l $0000FFFF,$4E75200C,$5300C0FC,$001249FA,$061AD8C0,$4AAC000A,$6604584F,$70004E75
-		dc.l $61000466,$667A2E28,$0144224E,$42A901FC,$45E90138,$42A76100,$00966660,$24012801
-		dc.l $200D5280,$020000FE,$26402C07,$E08EE28E,$660C264E,$BE7C01E8,$6E045282,$6012616E
-		dc.l $663A5282,$2A016708,$B4816604,$53866EEE,$22049484,$204B6100,$061C6620,$61000588
-		dc.l $661A2028,$000CBE80,$6C022007,$9E80D197,$61105382,$66E62205,$200766A0,$221F4A80
-		dc.l $4E7541E8,$00183F08,$025F0001,$661A3F0D,$025F0001,$6612E498,$60022AD8,$51C8FFFC
-		dc.l $4240E598,$60021AD8,$51C8FFFC,$4E752029,$000890A9,$01FC6616,$222901F8,$67182049
-		dc.l $61000514,$661042A9,$01FC45E9,$01382222,$522901FF,$70004E75,$61000198,$6712B0BC
-		dc.l $000000CD,$6600016C,$61000254,$66000164,$610002D0,$70022080,$21470144,$61000258
-		dc.l $317A052C,$01F670FD,$214001FC,$70012D40,$34FC7C02,$610001B6,$67000132,$41FA0518
-		dc.l $30802D40,$35042207,$610001A2,$6700011E,$52860481,$00008940,$62EE2A06,$2C2E3504
-		dc.l $6100018A,$610001D4,$2D463504,$42AE3508,$42AE36F8,$45EE3638,$43EE3700,$2C056100
-		dc.l $01806700,$00E82A06,$7600780B,$B2846C02,$28012506,$20066100,$01A25286,$26497008
-		dc.l $22C022EE,$350422EE,$34FC203C,$000001E8,$BE806C02,$20079E80,$22C022C6,$42994A40
-		dc.l $67025340,$12DD51C8,$FFFC204B,$61000444,$21400014,$52837001,$D1AE34FC,$D1AE3508
-		dc.l $4A87671A,$7048B0AE,$35086706,$B88366A2,$60262C2E,$35046100,$00F42D46,$36F841EE
-		dc.l $35002028,$01342140,$00102228,$00046100,$046A665E,$70102080,$20076706,$2C056100
-		dc.l $00CC204B,$21400010,$42A80014,$610003E4,$21400014,$22052403,$41EE3700,$61000448
-		dc.l $66304A87,$670E7048,$B0AE3508,$6700FF0E,$6000FF26,$611E661A,$41EE3300,$323A03F2
-		dc.l $42906100,$03AE2080,$6000041A,$203C0000,$00DD4E75,$323A03DC,$41EE3500,$61000378
-		dc.l $6668303A,$03D2363A,$03CC2180,$30006000,$03EA6100,$01F46652,$28016100,$00C2664A
-		dc.l $20046124,$43EE0138,$222E0008,$53812021,$611651C9,$FFFA222E,$01F86798,$204E6100
-		dc.l $03366626,$200160DA,$48E7C000,$554080FC,$0020E548,$06403304,$22360000,$484001C1
-		dc.l $48402D81,$00004CDF,$00034E75,$20065340,$5240B07C,$06E06706,$612267F4,$2C004E75
-		dc.l $720061E8,$67102006,$52415240,$B07C06E0,$67046108,$66F22006,$4A814E75,$48E7C000
-		dc.l $554080FC,$0020E548,$06403304,$22360000,$48400101,$4CDF0003,$4E7548E7,$C0005540
-		dc.l $80FC0020,$E5480640,$33042236,$00004840,$01814840,$2D810000,$4CDF0003,$4E75323A
-		dc.l $02F041EE,$33006100,$032A6608,$610002A4,$66000298,$4E7543E8,$01B170FF,$5200B03C
-		dc.l $001E6704,$12DC66F4,$114001B0,$4E756100,$00F8664C,$78007A00,$22364018,$673641EE
-		dc.l $33006100,$02526638,$7002B090,$662670FD,$B0A801FC,$67087002,$B0A801FC,$66161AC0
-		dc.l $43E801B0,$701E1AD9,$51C8FFFC,$52852228,$01F066CA,$5844B87C,$012066BC,$22057000
-		dc.l $4E7541EE,$35002248,$303C05FF,$429951C8,$FFFC4E75,$7200343C,$06E07602,$61000298
-		dc.l $66000084,$61DC7002,$20807048,$2140000C,$70FF2140,$0138217C,$00000371,$013C6100
-		dc.l $FF567001,$214001FC,$DCFC0400,$70026100,$FE985240,$B07C06E0,$66F4203C,$00000370
-		dc.l $6100FEF8,$52806100,$FEF29CFC,$04006100,$01C22140,$0014D0FC,$02006100,$01B62080
-		dc.l $90FC0200,$323C0370,$74026100,$021A6616,$2248303C,$007F22FC,$444F5300,$51C8FFF8
-		dc.l $72006100,$02004E75,$204E2F0C,$61000140,$66000094,$43FA01B8,$32812E8C,$610000DC
-		dc.l $67000084,$E54843FA,$01AA32C1,$32C02230,$0000674A,$61000140,$666C203C,$000000E1
-		dc.l $7402B490,$66607402,$BC3C0003,$67064A14,$660274FD,$B4A801FC,$661E43E8,$01B045FA
-		dc.l $017A7400,$14195302,$1019617A,$B01A56CA,$FFF86604,$4A12671E,$303C01F0,$60A8203C
-		dc.l $000000CC,$BC3C0003,$671C4A14,$6618203C,$000000CD,$60104A14,$6600FF7A,$43FA0138
-		dc.l $32A801F2,$7000285F,$4A804E75,$BC3C0006,$6C30204C,$612EB03C,$00446626,$6126B03C
-		dc.l $0046661E,$10180400,$00306D16,$B03C0033,$6E100C18,$003A660A,$41FA00FE,$11400001
-		dc.l $584C4E75,$1018B03C,$00616D0A,$B03C007A,$6E040200,$00DF4A00,$4E7548E7,$40C07000
-		dc.l $72FF204C,$43FA00D4,$42115281,$4A146708,$0C1C002F,$66F4534C,$4A81672A,$C2FC000D
-		dc.l $101861C2,$12C0D240,$02810000,$07FFB9C8,$66EA0C14,$002F6602,$524C4219,$82FC0048
-		dc.l $42414841,$5C412001,$4CDF0302,$4E75323C,$03706122,$661E203C,$000000E1,$7402B490
-		dc.l $66127401,$B4A801FC,$660A43FA,$006432A8,$013E7000,$4E7548E7,$30006100,$00964CDF
-		dc.l $000C4A80,$660A610A,$6706203C,$00000195,$4E7548E7,$40807000,$323C007F,$D09851C9
-		dc.l $FFFC4480,$4CDF0102,$4E750000,$00000000,$00000000,$00000000,$00000000,$00000000
-		dc.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
-		dc.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$000042A8,$00146192
-		dc.l $21400014,$74012F03,$7601610A,$261F4A80,$4E757401,$76002F09,$224E303A,$FFBC6104
-		dc.l $225F4E75
+    dc.l $48E7FFFE,$2C002E01,$28482A49,$2C4A6100,$071C4A86,$660A6100,$02082F41,$00046066
+    dc.l $BC3C0001,$66066100,$02D0605A,$BC3C0002,$66066100,$045E604E,$BC3C0003,$660A6100
+    dc.l $054E2F41,$0004603E,$BC3C0004,$66066100,$05A46032,$BC3C0005,$66086140,$48D70003
+    dc.l $6032BC3C,$00066604,$6178601A,$BC3C0007,$660A6100,$008C48D7,$00036018,$BC3C0008
+    dc.l $66046168,$600E2E80,$72007400,$363C8000,$61000804,$4CDF7FFF,$4A804E75,$7A0147FA
+    dc.l $078A4AAB,$000A6710,$D6FC0012,$5205BA3C,$00026FEE,$70004E75,$204D6100,$05CE66F4
+    dc.l $36BA0796,$426B0002,$70FF3740,$000442AB,$0006274D,$000A2228,$01442741,$000E2005
+    dc.l $4E756100,$012242AC,$000A4E75,$61000118,$B2AC000E,$6F04222C,$000E2941,$00064E75
+    dc.l $42A76100,$0102202C,$000E90AC,$00066700,$00C0B087,$6C022E00,$41FA073E,$3094202C
+    dc.l $00066100,$00B0206C,$000A302C,$0002B440,$672E5280,$B4806714,$426C0002,$22280004
+    dc.l $7002B090,$670E2228,$01F46008,$222801F8,$526C0002,$610006A0,$6676B46C,$000266EC
+    dc.l $B86C0004,$671C3003,$E548323C,$01349240,$22301000,$D0FC0200,$6100067C,$66523944
+    dc.l $0004206C,$000AD0FC,$0200203C,$000001E8,$9085D1C5,$BE806C02,$20079E80,$D1AC0006
+    dc.l $D1976100,$00FE2007,$67265283,$226C000A,$234301FC,$45E90138,$E54B95C3,$6176D397
+    dc.l $D3AC0006,$202C0006,$53806108,$39420002,$221F4E75,$28000280,$000001FF,$7A09EAAC
+    dc.l $2A04CAFC,$0018DA80,$8AFC01E8,$D8454245,$48452404,$84FC0048,$26024243,$48430282
+    dc.l $0000FFFF,$4E75200C,$5300C0FC,$001249FA,$061AD8C0,$4AAC000A,$6604584F,$70004E75
+    dc.l $61000466,$667A2E28,$0144224E,$42A901FC,$45E90138,$42A76100,$00966660,$24012801
+    dc.l $200D5280,$020000FE,$26402C07,$E08EE28E,$660C264E,$BE7C01E8,$6E045282,$6012616E
+    dc.l $663A5282,$2A016708,$B4816604,$53866EEE,$22049484,$204B6100,$061C6620,$61000588
+    dc.l $661A2028,$000CBE80,$6C022007,$9E80D197,$61105382,$66E62205,$200766A0,$221F4A80
+    dc.l $4E7541E8,$00183F08,$025F0001,$661A3F0D,$025F0001,$6612E498,$60022AD8,$51C8FFFC
+    dc.l $4240E598,$60021AD8,$51C8FFFC,$4E752029,$000890A9,$01FC6616,$222901F8,$67182049
+    dc.l $61000514,$661042A9,$01FC45E9,$01382222,$522901FF,$70004E75,$61000198,$6712B0BC
+    dc.l $000000CD,$6600016C,$61000254,$66000164,$610002D0,$70022080,$21470144,$61000258
+    dc.l $317A052C,$01F670FD,$214001FC,$70012D40,$34FC7C02,$610001B6,$67000132,$41FA0518
+    dc.l $30802D40,$35042207,$610001A2,$6700011E,$52860481,$00008940,$62EE2A06,$2C2E3504
+    dc.l $6100018A,$610001D4,$2D463504,$42AE3508,$42AE36F8,$45EE3638,$43EE3700,$2C056100
+    dc.l $01806700,$00E82A06,$7600780B,$B2846C02,$28012506,$20066100,$01A25286,$26497008
+    dc.l $22C022EE,$350422EE,$34FC203C,$000001E8,$BE806C02,$20079E80,$22C022C6,$42994A40
+    dc.l $67025340,$12DD51C8,$FFFC204B,$61000444,$21400014,$52837001,$D1AE34FC,$D1AE3508
+    dc.l $4A87671A,$7048B0AE,$35086706,$B88366A2,$60262C2E,$35046100,$00F42D46,$36F841EE
+    dc.l $35002028,$01342140,$00102228,$00046100,$046A665E,$70102080,$20076706,$2C056100
+    dc.l $00CC204B,$21400010,$42A80014,$610003E4,$21400014,$22052403,$41EE3700,$61000448
+    dc.l $66304A87,$670E7048,$B0AE3508,$6700FF0E,$6000FF26,$611E661A,$41EE3300,$323A03F2
+    dc.l $42906100,$03AE2080,$6000041A,$203C0000,$00DD4E75,$323A03DC,$41EE3500,$61000378
+    dc.l $6668303A,$03D2363A,$03CC2180,$30006000,$03EA6100,$01F46652,$28016100,$00C2664A
+    dc.l $20046124,$43EE0138,$222E0008,$53812021,$611651C9,$FFFA222E,$01F86798,$204E6100
+    dc.l $03366626,$200160DA,$48E7C000,$554080FC,$0020E548,$06403304,$22360000,$484001C1
+    dc.l $48402D81,$00004CDF,$00034E75,$20065340,$5240B07C,$06E06706,$612267F4,$2C004E75
+    dc.l $720061E8,$67102006,$52415240,$B07C06E0,$67046108,$66F22006,$4A814E75,$48E7C000
+    dc.l $554080FC,$0020E548,$06403304,$22360000,$48400101,$4CDF0003,$4E7548E7,$C0005540
+    dc.l $80FC0020,$E5480640,$33042236,$00004840,$01814840,$2D810000,$4CDF0003,$4E75323A
+    dc.l $02F041EE,$33006100,$032A6608,$610002A4,$66000298,$4E7543E8,$01B170FF,$5200B03C
+    dc.l $001E6704,$12DC66F4,$114001B0,$4E756100,$00F8664C,$78007A00,$22364018,$673641EE
+    dc.l $33006100,$02526638,$7002B090,$662670FD,$B0A801FC,$67087002,$B0A801FC,$66161AC0
+    dc.l $43E801B0,$701E1AD9,$51C8FFFC,$52852228,$01F066CA,$5844B87C,$012066BC,$22057000
+    dc.l $4E7541EE,$35002248,$303C05FF,$429951C8,$FFFC4E75,$7200343C,$06E07602,$61000298
+    dc.l $66000084,$61DC7002,$20807048,$2140000C,$70FF2140,$0138217C,$00000371,$013C6100
+    dc.l $FF567001,$214001FC,$DCFC0400,$70026100,$FE985240,$B07C06E0,$66F4203C,$00000370
+    dc.l $6100FEF8,$52806100,$FEF29CFC,$04006100,$01C22140,$0014D0FC,$02006100,$01B62080
+    dc.l $90FC0200,$323C0370,$74026100,$021A6616,$2248303C,$007F22FC,$444F5300,$51C8FFF8
+    dc.l $72006100,$02004E75,$204E2F0C,$61000140,$66000094,$43FA01B8,$32812E8C,$610000DC
+    dc.l $67000084,$E54843FA,$01AA32C1,$32C02230,$0000674A,$61000140,$666C203C,$000000E1
+    dc.l $7402B490,$66607402,$BC3C0003,$67064A14,$660274FD,$B4A801FC,$661E43E8,$01B045FA
+    dc.l $017A7400,$14195302,$1019617A,$B01A56CA,$FFF86604,$4A12671E,$303C01F0,$60A8203C
+    dc.l $000000CC,$BC3C0003,$671C4A14,$6618203C,$000000CD,$60104A14,$6600FF7A,$43FA0138
+    dc.l $32A801F2,$7000285F,$4A804E75,$BC3C0006,$6C30204C,$612EB03C,$00446626,$6126B03C
+    dc.l $0046661E,$10180400,$00306D16,$B03C0033,$6E100C18,$003A660A,$41FA00FE,$11400001
+    dc.l $584C4E75,$1018B03C,$00616D0A,$B03C007A,$6E040200,$00DF4A00,$4E7548E7,$40C07000
+    dc.l $72FF204C,$43FA00D4,$42115281,$4A146708,$0C1C002F,$66F4534C,$4A81672A,$C2FC000D
+    dc.l $101861C2,$12C0D240,$02810000,$07FFB9C8,$66EA0C14,$002F6602,$524C4219,$82FC0048
+    dc.l $42414841,$5C412001,$4CDF0302,$4E75323C,$03706122,$661E203C,$000000E1,$7402B490
+    dc.l $66127401,$B4A801FC,$660A43FA,$006432A8,$013E7000,$4E7548E7,$30006100,$00964CDF
+    dc.l $000C4A80,$660A610A,$6706203C,$00000195,$4E7548E7,$40807000,$323C007F,$D09851C9
+    dc.l $FFFC4480,$4CDF0102,$4E750000,$00000000,$00000000,$00000000,$00000000,$00000000
+    dc.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
+    dc.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$000042A8,$00146192
+    dc.l $21400014,$74012F03,$7601610A,$261F4A80,$4E757401,$76002F09,$224E303A,$FFBC6104
+    dc.l $225F4E75
 
 diskio:
-	DC.L $48E77FFC,$4E56FFDC,$B67C0003,$66086100,$01006000,$00F27803,$C8403D44,$FFDC3D41
-	DC.L $FFDE3D42,$FFE03D43,$FFE22D48,$FFE42D49,$FFE8E458,$02400001,$52403D40,$FFEC7000
-	DC.L $36026700,$0098701E,$D641B67C,$06E06E00,$00B60281,$0000FFFF,$82FC000B,$0C6E0001
-	DC.L $FFEC6702,$D2413D41,$FFEE4841,$3D41FFF0,$61000688,$4A2EFFE3,$67046100,$04F2302E
-	DC.L $FFF0720B,$9240B26E,$FFE06F04,$322EFFE0,$3D41FFF2,$610000D6,$66424A2E,$FFE36706
-	DC.L $610001BA,$6636302E,$FFE0906E,$FFF2672C,$3D40FFE0,$0C2E0002,$FFE36606,$4AAEFFE4
-	DC.L $670C302E,$FFF2E188,$D080D1AE,$FFE4426E,$FFF0302E,$FFECD16E,$FFEE60A2,$2F006100
-	DC.L $05EC201F,$67207200,$322EFFEE,$0C6E0001,$FFEC6702,$E249C2FC,$000BD26E,$FFF0D26E
-	DC.L $FFFA2F41,$00284E5E,$4A804CDF,$3FFE4E75,$3D7C0003,$FFDC7A01,$610005E0,$610005BC
-	DC.L $382EFFDC,$56446116,$B0BCFFFF,$FFFF6604,$574409C5,$536EFFDC,$66DE2005,$4E75761F
-	DC.L $7000610A,$D502D180,$51CBFFF8,$4E7572FF,$098113C1,$00BFD100,$08390005,$00BFE001
-	DC.L $57C209C1,$13C100BF,$D1004E75,$7802426E,$FFFC426E,$FFFA426E,$FFF8342E,$FFEE6100
-	DC.L $05906600,$00B8701D,$08390002,$00BFE001,$670000AA,$70000C2E,$0002FFE3,$670000BA
-	DC.L $2A6EFFE8,$4BED0400,$2ABCAAAA,$AAAA3B7C,$44890004,$61000342,$610001A4,$667E302E
-	DC.L $FFF4674E,$C0FC0440,$41ED0006,$61000488,$49F900DF,$F01E6100,$01DE6678,$0C2E0001
-	DC.L $FFE3670A,$302EFFFA,$906EFFF2,$676A2A6E,$FFE84BED,$0400302E,$FFF4C0FC,$0440DBC0
-	DC.L $2ABCAAAA,$AAAA3B7C,$44890004,$204D6100,$03FC302E,$FFF66718,$C0FC0440,$41ED0006
-	DC.L $61000434,$49EEFFFE,$42546100,$018A6624,$302EFFFA,$906EFFF2,$671E701A,$2F007402
-	DC.L $610004CE,$61000518,$201F0839,$000200BF,$E0016704,$51CCFF18,$6000045E,$7802426E
-	DC.L $FFFA0C2E,$0002FFE3,$660A302E,$FFEE206E,$FFE86172,$6100053E,$7064D040,$61000570
-	DC.L $701C0839,$000300BF,$E001674E,$41F900DF,$F000317C,$40000024,$216EFFE8,$0020317C
-	DC.L $6600009E,$317C9100,$009E0C6E,$0050FFEE,$6506317C,$A000009E,$317C8210,$0096317C
-	DC.L $0002009C,$317CD961,$0024317C,$D9610024,$610003C2,$670451CC,$FF9C2F00,$70026100
-	DC.L $050E201F,$4E752600,$0043FF00,$4843363C,$000B2A6E,$FFE84BED,$0400286E,$FFE4204D
-	DC.L $584820FC,$44894489,$20036100,$02F65148,$610002FA,$72286100,$023C6100,$02E65148
-	DC.L $610002EA,$200C6728,$204C43ED,$0040203C,$00000200,$6100029E,$41ED0040,$323C0400
-	DC.L $61000212,$41ED0038,$610002B8,$49EC0200,$4BED0440,$06430100,$530366A2,$4E75740A
-	DC.L $41ED0006,$303C0040,$610002EC,$61000326,$66366100,$01CC6706,$51CAFFE6,$602C6100
-	DC.L $018A662A,$B26EFFEE,$6624B43C,$000B6C1E,$B63C000B,$6E185303,$3D43FFF4,$3D7C000B
-	DC.L $FFF6976E,$FFF67000,$4E757018,$4E75701B,$4E757019,$4E752A6E,$FFE84BED,$0400302E
-	DC.L $FFF8C0FC,$0440DBC0,$203C0000,$17706100,$043E082C,$00010001,$660000F6,$61000422
-	DC.L $670000F2,$4AAD0440,$67E86100,$015466BA,$61000118,$66B8B26E,$FFEE66B2,$360241ED
-	DC.L $00086100,$0126103C,$000B902E,$FFF941ED,$00086100,$01EE6100,$013641ED,$00306100
-	DC.L $01E2B66E,$FFF06D00,$009A302E,$FFF2D06E,$FFF0B640,$6C00008C,$082C0001,$00016600
-	DC.L $0090302E,$FFFC0700,$66784A2E,$FFE36732,$61000086,$206EFFE4,$D1C143ED,$00406100
-	DC.L $0174082C,$00010001,$666641ED,$0040323C,$04006100,$00E041ED,$00386100,$01866168
-	DC.L $604041ED,$0040323C,$04006100,$00C82F00,$41ED0038,$61000094,$B09F6600,$FF16082C
-	DC.L $00010001,$662A6130,$41ED0040,$226EFFE4,$D3C16100,$00F86130,$302EFFFA,$B06EFFF2
-	DC.L $670E526E,$FFF80C6E,$000BFFF8,$6600FEE8,$70004E75,$70FF4E75,$2203926E,$FFF0203C
-	DC.L $00000200,$C2C04E75,$302EFFFC,$07C03D40,$FFFC526E,$FFFA4E75,$204D720A,$700041E8
-	DC.L $04402080,$51C9FFF8,$4E7541ED,$0008611A,$36000243,$00FF3400,$E04A4840,$32000241
-	DC.L $00FFE048,$B03C00FF,$4E752018,$22180280,$55555555,$02815555,$5555D080,$80814E75
-	DC.L $610C2F00,$41ED0030,$61E0B09F,$4E7541ED,$00087228,$2F02E449,$53417000,$2418B580
-	DC.L $51C9FFFA,$241F0280,$55555555,$4E75206E,$FFE8203C,$AAAAAAAA,$22002400,$26002800
-	DC.L $2A002C00,$2E0043E8,$04000C2E,$0001FFE3,$670443E8,$32C048E1,$FF00B1C9,$66F84E75
-	DC.L $08390006,$00DFF002,$66F64E75,$48E7F0E0,$707F45E8,$0200263C,$55555555,$2218241A
-	DC.L $C283C483,$D2818282,$22C151C8,$FFF04CDF,$070F4E75,$48E7FCC0,$C3482600,$E48B5383
-	DC.L $2A002011,$E2886142,$201941F0,$58FC613A,$91C551CB,$FFEE6114,$D1C56110,$4CDF033F
-	DC.L $4E752F00,$E2886122,$201F611E,$10100828,$0000FFFF,$660C0800,$0006660C,$08C00007
-	DC.L $60040880,$00071080,$4E750280,$55555555,$24000A82,$55555555,$2202D482,$E28908C1
-	DC.L $001FC282,$80810828,$0000FFFF,$67040880,$001F20C0,$4E7543F9,$00DFF000,$337C4000
-	DC.L $0024337C,$82100096,$337C6600,$009E337C,$9500009E,$337C4489,$007E2348,$0020337C
-	DC.L $0002009C,$E2480040,$80003340,$00243340,$00244E75,$43F900DF,$F000203C,$000009C4
-	DC.L $6100016C,$08290001,$001F660A,$61000152,$66F270FF,$60027000,$33FC0002,$00DFF09C
-	DC.L $33FC4000,$00DFF024,$4A804E75,$33FC0400,$00DFF09E,$4A6EFFE2,$6A1E72FF,$13C100BF
-	DC.L $D100302E,$FFDC5680,$018113C1,$00BFD100,$01C113C1,$00BFD100,$4E7572FF,$13C100BF
-	DC.L $D1000881,$000761D4,$7064D040,$600000E0,$48E73000,$26026100,$009C302E,$FFDCD040
-	DC.L $41FA0106,$30300000,$6A046132,$662AE248,$E24A7201,$9440670E,$6A0472FF,$44427004
-	DC.L $614E5342,$66F8302E,$FFDCD040,$41FA00DA,$31830000,$615E7000,$4CDF000C,$4E752F02
-	DC.L $74550839,$000400BF,$E001670E,$700472FF,$611E51CA,$FFEE701E,$6010302E,$FFDCD040
-	DC.L $41FA00A6,$42700000,$70004CDF,$00044E75,$2F00612A,$4A016B04,$08800001,$08800000
-	DC.L $13C000BF,$D10008C0,$000013C0,$00BFD100,$201F603A,$610813C0,$00BFD100,$4E7548A7
-	DC.L $6000302E,$FFDC1439,$00BFD100,$0002007F,$56000182,$5700D040,$323B004E,$08010000
-	DC.L $67040882,$00021002,$4C9F0006,$4E75611E,$08390000,$00BFDE00,$66F65340,$66F04E75
-	DC.L $08390000,$00BFDE00,$661C5340,$671813FC,$000800BF,$DE0013FC,$00CC00BF,$D40013FC
-	DC.L $000200BF,$D5004E75,$FFFFFFFF,$FFFFFFFF
+  DC.L $48E77FFC,$4E56FFDC,$B67C0003,$66086100,$01006000,$00F27803,$C8403D44,$FFDC3D41
+  DC.L $FFDE3D42,$FFE03D43,$FFE22D48,$FFE42D49,$FFE8E458,$02400001,$52403D40,$FFEC7000
+  DC.L $36026700,$0098701E,$D641B67C,$06E06E00,$00B60281,$0000FFFF,$82FC000B,$0C6E0001
+  DC.L $FFEC6702,$D2413D41,$FFEE4841,$3D41FFF0,$61000688,$4A2EFFE3,$67046100,$04F2302E
+  DC.L $FFF0720B,$9240B26E,$FFE06F04,$322EFFE0,$3D41FFF2,$610000D6,$66424A2E,$FFE36706
+  DC.L $610001BA,$6636302E,$FFE0906E,$FFF2672C,$3D40FFE0,$0C2E0002,$FFE36606,$4AAEFFE4
+  DC.L $670C302E,$FFF2E188,$D080D1AE,$FFE4426E,$FFF0302E,$FFECD16E,$FFEE60A2,$2F006100
+  DC.L $05EC201F,$67207200,$322EFFEE,$0C6E0001,$FFEC6702,$E249C2FC,$000BD26E,$FFF0D26E
+  DC.L $FFFA2F41,$00284E5E,$4A804CDF,$3FFE4E75,$3D7C0003,$FFDC7A01,$610005E0,$610005BC
+  DC.L $382EFFDC,$56446116,$B0BCFFFF,$FFFF6604,$574409C5,$536EFFDC,$66DE2005,$4E75761F
+  DC.L $7000610A,$D502D180,$51CBFFF8,$4E7572FF,$098113C1,$00BFD100,$08390005,$00BFE001
+  DC.L $57C209C1,$13C100BF,$D1004E75,$7802426E,$FFFC426E,$FFFA426E,$FFF8342E,$FFEE6100
+  DC.L $05906600,$00B8701D,$08390002,$00BFE001,$670000AA,$70000C2E,$0002FFE3,$670000BA
+  DC.L $2A6EFFE8,$4BED0400,$2ABCAAAA,$AAAA3B7C,$44890004,$61000342,$610001A4,$667E302E
+  DC.L $FFF4674E,$C0FC0440,$41ED0006,$61000488,$49F900DF,$F01E6100,$01DE6678,$0C2E0001
+  DC.L $FFE3670A,$302EFFFA,$906EFFF2,$676A2A6E,$FFE84BED,$0400302E,$FFF4C0FC,$0440DBC0
+  DC.L $2ABCAAAA,$AAAA3B7C,$44890004,$204D6100,$03FC302E,$FFF66718,$C0FC0440,$41ED0006
+  DC.L $61000434,$49EEFFFE,$42546100,$018A6624,$302EFFFA,$906EFFF2,$671E701A,$2F007402
+  DC.L $610004CE,$61000518,$201F0839,$000200BF,$E0016704,$51CCFF18,$6000045E,$7802426E
+  DC.L $FFFA0C2E,$0002FFE3,$660A302E,$FFEE206E,$FFE86172,$6100053E,$7064D040,$61000570
+  DC.L $701C0839,$000300BF,$E001674E,$41F900DF,$F000317C,$40000024,$216EFFE8,$0020317C
+  DC.L $6600009E,$317C9100,$009E0C6E,$0050FFEE,$6506317C,$A000009E,$317C8210,$0096317C
+  DC.L $0002009C,$317CD961,$0024317C,$D9610024,$610003C2,$670451CC,$FF9C2F00,$70026100
+  DC.L $050E201F,$4E752600,$0043FF00,$4843363C,$000B2A6E,$FFE84BED,$0400286E,$FFE4204D
+  DC.L $584820FC,$44894489,$20036100,$02F65148,$610002FA,$72286100,$023C6100,$02E65148
+  DC.L $610002EA,$200C6728,$204C43ED,$0040203C,$00000200,$6100029E,$41ED0040,$323C0400
+  DC.L $61000212,$41ED0038,$610002B8,$49EC0200,$4BED0440,$06430100,$530366A2,$4E75740A
+  DC.L $41ED0006,$303C0040,$610002EC,$61000326,$66366100,$01CC6706,$51CAFFE6,$602C6100
+  DC.L $018A662A,$B26EFFEE,$6624B43C,$000B6C1E,$B63C000B,$6E185303,$3D43FFF4,$3D7C000B
+  DC.L $FFF6976E,$FFF67000,$4E757018,$4E75701B,$4E757019,$4E752A6E,$FFE84BED,$0400302E
+  DC.L $FFF8C0FC,$0440DBC0,$203C0000,$17706100,$043E082C,$00010001,$660000F6,$61000422
+  DC.L $670000F2,$4AAD0440,$67E86100,$015466BA,$61000118,$66B8B26E,$FFEE66B2,$360241ED
+  DC.L $00086100,$0126103C,$000B902E,$FFF941ED,$00086100,$01EE6100,$013641ED,$00306100
+  DC.L $01E2B66E,$FFF06D00,$009A302E,$FFF2D06E,$FFF0B640,$6C00008C,$082C0001,$00016600
+  DC.L $0090302E,$FFFC0700,$66784A2E,$FFE36732,$61000086,$206EFFE4,$D1C143ED,$00406100
+  DC.L $0174082C,$00010001,$666641ED,$0040323C,$04006100,$00E041ED,$00386100,$01866168
+  DC.L $604041ED,$0040323C,$04006100,$00C82F00,$41ED0038,$61000094,$B09F6600,$FF16082C
+  DC.L $00010001,$662A6130,$41ED0040,$226EFFE4,$D3C16100,$00F86130,$302EFFFA,$B06EFFF2
+  DC.L $670E526E,$FFF80C6E,$000BFFF8,$6600FEE8,$70004E75,$70FF4E75,$2203926E,$FFF0203C
+  DC.L $00000200,$C2C04E75,$302EFFFC,$07C03D40,$FFFC526E,$FFFA4E75,$204D720A,$700041E8
+  DC.L $04402080,$51C9FFF8,$4E7541ED,$0008611A,$36000243,$00FF3400,$E04A4840,$32000241
+  DC.L $00FFE048,$B03C00FF,$4E752018,$22180280,$55555555,$02815555,$5555D080,$80814E75
+  DC.L $610C2F00,$41ED0030,$61E0B09F,$4E7541ED,$00087228,$2F02E449,$53417000,$2418B580
+  DC.L $51C9FFFA,$241F0280,$55555555,$4E75206E,$FFE8203C,$AAAAAAAA,$22002400,$26002800
+  DC.L $2A002C00,$2E0043E8,$04000C2E,$0001FFE3,$670443E8,$32C048E1,$FF00B1C9,$66F84E75
+  DC.L $08390006,$00DFF002,$66F64E75,$48E7F0E0,$707F45E8,$0200263C,$55555555,$2218241A
+  DC.L $C283C483,$D2818282,$22C151C8,$FFF04CDF,$070F4E75,$48E7FCC0,$C3482600,$E48B5383
+  DC.L $2A002011,$E2886142,$201941F0,$58FC613A,$91C551CB,$FFEE6114,$D1C56110,$4CDF033F
+  DC.L $4E752F00,$E2886122,$201F611E,$10100828,$0000FFFF,$660C0800,$0006660C,$08C00007
+  DC.L $60040880,$00071080,$4E750280,$55555555,$24000A82,$55555555,$2202D482,$E28908C1
+  DC.L $001FC282,$80810828,$0000FFFF,$67040880,$001F20C0,$4E7543F9,$00DFF000,$337C4000
+  DC.L $0024337C,$82100096,$337C6600,$009E337C,$9500009E,$337C4489,$007E2348,$0020337C
+  DC.L $0002009C,$E2480040,$80003340,$00243340,$00244E75,$43F900DF,$F000203C,$000009C4
+  DC.L $6100016C,$08290001,$001F660A,$61000152,$66F270FF,$60027000,$33FC0002,$00DFF09C
+  DC.L $33FC4000,$00DFF024,$4A804E75,$33FC0400,$00DFF09E,$4A6EFFE2,$6A1E72FF,$13C100BF
+  DC.L $D100302E,$FFDC5680,$018113C1,$00BFD100,$01C113C1,$00BFD100,$4E7572FF,$13C100BF
+  DC.L $D1000881,$000761D4,$7064D040,$600000E0,$48E73000,$26026100,$009C302E,$FFDCD040
+  DC.L $41FA0106,$30300000,$6A046132,$662AE248,$E24A7201,$9440670E,$6A0472FF,$44427004
+  DC.L $614E5342,$66F8302E,$FFDCD040,$41FA00DA,$31830000,$615E7000,$4CDF000C,$4E752F02
+  DC.L $74550839,$000400BF,$E001670E,$700472FF,$611E51CA,$FFEE701E,$6010302E,$FFDCD040
+  DC.L $41FA00A6,$42700000,$70004CDF,$00044E75,$2F00612A,$4A016B04,$08800001,$08800000
+  DC.L $13C000BF,$D10008C0,$000013C0,$00BFD100,$201F603A,$610813C0,$00BFD100,$4E7548A7
+  DC.L $6000302E,$FFDC1439,$00BFD100,$0002007F,$56000182,$5700D040,$323B004E,$08010000
+  DC.L $67040882,$00021002,$4C9F0006,$4E75611E,$08390000,$00BFDE00,$66F65340,$66F04E75
+  DC.L $08390000,$00BFDE00,$661C5340,$671813FC,$000800BF,$DE0013FC,$00CC00BF,$D40013FC
+  DC.L $000200BF,$D5004E75,$FFFFFFFF,$FFFFFFFF
 diskioend:
 
 CMD_DOSIO:
@@ -28962,7 +30089,7 @@ CMD_DOSIO:
   BEQ.S .2
   MOVE.L  D0,A0
   MOVE.L  D0,D7
-  
+
   LEA dosio(PC),A1
   LEA diskioend(PC),A2
 .1
@@ -28972,7 +30099,7 @@ CMD_DOSIO:
   CMP.L A1,A2
   BNE.S .1
   MOVE.L A0,D6
- 
+
   LEA dosiocopied(PC),A0
   JSR PrintText
   MOVE.L D7,D0
@@ -28981,7 +30108,7 @@ CMD_DOSIO:
   JSR PrintChar
   MOVE.L D6,D0
   SUBQ.L #1,D0
-  JSR PrintAddressHex  
+  JSR PrintAddressHex
   LEA dosiohelp(PC),A0
   JSR PrintText
   JMP PrintReady
@@ -29015,12 +30142,69 @@ dosiohelp:
   DC.B "  all others registers are preserved",$D,0
 
   even
+
+  if arhardware=1
+CMD_ARRAM:
+ 
+  MOVE.W #40,D7
+
+  LEA arramstart,A0
+ 
+  MOVE.W 16384(A0),D0
+  MOVE.W (A0),D1
+  
+  CLR.W 16384(A0)
+  MOVE.W #$1234,(A0)
+
+  TST.W 16384(A0)
+  BNE.S .1
+
+  MOVEQ #0,D7
+
+  MOVE.L A0,A1
+.3
+  ADD.L #$10000,A1
+  ADD.W #64,D7
+  
+  MOVE.W (A1),D2
+  MOVE.W #$2468,(A1)
+  CMP.W #$2468,(A1)
+  BNE.S .2
+  
+  CMP.W #$1234,(A0)
+  BNE.S .2
+
+  MOVE.W D2,(A1)
+  BRA .3
+
+.2
+  MOVE.W D2,(A1)
+.1
+
+  MOVE.W D0,16384(a0)
+  MOVE.W D1,(a0)
+
+  MOVEQ #0,D0
+  MOVE.W D7,D0 
+  JSR ConvertToBCD
+  MOVEQ #4,D1
+  JSR PrintValue
+
+  LEA ramfoundText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+  
+ramfoundText:
+  DC.B "K of action replay memory found",0 
+  even
+  endc
+
 CMD_RNC:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVE.W #2,D6
 .retry
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   LEA $1000(A0),A1
   MOVE.L A1,A2
   MOVE.L  #1,D0
@@ -29083,7 +30267,7 @@ CMD_RNC:
   BNE .1
 
 
-  LEA EXT_5000.W,A2
+  LEA EXT_7000.W,A2
   move.l  a2,a0   ;A0 = buffer
 
   ;number 8
@@ -29329,6 +30513,8 @@ LAB_A24B1A:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A24B46
+
+apiReadTracks2
   BCLR  #0,D0
   MOVEA.L D0,A1
   ST  LAB_A480CA
@@ -29384,7 +30570,7 @@ LAB_A24BA0:
   MOVE.L  SlowMemEnd,DiskMonBufferSize
   BRA.S LAB_A24BE4
 LAB_A24BD0:
-  MOVE.L  #EXT_8400,DiskMonBuffer
+  MOVE.L  #EXT_A400,DiskMonBuffer
   MOVE.L  ChipMemEnd,DiskMonBufferSize
 LAB_A24BE4:
   MOVE.L  DiskMonBuffer,D0
@@ -29437,7 +30623,7 @@ LAB_A24C46:
   JSR PrintCrIfNotBlankLine
   MOVE.L  D3,D1
 LAB_A24CB2:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   TST.B LAB_A480CA
   BNE.S LAB_A24CD8
@@ -29583,6 +30769,7 @@ CMD_WT:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
+apiWriteTracks2:
   BCLR  #0,D0
   MOVEA.L D0,A1
   MOVE.L  D2,D0
@@ -29600,13 +30787,13 @@ LAB_A24EC4:
   ADD.W D1,D3
   CMPI.W  #$009f,D3
   BHI.W LAB_A21070
-  CMP.L #EXT_8400-1,A1
+  CMP.L #EXT_A400-1,A1
   BHI.W .1
   LEA saveErr(PC),A0
   JSR PrintText
   RTS
 .1
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   BSR.S SUB_A24EF0
   MOVE.L  D0,-(A7)
@@ -29772,7 +30959,7 @@ LAB_A250E2:
   CMPI.L  #$00001600,D0
   BLS.S LAB_A25132
 LAB_A250F0:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
 LAB_A250F8:
   MOVE.W  D6,D1
@@ -29804,7 +30991,7 @@ LAB_A25132:
   TST.W D0
   BEQ.S LAB_A25164
 LAB_A25148:
-  MOVE.L  #EXT_8400,DiskMonBuffer
+  MOVE.L  #EXT_A400,DiskMonBuffer
   MOVE.L  #$00001600,DiskMonBufferSize
   CLR.L LAB_A48386
   BRA.S LAB_A250F0
@@ -29825,7 +31012,7 @@ LAB_A25168:
   RTS
 LAB_A25194:
   ST  LAB_A48393
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer(PC)
   TST.L foundSlowMemEnd
   BNE.S LAB_A25204
@@ -29837,14 +31024,14 @@ LAB_A251BA:
   LEA InsertSourceText(PC),A0
   JSR PrintText
   BSR.W WaitKeypress
-  LEA EXT_8400,A1
-  LEA EXT_5000.W,A0
+  LEA EXT_A400,A1
+  LEA EXT_7000.W,A0
   BSR.W ReadTracks
   BMI.W LAB_A25282
   LEA InsertDestText(PC),A0
   JSR PrintText
   BSR.W WaitKeypress
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W SUB_A24EF0
   BMI.W LAB_A25282
   CMPI.W  #$0050,D1
@@ -29859,10 +31046,10 @@ LAB_A25204:
   LEA InsertSourceText(PC),A0
   JSR PrintText
   BSR.W WaitKeypress
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   MOVEQ #0,D1
   MOVEQ #$4F,D2
-  LEA EXT_8400,A1
+  LEA EXT_A400,A1
   BSR.W ReadTracks
   BMI.S LAB_A25282
   LEA EXT_80000,A1
@@ -29877,8 +31064,8 @@ LAB_A2523A:
   LEA InsertDestText(PC),A0
   JSR PrintText
   BSR.W WaitKeypress
-  LEA EXT_5000.W,A0
-  LEA EXT_8400,A1
+  LEA EXT_7000.W,A0
+  LEA EXT_A400,A1
   MOVEQ #0,D1
   MOVEQ #$4F,D2
   BSR.W SUB_A24EF0
@@ -29892,7 +31079,7 @@ LAB_A2527A:
   MOVEQ #$4F,D2
   BSR.W SUB_A24EF0
 LAB_A25282:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   MOVE.W  D0,-(A7)
   BSR.W restoreMfmBuffer
   MOVE.W  (A7)+,D0
@@ -30033,7 +31220,7 @@ LAB_A254FE:
   MOVE.L  #$0000002a,D1
 LAB_A25508:
   JSR PrintCR
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
   MOVE.B  currDriveNo,-(A7)
   CLR.B currDriveNo
@@ -30189,7 +31376,7 @@ LAB_A2576E:
   MOVEQ #-8,D0
   BRA.W PrintDiskOpResult
 LAB_A2579A:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVEQ #0,D0
   JSR loadSector(PC)
@@ -30213,10 +31400,10 @@ YNText2:
   DC.B  ":? (y/n)",$D,0
 
 CMD_TYPE:
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   TST.W D0
   BEQ.W LAB_A21070
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
@@ -30225,7 +31412,7 @@ CMD_TYPE:
   MOVE.L  fileSize,D5
   BEQ.S LAB_A258A2
 LAB_A25830:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   LEA LAB_A47FB6,A2
   MOVEQ #1,D0
   BSR.W SUB_A21BEA
@@ -30261,7 +31448,7 @@ LAB_A25892:
   MOVEQ #0,D0
 LAB_A258A2:
   MOVE.W  D0,D1
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.W  D1,D0
   BSR.W PrintDiskOpResult
@@ -30349,14 +31536,14 @@ LAB_A259A6:
   BCS.S LAB_A25A14
   MOVE.B  currDriveNo,-(A7)
   MOVE.B  D0,currDriveNo
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVE.W  #$009f,D4
   MOVEQ #0,D1
   SF  cursorEnabled
 LAB_A259D2:
   MOVEQ #0,D2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   MOVEA.L DiskMonBuffer,A1
   BSR.W SUB_A24E64
   BSR.W ReadTracks
@@ -30370,7 +31557,7 @@ LAB_A259F2:
   MOVEQ #0,D0
 LAB_A259FA:
   BSR.W PrintDiskOpResult
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.B  (A7)+,currDriveNo
   ST  cursorEnabled
@@ -30449,7 +31636,7 @@ CMD_SMDATA:
   SF  LAB_A480CA
 LAB_A25B14:
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
   TST.W D0
   BNE.S LAB_A25B2E
@@ -30464,6 +31651,7 @@ LAB_A25B2E:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
+apiSaveData2
   EXG D0,A1
   EXG D0,A1
   MOVE.L  D0,D1
@@ -30471,7 +31659,7 @@ LAB_A25B2E:
   BCS.W LAB_A21070
   BEQ.W LAB_A21070
   MOVEA.L A1,A2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.L  D2,D0
@@ -30622,7 +31810,7 @@ LAB_A25D50:
   BEQ.S LAB_A25DD2
   MOVE.W  #$4000,$24(A5)
   MOVE.W  #$7f00,$9E(A5)
-  MOVE.L  #EXT_5000,$20(A5)
+  MOVE.L  #EXT_7000,$20(A5)
   MOVE.W  #$c180,D5
   MOVE.W  #2,$9C(A5)
   MOVE.W  #$8010,$96(A5)
@@ -31123,13 +32311,13 @@ JoyCodesClrText:
   DC.B  "Joystickcodes cleared!",$D,0
 
 CMD_LSTICK:
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   TST.W D0
   BNE.S LAB_A2638A
   MOVEQ #-14,D0
   JMP PrintDiskOpResult
 LAB_A2638A:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
@@ -31153,7 +32341,7 @@ LAB_A263D2:
   BRA.S LAB_A263C2
 LAB_A263DE:
   MOVE.W  D0,D1
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.W  D1,D0
   JSR PrintDiskOpResult
@@ -31168,7 +32356,7 @@ BadJoyFileText:
 
 CMD_SSTICK:
   SF  forceUpper
-  BSR.W SUB_A22312
+  BSR.W GetFilename
   ST  forceUpper
   TST.W D0
   BNE.S LAB_A2644A
@@ -31176,7 +32364,7 @@ CMD_SSTICK:
   JMP PrintDiskOpResult
 LAB_A2644A:
   MOVE.L  D0,D2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.L  D2,D0
@@ -31194,7 +32382,7 @@ LAB_A2644A:
   MOVEQ #0,D0
 LAB_A26486:
   MOVE.W  D0,D1
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.W  D1,D0
   JSR PrintDiskOpResult
@@ -31269,7 +32457,7 @@ LAB_A2653C:
 SUB_A26564:
   MOVEM.L D1/D6/A1/A3-A4,-(A7)
   CLR.L (A2)
-  BSR.W loadSector
+  JSR loadSector
   BMI.S LAB_A26596
   MOVEA.L A2,A3
   LEA $18(A1),A1
@@ -31296,7 +32484,7 @@ LAB_A26596:
   RTS
 LAB_A2659E:
   MOVE.L  D1,D0
-  BSR.W loadSector
+  JSR loadSector
   BMI.S LAB_A26596
   CMPI.L  #2,(A1)
   BNE.S LAB_A2658C
@@ -33571,7 +34759,7 @@ LAB_A289EE:
   JSR AllocTBuff(PC)
 LAB_A28A04:
   LEA NoMemText2(PC),A1
-  CMPI.L  #EXT_5000,DiskMonBufferSize
+  CMPI.L  #EXT_7000,DiskMonBufferSize
   BLS.W LAB_A28BDE
   JSR SUB_A29E2E
   BPL.S LAB_A28A2C
@@ -33785,7 +34973,7 @@ SUB_A28D8C:
 LAB_A28DAE:
   MOVE.W  D0,D1
   MOVE.W  #$0100,EXT_DFF096
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVEQ #0,D0
   MOVE.W  D1,D0
@@ -33973,7 +35161,7 @@ LAB_A29012:
   MOVE.L  A0,D0
   SUBI.L  #$00001000,D0
   MOVE.W  D0,LAB_A48442
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVEQ #0,D0
@@ -35153,7 +36341,7 @@ LAB_A29DE6:
   BNE.S LAB_A29DDE
   CMPI.L  #$00000fff,D0
   BLS.S LAB_A29DDE
-  CMPI.L  #$00005000,D0
+  CMPI.L  #EXT_7000,D0
   BHI.S LAB_A29DDE
   MOVE.L  (A0),D0
   ORI.W #4,SR
@@ -35167,7 +36355,7 @@ LAB_A29E0E:
 LAB_A29E16:
   CMPA.L  #$00000fff,A0
   BLS.S LAB_A29E0E
-  CMPA.L  #$00005000,A0
+  CMPA.L  #EXT_7000,A0
   BHI.S LAB_A29E0E
   MOVE.B  (A0),D0
   ORI.W #4,SR
@@ -35239,7 +36427,7 @@ CMD_RELABEL:
   JSR PrintText
   RTS
 LAB_A29EEA:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVE.L  #$00000370,D0
   JSR loadSector
@@ -35270,14 +36458,14 @@ NewNameTooLongText:
 CMD_RENAME:
   MOVE.B  currDriveNo,-(A7)
   SF  forceUpper
-  JSR SUB_A22312
+  JSR GetFilename
   ST  forceUpper
   MOVE.W  D0,D1
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W LAB_A2A0E8
   MOVEA.L A0,A6
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVEA.L A1,A2
@@ -35462,19 +36650,19 @@ CMD_EA:
   LEA color00(a5),A0
 .nextcol
   MOVE.W D5,bplcon3(A5)
-  
+
   MOVEQ #0,D2
   MOVE.W (A0),D2
 
   EOR.W #512,D5
   MOVE.W D5,bplcon3(A5)
-  EOR.W #512,D5  
+  EOR.W #512,D5
 
-  MOVEQ #0,D3  
+  MOVEQ #0,D3
   MOVE.W (A0)+,D3
   TST.W D4
   BNE .1
-  
+
   MOVE.L SaveAgaColor0,D2
   MOVE.W D2,D3
   SWAP D2
@@ -35492,7 +36680,7 @@ CMD_EA:
   MOVE.W D4,D0
   JSR Print2DigitHex
   JSR PrintSpace
-  
+
   ROL.W #8,D2
   ROL.W #8,D3
   MOVE.B D2,D0
@@ -35522,7 +36710,7 @@ CMD_EA:
 .4
   JSR PrintCR
 .5
-  DBF D1,.nextcol  
+  DBF D1,.nextcol
 .6
   ADD.W #$2000,D5
   BCC .nextbank
@@ -35590,12 +36778,12 @@ CMD_ED:
   BNE.W LAB_420C92
   JSR AllocTBuff(PC)
 LAB_420C92:
-  JSR SUB_A22312
+  JSR GetFilename
   MOVE.W  D0,D1
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W LAB_420EB2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
@@ -35610,7 +36798,7 @@ LAB_420C92:
   BRA.W LAB_420D9E
 LAB_420CE2:
   MOVEA.L DiskMonBuffer,A2
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   MOVE.L  fileSize,D0
   JSR SUB_A21BEA
   MOVE.L  DiskMonBuffer,LAB_A480CA
@@ -35647,7 +36835,7 @@ LAB_420D86:
 LAB_420D9E:
   MOVE.B  (A7)+,currDriveNo
   JSR PrintDiskOpResult
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   JSR PrintReady
   SF  LAB_A4839B
@@ -35854,7 +37042,7 @@ prefsFilename:
 
 LoadPrefs:
   MOVEM.L D0-D3/A0-A3,-(A7)
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA prefsFilename(PC),A1
   JSR SUB_42101A(PC)
@@ -35896,7 +37084,7 @@ LAB_4210C4:
   SUBQ.L  #1,D0
   BPL.S LAB_4210C4
   MOVE.L  (A7)+,D0
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   BPL.W LAB_4210FA
   MOVE.L  D0,-(A7)
@@ -35915,7 +37103,7 @@ LAB_4210FA:
   RTS
 SavePrefs:
   MOVEM.L D0-D3/A0-A3,-(A7)
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA prefsFilename(PC),A1
   JSR SUB_42101A(PC)
@@ -35960,7 +37148,7 @@ LAB_4211A2:
   SUBQ.L  #1,D0
   BPL.S LAB_4211A2
   MOVE.L  (A7)+,D0
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   BPL.W LAB_4211D8
   MOVE.L  D0,-(A7)
@@ -35990,7 +37178,7 @@ LAB_4211F4:
 CMD_COPY:
   MOVE.B  currDriveNo,-(A7)
   SF  forceUpper
-  JSR SUB_A22312
+  JSR GetFilename
   ST  forceUpper
   MOVE.W  D0,D1
   MOVEQ #-14,D0
@@ -36001,7 +37189,7 @@ CMD_COPY:
   BNE.S LAB_A2A20C
   JSR AllocTBuff
 LAB_A2A20C:
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.W  D1,D6
@@ -36029,7 +37217,7 @@ LAB_A2A23A:
   BMI.W LAB_A2A31C
   EXG A6,A0
   SF  forceUpper
-  JSR SUB_A22312
+  JSR GetFilename
   ST  forceUpper
   EXG A6,A0
   MOVE.W  D0,D6
@@ -36081,7 +37269,7 @@ LAB_A2A300:
   BMI.S LAB_A2A2DE
 LAB_A2A31C:
   MOVE.W  D0,D1
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   BMI.S LAB_A2A32C
   MOVE.W  D1,D0
@@ -37090,17 +38278,25 @@ ActivateTrace:
   dc.w $4e7b,$01e0  ;movec d0,#$1e0
   endc
 
+
+  move.l a0,-(a7)
+  lea EXT_150.W,a0
+
   if arhardware=1
-  move.l #$4a3900bf,EXT_150.W
-  move.l #$e00160f8,EXT_154.W
+  move.l #$4a3900bf,(a0)+
+  move.l #$e00160f8,(a0)+
+  endc
+  
+  if arhardware=0
+  MOVE.W #$4eb9,(a0)+
+  MOVE.L #DoArTrace,(a0)+
+  MOVE.W #$4e73,(a0)+
   endc
 
-  if arhardware=0
-  MOVE.W #$4eb9,EXT_150.W
-  MOVE.L #DoArTrace,EXT_152.W
-  MOVE.W #$4e73,EXT_156.W
-  endc
-  MOVE.L  #EXT_150,TRACE.W
+  JSR getVBR
+  MOVE.L  #EXT_150,TRACE(a0)
+  move.l (a7)+,a0
+  
   BSET  #7,SaveOldSr
   ST  TraceActive
   SF  LAB_A483DE
@@ -39869,7 +41065,7 @@ LAB_A30F62:
   MOVEA.L (A7)+,A1
   TST.W D0
   RTS
-  JSR SUB_A22312
+  JSR GetFilename
   MOVE.W  D0,D1
   MOVEQ #-14,D0
   TST.W D1
@@ -39886,7 +41082,7 @@ LAB_A30F62:
   TST.B ParamFound
   BEQ.W LAB_A2DF8A
   MOVE.L  D0,D3
-  LEA EXT_5000.W,A0
+  LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
@@ -40569,7 +41765,435 @@ LAB_A31946:
   MOVEM.L (A7)+,A1-A3
   MOVEQ #0,D0
   RTS
+  if arsoft=1
+  DC.L SECSTRT_0
+  DC.B "AR5_"
+BusError:
+  ;JSR ExceptionEntry
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  BUS_ERROR+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  BUS_ERROR.W,-(A7)
+  RTS
+AddressError:
+  ;JSR ExceptionEntry
+  TST.B MoveVbr
+  BNE.S .1
 
+  MOVE.L  ADR_ERROR+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  ADR_ERROR.W,-(A7)
+  RTS
+Illegal:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  ILLEG_OPC+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  ILLEG_OPC.W,-(A7)
+  RTS
+
+DivZero:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  DIVISION0+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  DIVISION0.W,-(A7)
+  RTS
+
+ChkInstruction:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  CHK+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  CHK.W,-(A7)
+  RTS
+
+TrapVInstruction:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  TRAPV+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  TRAPV.W,-(A7)
+  RTS
+
+PrivViolation:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  PRIVILEG+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  PRIVILEG.W,-(A7)
+  RTS
+
+LineAInstruction:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  LINEA_EMU+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  LINEA_EMU.W,-(A7)
+  RTS
+
+LineFInstruction:
+  ;JSR ExceptionEntry
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  LINEF_EMU+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  LINEF_EMU.W,-(A7)
+  RTS
+
+TraceException:
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  TRACE+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  TRACE.W,-(A7)
+  RTS
+
+SpuriousException:
+  JSR ArExceptionHandler
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  INT_WRONG+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  INT_WRONG.W,-(A7)
+  RTS
+
+Level1IntHandler:
+  JSR ArExceptionHandler
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT1+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT1.W,-(A7)
+  RTS
+
+Level2IntHandler:
+  JSR ArExceptionHandler
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT2+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT2.W,-(A7)
+  RTS
+
+Level3IntHandler:
+  JSR ArExceptionHandler
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT3+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT3.W,-(A7)
+  RTS
+
+Level4IntHandler:
+  JSR ArExceptionHandler
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT4+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT4.W,-(A7)
+  RTS
+
+Level5IntHandler:
+  JSR ArExceptionHandler
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT5+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT5.W,-(A7)
+  RTS
+
+Level6IntHandler:
+  JSR ArExceptionHandler
+
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  AUTO_INT6+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  AUTO_INT6.W,-(A7)
+  RTS
+  
+NMI_SoftEntry:
+  JSR Freeze
+  RTE
+
+Trap0Handler:
+  ;CMPI.L  #$00000040,TRAP_00.W
+  ;BEQ.S LAB_A31A56
+  ;JSR ExceptionEntry
+LAB_A31A56:
+  TST.B MoveVbr
+  BNE.S .1
+
+  MOVE.L  TRAP_00+oldVecs,-(A7)
+  RTS
+
+.1
+  MOVE.L  TRAP_00.W,-(A7)
+  RTS
+
+Trap1Handler:
+  ;CMPI.L  #$00000040,TRAP_01.W
+  ;BEQ.S LAB_A31A6C
+  ;JSR ExceptionEntry
+LAB_A31A6C:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_01+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_01.W,-(A7)
+  RTS
+
+Trap2Handler:
+  ;CMPI.L  #$00000040,TRAP_02.W
+  ;BEQ.S LAB_A31A82
+  ;JSR ExceptionEntry
+LAB_A31A82:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_02+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_02.W,-(A7)
+  RTS
+
+Trap3Handler:
+  ;CMPI.L  #$00000040,TRAP_03.W
+  ;BEQ.S LAB_A31A98
+  ;JSR ExceptionEntry
+LAB_A31A98:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_03+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_03.W,-(A7)
+  RTS
+
+Trap4Handler:
+  ;CMPI.L  #$00000040,TRAP_04.W
+  ;BEQ.S LAB_A31AAE
+  ;JSR ExceptionEntry
+LAB_A31AAE:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_04+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_04.W,-(A7)
+  RTS
+
+Trap5Handler:
+  ;CMPI.L  #$00000040,TRAP_05.W
+  ;BEQ.S LAB_A31AC4
+  ;JSR ExceptionEntry
+LAB_A31AC4:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_05+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_05.W,-(A7)
+  RTS
+
+Trap6Handler:
+  ;CMPI.L  #$00000040,TRAP_06.W
+  ;BEQ.S LAB_A31ADA
+  ;JSR ExceptionEntry
+LAB_A31ADA:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_06+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_06.W,-(A7)
+  RTS
+
+Trap7Handler:
+  ;CMPI.L  #$00000040,TRAP_07.W
+  ;BEQ.S LAB_A31AF0
+  ;JSR ExceptionEntry
+LAB_A31AF0:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_07+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_07.W,-(A7)
+  RTS
+
+Trap8Handler:
+  ;CMPI.L  #$00000040,TRAP_08.W
+  ;BEQ.S LAB_A31B06
+  ;JSR ExceptionEntry
+LAB_A31B06:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_08+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_08.W,-(A7)
+  RTS
+
+Trap9Handler:
+  ;CMPI.L  #$00000040,TRAP_09.W
+  ;BEQ.S LAB_A31B1C
+  ;JSR ExceptionEntry
+LAB_A31B1C:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_09+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_09.W,-(A7)
+  RTS
+
+Trap10Handler:
+  ;CMPI.L  #$00000040,TRAP_10.W
+  ;BEQ.S LAB_A31B32
+  ;JSR ExceptionEntry
+LAB_A31B32:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_10+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_10.W,-(A7)
+  RTS
+
+Trap11Handler:
+  ;CMPI.L  #$00000040,TRAP_11.W
+  ;BEQ.S LAB_A31B48
+  ;JSR ExceptionEntry
+LAB_A31B48:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_11+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_11.W,-(A7)
+  RTS
+
+Trap12Handler:
+  ;CMPI.L  #$00000040,TRAP_12.W
+  ;BEQ.S LAB_A31B5E
+  ;JSR ExceptionEntry
+LAB_A31B5E:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_12+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_12.W,-(A7)
+  RTS
+
+Trap13Handler:
+  ;CMPI.L  #$00000040,TRAP_13.W
+  ;BEQ.S LAB_A31B74
+  ;JSR ExceptionEntry
+LAB_A31B74:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_13+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_13.W,-(A7)
+  RTS
+
+Trap14Handler:
+  ;CMPI.L  #$00000040,TRAP_14.W
+  ;BEQ.S LAB_A31B8A
+  ;JSR ExceptionEntry
+LAB_A31B8A:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_14+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_14.W,-(A7)
+  RTS
+
+Trap15Handler:
+  ;CMPI.L  #$00000040,TRAP_15.W
+  ;BEQ.S LAB_A31BA0
+  ;JSR ExceptionEntry
+LAB_A31BA0:
+  TST.B MoveVbr
+  BNE.S .1
+  MOVE.L  TRAP_15+oldVecs,-(A7)
+  RTS
+.1
+  MOVE.L  TRAP_15.W,-(A7)
+  RTS
+oldVecs:
+  DS.L  $40
+OldVbr:
+  DS.L  1
+  endc
   if rsnoop=1
   ds.b SECSTRT_0+$40000-*-4
   else
@@ -40618,12 +42242,14 @@ mt_speed:
   DS.B  1
 mt_songpos:
   DS.B  1
+  even
 mt_pattpos:
   DS.W  1
 mt_counter:
   DS.B  1
 mt_break:
   DS.B  1
+  even
 mt_dmacon:
   DS.W  1
 mt_samplestarts:
@@ -40687,6 +42313,7 @@ EscapeDisabled:
   DS.B  1
 IgnoreShift
   DS.B  1
+  even
 bitplaneCount:
   DS.W  1
 lisaIdValue:
@@ -40697,6 +42324,7 @@ debuggerMode:
   DS.B  1
 debuggerFocus:
   DS.B  1
+  even
 dbgMemBase:
   DS.L  1
 dbgDisasmBase:
@@ -40709,8 +42337,6 @@ VgaModeFlag:
   DS.W  1
 LAB_A35698:
   DS.W  1
-;LAB_A3569A:
-; DS.L  1
 SAVE_CACR:
   DS.L  1
 SaveEntryRegs:
@@ -40721,6 +42347,7 @@ SAVE_CIABPRB:
   DS.B  1
 SAVE_CIAAICR:
   DS.B  1
+  even
 memWatchSlotsUsed1:
   DS.L  1
 memWatchSlotsUsed2:
@@ -40749,8 +42376,10 @@ LAB_A48A06:
   DS.W  1
 LAB_A48A08:
   DS.L  1
-;LAB_A48A0C:
-; DS.L  $23
+  if arsoft=1
+LAB_A48A0C:
+  DS.L  $23
+  endc
 
 SaveColor:
   DS.B  1
@@ -40760,6 +42389,7 @@ LAB_A4806C:
   DS.B  1
 LAB_A4806D:
   DS.B  1
+  even
 SaveTrap1:
   DS.L  1
 SaveTrap2:
@@ -40769,12 +42399,12 @@ SaveSR:
 LAB_A4807A:
   DS.L  1
 LAB_A4807E:
-  DS.B  1
   DS.L  $B
 LAB_A480AA:
   DS.B  1
 LAB_A480AB:
   DS.B  1
+  even
 LAB_A480AC:
   DS.W  1
 bpl1Work:
@@ -40807,6 +42437,7 @@ LAB_A480CE:
   DS.B  1
 LAB_A480CF:
   DS.B  1
+  even
 LAB_A480D0:
   DS.W  1
 LAB_A480D2:
@@ -40816,6 +42447,7 @@ LAB_A480D6:
 LAB_A480D7:
   DS.B  1
   ;DS.W 1
+  even
 LAB_A480DA:
   DS.L  1
 LAB_A480DE:
@@ -40886,7 +42518,7 @@ LAB_A481CC:
   DS.L  1
 ;end
   ;DS.W 1
-LAB_A481D2:
+bronFlag:
   DS.L  1
 LAB_A481D6:
   DS.W  1
@@ -40905,6 +42537,7 @@ cursorEnabled:
   DS.B  1
 LAB_A481E5:
   DS.B  1
+  even
 VirusCheckerSettingsPrefs:
   DS.W  1
 LAB_A481E8:
@@ -40935,6 +42568,7 @@ insertmode:
   DS.B  1
 LAB_A48205:
   DS.B  1
+  even
 ArBgCol:
   DS.W  1
 ArFgCol:
@@ -40953,6 +42587,7 @@ newActivateMode:
   DS.B  1
 newActivateModeLo:
   DS.B  1
+  even
 currMouseX:
   DS.W  1
 currMouseY:
@@ -40975,6 +42610,7 @@ DriveControlPrefsValue:
   DS.B  1
 DriveControlPrefsValueLo:
   DS.B  1
+  even
 BootSelectPrefs:
   DS.W  1
 LAB_A4822A:
@@ -40989,6 +42625,7 @@ LAB_A4822E:
   DS.B  1
 memConfigFlags:
   DS.B  1
+  even
 foundSlowMemEnd:
   DS.L  1
 foundChipMemEnd:
@@ -41023,6 +42660,7 @@ LAB_A4824C:
   DS.B  1
 LAB_A4824D:
   DS.B  1
+  even
 LAB_A4824E:
   DS.W  1
 LAB_A48250:
@@ -41042,6 +42680,7 @@ DiskCoderDf2Flag:
   DS.B  1
 DiskCoderDf3Flag:
   DS.B  1
+  even
 DiskCoderValues:
 DiskCoderDf0Value:
   DS.L  1
@@ -41079,6 +42718,7 @@ printerDumpToggle:
   DS.B  1
 PrinterFound:
   DS.B  1
+  even
 LAB_A482EE:
   DS.W  1
 LAB_A482F0:
@@ -41095,12 +42735,14 @@ saveCurrDriveNo:
   DS.B  1
 VerifyFormat:
   DS.B  1
+  even
 QuickFormat:
   DS.W  1
 FilenameLen:
   DS.B  1
 FilenameLenLo:
   DS.B  1
+  even
 SaveFilename:
   DS.L  1
 DataBlockSize:
@@ -41141,6 +42783,7 @@ LAB_A48336:
   DS.B  1
 virusFound:
   DS.B  1
+  even
 currentDirBlock:
   DS.L  1
 rootBlockLoadedFlags:
@@ -41206,12 +42849,14 @@ AutoConfigPrefsFlag:
   DS.B  1
 LAB_A48397:
   DS.B  1
+  even
 NoresPrefsFlag:
   DS.W  1
 LAB_A4839A:
   DS.B  1
 LAB_A4839B:
   DS.B  1
+  even
 BootblockCoderValue:
   DS.L  1
 LAB_A483A2:
@@ -41284,6 +42929,7 @@ TraceActive:
   DS.B  1
 TraceSkipSubs:
   DS.B  1
+  even
 LAB_A483DE:
   DS.W  1
 LAB_A483E0:
@@ -41392,7 +43038,28 @@ apiActive
   DS.B 1
 apiCall
   DS.B 1
+DisableVposWrite
+  DS.B 1
 
+  if arsoft=1
+  even
+AllocedMem
+  DC.L 0
+LAB_A10019:
+  DC.B 0
+imode:
+  DC.B 3
+AllocFail:
+  DC.B 0
+MoveVbr:
+  DC.B 0
+ResetProof:
+  DC.B 0
+IgnoreAllocErr:
+  DC.B 0
+  endc
+
+  even
 stringWorkspace:
   DS.L  $14
 
@@ -41554,6 +43221,7 @@ cursorY:
   DS.B  1
 cursorYLo:
   DS.B  1
+  even
 PageHeight:
   DS.W 1
 KeyCode:
@@ -41564,6 +43232,7 @@ ShiftKey:
   DS.B  1
 EscapePressed:
   DS.B  1
+  even
 CurrentPage:
   DS.L  1
 LAB_A47F3C:
@@ -41580,6 +43249,7 @@ cmdSpacesSkipped:
   DS.B  1
 endOfCmdString:
   DS.B  1
+  even
 LAB_A47F4A:
   DS.L  1
 LAB_A47F4E:
@@ -41600,6 +43270,7 @@ asciiDumpOffset:
   DS.B  1
 AsciiDumpOffset1:
   DS.B  1
+  even
 LAB_A47FB6:
   DS.W  1
 LAB_A47FB8:
@@ -41658,6 +43329,7 @@ CopyDdfStop:
   DS.B  1
 CopyDdfStopLo:
   DS.B  1
+  even
 CopyBpl1Pth:
   DS.L  1
 CopyBpl2Pth:
@@ -41683,6 +43355,7 @@ CopyBplCon1:
   DS.B  1
 CopyBplCon1Lo:
   DS.B  1
+  even
 CopyBplCon2:
   DS.W  1
 CopyBplCon3:
@@ -41707,7 +43380,11 @@ LAB_A4550E:
 StackStart:
   DS.L  $fe
   ;safety check
- ds.b arramstart+$10000-*
+  if arsoft=1
+  DS.L  $100
+  else
+  ds.b arramstart+$10000-*
+  endc
 StackEnd:
 dataend:
 
