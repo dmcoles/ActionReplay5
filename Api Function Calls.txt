@@ -1,0 +1,119 @@
+Action Replay 5 API Information
+
+The api allows access to functionality within the action reply ROM
+from user code. The api is enabled using the SETAPI command.
+
+Once the api has been enabled calls can be made to the api using
+
+TRAP #7
+
+The value in D0.W will decide which api function call is triggered.
+
+The current api calls are as follows:
+
+ Function 0: Print Text
+ ----------------------
+
+ On Entry:
+   D0 = 0 
+   A0 = Text to print (null terminated)
+	 
+ Description:
+   The text is printed to the current output page of the action replay
+	 console.
+
+ Function 1: Print Value
+ -----------------------
+
+ On Entry:
+   D0 = 1
+   D0 = Value to print
+	 D1 = Number of digits to print
+	 
+ Description:
+   The hex representation of the value in D0 is printed. The least significant
+	 digits upto the maximum specified are output.
+ 
+ Function 2: Clear Screen
+ ------------------------
+
+ On Entry:
+   D0 = 2
+
+ Description:
+   Clear the currently selected output page.
+ 
+ Function 3: Select output page
+ ------------------------------
+
+ On Entry:
+   D0 = 3
+	 D1 = output page (1/2)
+
+ Description:
+   Select the specified output page.
+
+ Function 4: Load a file
+ -----------------------
+
+ On Entry:
+   D0 = 4
+	 A0 = filename
+	 A1 = load address
+
+ Description:
+   Load a file to the specified address. The filename should be
+	 formatted in the usual action replay format.
+	 
+ Function 5: Save a file
+ -----------------------
+
+ On Entry:
+   D0 = 5
+	 A0 = filename
+	 A1 = start address
+	 A2 = end address
+
+ Description:
+   Save a file from the start address to end address-1. The filename
+	 should be formatted in the usual action replay format.
+	 
+	 
+ Function 6: Save a data file
+ ----------------------------
+
+ On Entry:
+   D0 = 6
+	 A0 = filename
+	 A1 = start address
+	 A2 = end address
+
+ Description:
+   Save a file in the format of DC.B statements from the start address
+	 to end address-1. The filename should be formatted in the usual
+	 action replay format.
+	 
+ Function 7: Read tracks
+ -----------------------
+
+ On Entry:
+   D0 = 7
+	 D1 = start track
+	 D2 = track count
+	 A0 = load address
+
+ Description:
+   Read tracks from the current drive into memory.
+
+ Function 8: Write tracks
+ ------------------------
+
+ On Entry:
+   D0 = 7
+	 D1 = start track
+	 D2 = track count
+	 A0 = save address
+
+ Description:
+   Write tracks from memory to the current drive.
+

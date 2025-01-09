@@ -4,8 +4,8 @@
 
 dbg=0
 pistorm=0
-arhardware=0
-arsoft=1
+arhardware=1
+arsoft=0
 
 ;trap 8 - breakpoint
 ;trap 15 - called by trap 8
@@ -934,7 +934,8 @@ VBlankIntHandler:
 
 NMI_Entry:
   if arhardware=1
-  ORI.W #0,ChipOverlay
+  ;ORI.W #0,ChipOverlay
+  ORI.W #0,arramstart
 
   MOVE.B  #$13,kickstartVersion
   CMPI.B  #$f8,EXT_F80005
@@ -3945,7 +3946,7 @@ apiWriteTracks:
   MOVE.L SaveCpuRegs+4,D1  ;start track from D1 to D1
   MOVE.L SaveCpuRegs+8,D2  ;track count from D2 to D2
 
-  MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
+  MOVE.L SaveCpuRegs+32,D0  ;save address from A0 to D0
   JSR apiWriteTracks2
 .1
   RTS
@@ -4608,10 +4609,6 @@ commandTable:
   DC.B  "DISKIO",0
   even
   DC.L  CMD_DISKIO
-
-  DC.B  "FLASH2",0
-  even
-  DC.L  CMD_FLASH2
 
   DC.B  "DOSIO",0
   even
@@ -7661,7 +7658,7 @@ aboutText:
   DC.B  "                           (c)2024 by REbEL / QUARTEX",$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.03012025 - private alpha release for TTE",$D,$D
+  DC.B  "                 v0.7.0.09012025 - private alpha release for TTE",$D,$D
   DC.B  "                  Special thanks to gerbil for hardware testing",$D
   DC.B  "              and to na103 for reverse engineering the AR3 hardware",$D,0
 
@@ -7785,6 +7782,12 @@ LAB_A145E2:
   LEA 0(A0,D0.W),A0
   BRA.W LAB_A14564
 memSafeUpdateByte:
+  CMP.L #SECSTRT_0,A0
+  BCS.S .notrom
+  CMP.L #arramstart,A0
+  BCC.S .notrom
+  RTS
+.notrom  
   MOVEM.L D1/A0,-(A7)
   CMPA.L  #EXT_1000,A0
   BCS.S LAB_A1465C
@@ -12359,28 +12362,9 @@ CMD_FLASH
   MOVE.W (A0)+,(A1)+
   CMP.L #flashend,A0
   BNE.S .copy
-
-  ;see if this helps?
-  MOVE.W #-1,FreezeMode
-  
+ 
   JSR mt_sin
   JMP PrintReady
-
-CMD_FLASH2
-
-  LEA flashcode(PC),A0
-  LEA $40000,A1
-.copy
-  MOVE.W (A0)+,(A1)+
-  CMP.L #flashend,A0
-  BNE.S .copy
-
-  ;see if this helps?
-  MOVE.W #-1,FreezeMode
-  
-  JSR $40000
-  JMP PrintReady
-
 
 flashcode
   LEA SECSTRT_0+4,A0
@@ -12402,9 +12386,9 @@ flashcode
   JSR Delay
 
   MOVEQ #0,D0
-  MOVE.B SECSTRT_0+4,D0
+  MOVE.B SECSTRT_0+$400,D0
   LSL.W #8,D0
-  MOVE.B SECSTRT_0+6,D0
+  MOVE.B SECSTRT_0+$400+2,D0
   
   MOVE.B #$AA,SECSTRT_0+($5555*2)
   MOVE.B #$55,SECSTRT_0+($2AAA*2)
@@ -12439,9 +12423,9 @@ chip2
   JSR Delay
 
   MOVEQ #0,D0
-  MOVE.B SECSTRT_0+4+1,D0
+  MOVE.B SECSTRT_0+$400+1,D0
   LSL.W #8,D0
-  MOVE.B SECSTRT_0+6+1,D0
+  MOVE.B SECSTRT_0+$400+2+1,D0
   
   MOVE.B #$AA,SECSTRT_0+1+($5555*2)
   MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
@@ -12463,6 +12447,7 @@ noflash2
   RTS
 badflash
   MOVE.W #$7fff,EXT_DFF096
+  MOVE.W #$7fff,EXT_DFF09A
   MOVE.W #$f00,EXT_DFF180
   BRA.S badflash
 flashend
