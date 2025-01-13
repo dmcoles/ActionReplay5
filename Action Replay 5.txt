@@ -97,10 +97,13 @@ v0.6.1  Updates (private release)
   - fix vga mode settings
 v0.7.0  Updates (tte private members release)
   - added software loader  
-  - removed vpos writes (interferes with modern tvs)
+  - removed vpos writes (interferes with modern tv displays)
   - fix vga mode mouse positioning
   - add api calls for clear screen, select output page, load file, save file,
-    save data as source, read tracks, write tracks
+    save data as source, read tracks, write tracks (see api document)
   - disable prefs settings according to KS version
   - slow down execbase display (for faster cpus)
   - add ARRAM command to display amount of RAM available in the cart
+  - add support for flashing upgrades (requires compatible hardware)
+  - fix error when single stepping and exception is triggered
+  - update startup text

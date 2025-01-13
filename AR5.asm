@@ -1902,6 +1902,7 @@ LAB_A10240:
   RTS
 
 RomEntry:
+  CLR.B TraceActive
   CMP.L #BRON_TAG,bronFlag
   BEQ RomEntry_2
   JMP ArEntry1
@@ -1932,6 +1933,7 @@ LAB_A103D0:
   CMPI.L  #$00fffff0,6(A7)
   BLT.W LAB_A103E2
 LAB_A103DC:
+  CLR.B TraceActive
   JMP RomEntry
 LAB_A103E2:
   TST.B deepMemWatch
@@ -1946,7 +1948,7 @@ LAB_A10400:
   RTS
 
 versionText:
-  DC.B  "*>Action Replay 5<* (c)2024 REbEL / QUARTEX",$D,0,0
+  DC.B  "*>Action Replay 5<* (c)2025 REbEL / QUARTEX",$D,0,0
 
 DoArTrace:
   TST.B LAB_A483DE
@@ -3815,7 +3817,7 @@ LAB_A121AA:
   BNE.S nextCmd
   JMP PrintWTF
 LAB_A121C4:
-  BSR.W SUB_A1827E
+  JSR SUB_A1827E
   EXG D0,A2
   ADDQ.W  #1,D0
   ANDI.W  #$fffe,D0
@@ -4367,7 +4369,7 @@ CMD_IMODE:
  if arsoft=0
  LEA noimodetext(PC),A0
  BSR.W PrintText
- BRA PrintReady
+ JMP PrintReady
 
 noimodetext:
  DC.B "Imode is not available in hardware",$D,0
@@ -4618,15 +4620,15 @@ commandTable:
   DC.B  "ARRAM",0
   even
   DC.L  CMD_ARRAM
+
+  DC.B  "FLASH",0
+  even
+  DC.L  CMD_FLASH
   endc
 
   DC.B  "DEBUG",0
   even
   DC.L  CMD_DEBUG
-
-  DC.B  "FLASH",0
-  even
-  DC.L  CMD_FLASH
 
 
   DC.B  "COLOR",0
@@ -6596,12 +6598,12 @@ LAB_A1325C:
   LEA LAB_A13336(PC),A0
   JSR PrintText
   MOVE.L  (A1)+,D0
-  BSR.W SUB_A1A3FA
+  JSR SUB_A1A3FA
   LEA LAB_A1333C(PC),A0
   JSR PrintText
   MOVE.L  USP,A0
   MOVE.L  A0,D0
-  BSR.W SUB_A1A3FA
+  JSR SUB_A1A3FA
   LEA LAB_A13344(PC),A0
   JSR PrintText
   MOVE.W  (A1)+,D0
@@ -7655,12 +7657,11 @@ ChangedToText:
 aboutText:
   DC.B  "********************************************************************************",$D
   DC.B  "                             ACTION REPLAY AMIGA V5",$D
-  DC.B  "                           (c)2024 by REbEL / QUARTEX",$D
+  DC.B  "                           (c)2025 by REbEL / QUARTEX",$D
+  DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,0
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.09012025 - private alpha release for TTE",$D,$D
-  DC.B  "                  Special thanks to gerbil for hardware testing",$D
-  DC.B  "              and to na103 for reverse engineering the AR3 hardware",$D,0
+  DC.B  "                 v0.7.0.13012025 - private alpha release for TTE",$D,$D
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -12355,7 +12356,70 @@ CMD_DEBUG
  RTS
 
 CMD_FLASH
+  JSR GetFilename
+  MOVE.W  D0,D1
+  MOVEQ #-14,D0
+  TST.W D1
+  BEQ.W .loaderr2
 
+  LEA EXT_20000,A1
+  MOVEA.L A1,A2
+  LEA EXT_7000.W,A0
+  JSR backupMfmBuffer
+  LEA stringWorkspace,A1
+  MOVE.W  D1,D0
+  MOVE.B  currDriveNo,-(A7)
+  JSR LoadFile
+  BMI .loaderr
+  MOVE.L  A0,-(A7)
+  LEA LoadingFromText,A0
+  JSR PrintText
+  MOVE.L  A2,D0
+  JSR PrintAddressHex
+  ADD.L fileSize,D0
+  LEA LoadingToText,A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintCrIfNotBlankLine
+  MOVEA.L (A7)+,A0
+  MOVE.L  fileSize,D0
+  JSR SUB_A21BEA
+
+  MOVE.B  (A7)+,currDriveNo
+  JSR restoreMfmBuffer
+
+  LEA EXT_20000+4,A0
+  CMP.L #"ACTI",(A0)
+  BEQ.S .romok
+
+  LEA invalidrom(PC),A0
+  JSR PrintText(PC)
+  JMP PrintReady
+.romok
+
+  LEA EXT_20000+$7c,A0
+  MOVEQ #0,D1
+  MOVEQ #0,D2
+.crc:
+  ADD.L (A0)+,D1
+  CMP.L #EXT_20000+$40000-4,A0
+  BNE.S .crc
+  CMP.L EXT_20000+$40000-4,D1
+  BEQ.S .romok2
+
+  LEA invalidcrc(PC),A0
+  JSR PrintText(PC)
+
+.romok2 
+  LEA flashwarn(PC),A0
+  JSR AskYN
+  TST.W D0
+  BNE.S .goflash
+
+  JMP PrintReady
+
+.goflash
+  MOVE.L D1,EXT_20000+$40000-4
   LEA flashcode(PC),A0
   LEA mt_sin,A1
 .copy
@@ -12364,87 +12428,184 @@ CMD_FLASH
   BNE.S .copy
  
   JSR mt_sin
-  JMP PrintReady
+  RTS
+  
+.loaderr:
+  MOVE.B  (A7)+,currDriveNo
+  JSR PrintDiskOpResult
+  JSR restoreMfmBuffer
+  RTS
+
+.loaderr2
+  JMP PrintDiskOpResult
 
 flashcode
   LEA SECSTRT_0+4,A0
   CMP.L #"ACTI",(A0)
   BNE.W badflash
 
-  LEA identtext,A0
-  JSR PrintText
+  LEA EXT_DFF000,A6
+  MOVE.W intenar(a6),D7
+  SWAP D7
+  MOVE.W dmaconr(a6),D7
+  OR.L #$80008000,D7
+  MOVE.L D7,tempD0
   
-  MOVE.W #1,D0
-  JSR Print1DigitHex
-  MOVE.W #":",D0
-  JSR PrintChar
-  JSR PrintSpace
+  MOVE.W #$7fff,intena(a6)
+  MOVE.W #$7fff,dmacon(a6)
 
+  ;enter product identification mode (chip1)  
   MOVE.B #$AA,SECSTRT_0+($5555*2)
   MOVE.B #$55,SECSTRT_0+($2AAA*2)
   MOVE.B #$90,SECSTRT_0+($5555*2)
-  JSR Delay
+  BSR FlDelay
 
+  ;read id
   MOVEQ #0,D0
   MOVE.B SECSTRT_0+$400,D0
   LSL.W #8,D0
   MOVE.B SECSTRT_0+$400+2,D0
   
+  ;exit product identification mode (chip1)  
   MOVE.B #$AA,SECSTRT_0+($5555*2)
   MOVE.B #$55,SECSTRT_0+($2AAA*2)
   MOVE.B #$F0,SECSTRT_0+($5555*2)
-  JSR Delay
+  BSR FlDelay
 
-  CMP.W #"AT",D0
-  BEQ noflash1
+  LEA SECSTRT_0+4,A0
+  CMP.L #"ACTI",(A0)
+  BNE.W badflash
 
-  JSR Print4DigitHex
-  JSR PrintCR
-  BRA.S chip2
+  ;check product id
+  CMP.W #$1FD5,D0
+  BNE noflash
 
-noflash1
-  LEA noflashtext,A0
-  JSR PrintText
-  JSR PrintCR
-  
-chip2
-  LEA identtext,A0
-  JSR PrintText
-  
-  MOVE.W #2,D0
-  JSR Print1DigitHex
-  MOVE.W #":",D0
-  JSR PrintChar
-  JSR PrintSpace
-
+  ;enter product identification mode (chip2)
   MOVE.B #$AA,SECSTRT_0+1+($5555*2)
   MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
   MOVE.B #$90,SECSTRT_0+1+($5555*2)
-  JSR Delay
+  BSR FlDelay
 
+  ;read id
   MOVEQ #0,D0
   MOVE.B SECSTRT_0+$400+1,D0
   LSL.W #8,D0
   MOVE.B SECSTRT_0+$400+2+1,D0
   
+  ;exit product identification mode (chip2)
   MOVE.B #$AA,SECSTRT_0+1+($5555*2)
   MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
   MOVE.B #$F0,SECSTRT_0+1+($5555*2)
-  JSR Delay
+  BSR FlDelay
 
-  CMP.W #"CI",D0
-  BEQ noflash2
+  LEA SECSTRT_0+4,A0
+  CMP.L #"ACTI",(A0)
+  BNE.W badflash
 
-  JSR Print4DigitHex
-  JSR PrintCR
+  LEA EXT_DFF000,A6
+  MOVE.L tempD0,D1
+  MOVE.W D1,dmacon(A6)
+  SWAP D1
+  MOVE.W D1,intena(A6)
+
+  ;check product id
+  CMP.W #$1FD5,D0
+  BNE noflash
+
+  LEA EXT_DFF000,A6
+  MOVE.W intenar(a6),D1
+  SWAP D1
+  MOVE.W dmaconr(a6),D1
+  OR.L #$80008000,D1
+  MOVE.L D1,tempD0
+  
+  MOVE.W #$7fff,intena(a6)
+  MOVE.W #$7fff,dmacon(a6)
+ 
+  MOVE.W #1,D3  ;two passes (one for each chip)
+
+.write3
+  LEA SECSTRT_0,A0
+  LEA EXT_20000,A2
+  LEA (A0,D3),A0
+  LEA (A2,D3),A2
+  MOVE.W #1024-1,D2   ;1024 sectors (of 128 bytes)
+.write2
+
+  ;enable software protect
+  LEA SECSTRT_0,A3
+  LEA (A3,D3),A3  ;pick correct chip (offset 0 or 1)
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$A0,(A3)
+
+  ;write sector
+  MOVE.W #128-1,D1
+.write
+
+  CMP.L #SECSTRT_0+4,A0
+  BLT.S .s1
+  MOVE.B (A2),D0
+  MOVE.B D0,(A0)
+  BRA.S .s2
+.s1
+  ;kludge to ensure 128 bytes written
+  ;in first sector where the first 4 bytes are registers
+  MOVE.B 4(A2),D0
+  MOVE.B D0,4(A0)
+.s2
+  LEA 2(A2),A2
+  LEA 2(A0),A0
+  DBF D1,.write
+  
+  ;wait for sector flash to complete
+.wait  
+  MOVE.B -2(A0),D0
+  MOVE.B -2(A0),D1
+  CMP.B D1,D0
+  BNE.S .wait
+  
+  DBF D2,.write2
+  DBF D3,.write3
+
+  CLR.L bronFlag
+  ;verify results
+  LEA SECSTRT_0+4,A0
+  LEA EXT_20000+4,A1
+.1
+  CMP.W (A0)+,(A1)+
+  BNE.S badflash
+  CMP.L #arramstart,A0
+  BNE.S .1
+
+
+goodflash
+  MOVE.W #$7fff,EXT_DFF096
+  MOVE.W #$7fff,EXT_DFF09A
+  MOVE.W #$0f0,EXT_DFF180
+  BRA.S goodflash
+
+FlDelay:
+  MOVE.B  #0,EXT_BFE801
+.1:
+  CMP.B #2,EXT_BFE801
+  BNE.S .1
   RTS
 
-noflash2
-  LEA noflashtext,A0
+noflash
+  LEA EXT_DFF000,A6
+  MOVE.L tempD0,D1
+  MOVE.W D1,dmacon(A6)
+  SWAP D1
+  MOVE.W D1,intena(A6)
+
+  LEA noflashText,A0
   JSR PrintText
-  JSR PrintCR
-
   RTS
+
 badflash
   MOVE.W #$7fff,EXT_DFF096
   MOVE.W #$7fff,EXT_DFF09A
@@ -12452,8 +12613,24 @@ badflash
   BRA.S badflash
 flashend
 
-identtext DC.B "Attempting to indentify chip ",0
-noflashtext DC.B "N/A",0
+invalidrom:
+  DC.B  "This is not an action replay rom.",$D,0
+
+invalidcrc:
+  DC.B  "Warning: The ROM CRC is incorrect. It will be corrected during flashing",$D,$D,0
+
+flashwarn:
+  DC.B "Flashing is about to begin, the screen will turn white for 20-30 seconds.",$D
+  DC.B "DO NOT POWER OFF DURING THIS TIME! On completion the screen will turn",$D
+  DC.B "green for success or red for failure, after this you must reset.",$D,$D
+  DC.B "Note that if you attempt this on unmodified AR hardware it will cause a crash.",$D
+  DC.B "Do you wish to continue (Y/N)?",$D,0
+
+noflashText
+  DC.B "Unable to find flash chip.",$D,0
+
+
+  even
 
 CMD_COLOR:
   BSR.W ReadParameter
@@ -15191,12 +15368,12 @@ LAB_A1A81E:
   BSR.W PrintChar
   MOVE.B  (A0),D0
   MOVEQ #8,D1
-  BSR.W PrintBinaryDigits
+  JSR PrintBinaryDigits
   BSR.W PrintSpace
   MOVE.W  #$0025,D0
   BSR.W PrintChar
   MOVE.B  $18(A0),D0
-  BSR.W PrintBinaryDigits
+  JSR PrintBinaryDigits
   MOVEQ #5,D0
   JSR PrintSpaces(PC)
   MOVE.W  #$003b,D0
@@ -18505,10 +18682,10 @@ LAB_A1D118:
   ADD.L D0,(A0)
   MOVEA.L (A0),A0
   MOVE.L (A1),(A0)+
-  JSR memSafeReadWord(PC)
+  JSR memSafeReadWord
   MOVE.W  D0,SaveOldSr
   ADDQ.W  #2,A0
-  JSR memSafeReadLong(PC)
+  JSR memSafeReadLong
   MOVE.L  D0,SaveOldPc
   MOVE.L  D0,DefaultAddress
   LEA ExceptionTypesTable(PC),A0
@@ -42197,7 +42374,8 @@ checksum:
   ;DC.L $49c1f66a  ;v0.4.2
   ;DC.L $e93aa3a2 ;v0.5.0
   ;DC.L $ea3aa3a2 ;v0.6.0
-  DC.L $5a46e2fc ;v0.6.1
+  ;DC.L $5a46e2fc ;v0.6.1
+  DC.L $0abaf3da  ;v0.7.0
 
 arramstart:
 ;all of this is used to store chipmem data
