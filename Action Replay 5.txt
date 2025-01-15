@@ -107,3 +107,7 @@ v0.7.0  Updates (tte private members release)
   - add support for flashing upgrades (requires compatible hardware)
   - fix error when single stepping and exception is triggered
   - update startup text
+  - improve chipset detection and handling
+  - display chipset info in INFO command
+  - add RS command (like RT but sector based), RPS (like RP but sector based)
+  - add RB command (like RT but byte based), RPB (like RP but byte based)
