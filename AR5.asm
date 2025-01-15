@@ -239,6 +239,7 @@ bltcon0 EQU $40
 bltsize EQU $58
 lisaid  EQU $7C
 cop1lch EQU $80
+copjmp1 EQU $88
 bplcon0 EQU $100
 bplcon1 EQU $102
 bplcon2 EQU $104
@@ -251,6 +252,7 @@ diwstop EQU $90
 ddfstrt EQU $92
 ddfstop EQU $94
 bpl1pth EQU $E0
+bpl1ptl EQU $E2
 intreq  EQU $9C
 intena  EQU $9A
 dmacon  EQU $96
@@ -2090,6 +2092,7 @@ LAB_A10A88:
   MOVE.W  4(A7),SaveOldSr
   MOVE.W  #$7fff,EXT_DFF09C
   MOVE.W  #$c000,EXT_DFF09A
+  JSR GetChipsetInfo
   JSR saveAgaColors
   MOVE  #$2000,SR
   LEA StackEnd,A7
@@ -2845,9 +2848,9 @@ LAB_A11406:
   MOVE.L  $8E(A6),SaveDiwStart
   MOVE.L  $92(A6),SaveDdfStrt
   MOVE.W  $1e4(A6),SaveDiwHigh
-  ;MOVE.W  $1dc(A6),SaveBeamCon0
-  ;CMP.W #-1,SaveBeamCon0
-  ;SNE updateBeamcon
+  
+  JSR CalcBeamCon0
+
   MOVE.L  AUTO_INT3.W,Int3Save
   BSR.W MakeMainDisplay
   MOVE.L  #VBlankIntHandler,AUTO_INT3.W
@@ -2863,8 +2866,6 @@ LAB_A11486:
 CheckPalMode
   MOVE.L D0,tempD0
   MOVE.L D1,tempD1
-  MOVE.W #0,SaveBeamCon0
-  ST.B updateBeamcon
   SF.B fullPal
 
   MOVE.W EXT_DFF01C,D1
@@ -2885,16 +2886,74 @@ CheckPalMode
 
   TST.B full64k
   SNE.B fullPal
+  BRA.S .4
+.3
+
+  BTST  #5,EXT_DFF01F
+  BEQ.S .2
+
+.4
+  OR.W #$8000,D1
+  MOVE.W D1,EXT_DFF09A
+  
+  MOVE.L tempD0,D0
+  MOVE.L tempD1,D1
+
+  RTS
+
+CalcBeamCon0
+  MOVE.L D0,tempD0
+  MOVE.L D1,tempD1
+
+  MOVE.W RegSnoop+beamcon0,D0
+  CMP.W #0,D0
+  BEQ.S .0
+  
+  CMP.W #$20,D0
+  BEQ.S .0
+  
+  MOVE.W D0,SaveBeamCon0
+  MOVE.W #-1,VgaModeFlag
+  RTS
+.0:  
+  MOVE.W #0,SaveBeamCon0
+
+  MOVE.W EXT_DFF01C,D1
+  MOVE.W  #$0020,EXT_DFF09A
+  MOVE.W  #$0020,EXT_DFF09C
+.1:
+  BTST  #5,EXT_DFF01F
+  BEQ.S .1
+
+  MOVE.W  #$0020,EXT_DFF09C
+
+.2
+  MOVE.L vposr+EXT_DFF000,D0
+  AND.L #$1FF00,D0
+
+  CMP.L #$12000,D0
+  BLT.S .3
+
   MOVE.W #$20,SaveBeamCon0
+  BRA.S .4
 
 .3
 
   BTST  #5,EXT_DFF01F
   BEQ.S .2
 
+.4
   OR.W #$8000,D1
   MOVE.W D1,EXT_DFF09A
   
+  BTST.B #2,ChipsetIdValue      ;aga
+  BNE.S .5
+
+  MOVE.W SaveBeamCon0,D0
+  EOR.W #$20,D0
+  MOVE.W D0,beamcon0+EXT_DFF000
+
+.5  
   MOVE.L tempD0,D0
   MOVE.L tempD1,D1
 
@@ -2907,7 +2966,10 @@ BplCountToBplCon:
 bplConValues:
   DC.W 0,$1000,$2000,$3000,$4000,$5000,$6000,$7000,$0010
 
-GetLisaId:
+;bit 0, ecs agnus
+;bit 1, ecs denise
+;bit 2, aga
+GetChipsetInfo:
   MOVEM.L D1-D2,-(A7)
   move.w $dff07c,d0
 
@@ -2919,17 +2981,27 @@ check_loop:
   cmp.b  d0,d1
   bne.b  not_ECS
   dbf    d2,check_loop
-  or.b   #$f0,d0
-  MOVEM.L (A7)+,D1-D2
-  rts
+  or.b   #$f9,d0
+  BRA.S checkAgnus
 not_ECS:
   move.w  #$ff,d0
+checkAgnus:
+  MOVE.W $dff004,D1
+  AND.W #$7f00,D1
+  LSR.W #8,D1
+  BEQ.S .1  ;ocs pal
+  CMP.B #$10,D1
+  BEQ.S .1  ;ocs ntsc
+
+  BCLR #0,D0
+
+.1  
+  MOVE.B D0,ChipsetIdValue
   MOVEM.L (A7)+,D1-D2
   rts
 
 saveAgaColors:
-  JSR GetLisaId
-  CMP.B #$f8,D0
+  BTST.B #2,ChipsetIdValue      ;aga
   BNE.S .1
   lea EXT_DFF000,a5
   MOVE.W RegSnoop+bplcon2,D4
@@ -2955,8 +3027,7 @@ saveAgaColors:
   RTS
 
 restoreAgaColors:
-  JSR GetLisaId
-  CMP.B #$f8,D0
+  BTST.B #2,ChipsetIdValue      ;aga
   BNE.S .1
   MOVE.L SaveAgaColor0,D2
   MOVE.L SaveAgaColor1,D3
@@ -3005,9 +3076,7 @@ LAB_A119F6:
   MOVE.L  SaveCop1Lch,cop1lch(A5)
   endc
 
-  JSR GetLisaId
-  MOVE.W D0,D1
-
+  MOVE.B ChipsetIdValue,D1
   MOVE.W  SaveDiwStart,D0
   if rsnoop=0
   BEQ.S LAB_A11A2A
@@ -3020,7 +3089,7 @@ LAB_A11A2A:
   endc
   MOVE.W  D0,$90(A5)
 LAB_A11A36:
-  BTST #1,D1      ;ecs
+  BTST #1,D1      ;ecs denise
   BNE.S LAB_A11A36_1
   MOVE.W  SaveDiwHigh,D0
   if rsnoop=0
@@ -3072,7 +3141,7 @@ LAB_A11A7E:
   endc
   MOVE.W  D0,$104(A5)
 LAB_A11A7E_1:
-  BTST #2,D1      ;aga
+  BTST #1,D1      ;ecs denise
   BNE.S LAB_A11A7E_2
   MOVE.W  SaveBplCon3,D0
   if rsnoop=0
@@ -3096,20 +3165,14 @@ LAB_A11A7E_3:
   endc
   MOVE.W  D0,$1fc(A5)
 LAB_A11A7E_4:
-;ecs agnus
-  BTST #1,D1      ;ecs
-  BEQ.S LAB_A11A8A
+  BTST #0,D1      ;ecs agnus
+  BNE.S LAB_A11A8A
 
-  TST.B updateBeamcon
-  BEQ.S LAB_A11A8A
   MOVE.W  SaveBeamCon0,D0
-  CMP.W #-1,D0
-  BEQ.S LAB_A11A8A
   if rsnoop=0
   BEQ.S LAB_A11A8A
   endc
   MOVE.W  D0,$1dc(A5)
-  SF.B updateBeamcon
 LAB_A11A8A:
   MOVE.W  SaveBpl1Mod,D0
   if rsnoop=0
@@ -3205,7 +3268,6 @@ MakeMainDisplay:
   MOVE.W  #$1241,bplcon0(A5)
   MOVE.L  #$0024006c,ddfstrt(A5)
 
-  ST.B updateBeamcon
   MOVE.W  #-80,bpl1mod(A5)
   MOVE.W  #0,bpl2mod(A5)
 
@@ -3229,20 +3291,16 @@ LAB_A115BA:
   MOVE.W  #$9000,bplcon0(A5)
   MOVE.L  #0,bplcon1(A5)
 
-  TST.B updateBeamcon
-  BEQ.S LAB_A1160C
-  MOVE.W SaveBeamCon0,beamcon0(a5)
-
-  JSR GetLisaId
-
-  BTST #1,D0      ;ecs
+  MOVE.B ChipsetIdValue,D0
+  BTST #0,D0      ;ecs agnus
   BNE.S .ecsskip
 
-  MOVE.W #$c40,bplcon3(a5)
+  MOVE.W SaveBeamCon0,beamcon0(a5)
 
   BTST #2,D0      ;aga
   BNE.S   .agaskip1
 
+  MOVE.W #$c40,bplcon3(a5)
   MOVE.W #$11,bplcon4(a5)
   MOVE.W #0,fmode(a5)
 .agaskip1
@@ -3328,11 +3386,22 @@ LAB_A1170A:
 MakeMempeekerDisplay:
   MOVEM.L D0-D4/A0/A3-A5,-(A7)
   LEA EXT_DFF000,A5
-  JSR GetLisaId
-  BTST #2,D2      ;aga
+
+  MOVE.B ChipsetIdValue,D0
+  BTST #0,D0      ;ecs
+  BNE.S .ecsskip
+
+  MOVE.W  CopyBeamCon0,beamcon0(a5)
+
+.ecsskip
+  BTST #0,D0      ;ecs
+  BNE.S .ecsskip2
+  MOVE.W #0,bplcon3(a5)
+  
+.ecsskip2
+  BTST #2,D0      ;aga
   BNE.S   .skip1
   MOVE.W CopyFmode,fmode(a5)
-  MOVE.W #0,bplcon3(a5)
   MOVE.W #$11,bplcon4(a5)
 .skip1
   MOVE.W  CopyDiwStart,diwstrt(a5)
@@ -3342,10 +3411,7 @@ MakeMempeekerDisplay:
   MOVE.W  CopyBplMod1,bpl1mod(a5)
   MOVE.W  CopyBplMod2,bpl2mod(a5)
   MOVE.W  CopyBplCon1,bplcon1(a5)
-  CMP.W #-1,CopyBeamCon0
-  BEQ.S .1
-  MOVE.W  CopyBeamCon0,beamcon0(a5)
-.1
+
   MOVEQ #$F,D0
   LEA SaveColor,A4
   LEA $180(A5),A3
@@ -4967,6 +5033,14 @@ commandTable:
   even
   DC.L  CMD_SETMAP
 
+  DC.B  "RPS",0
+  even
+  DC.L  CMD_RPS
+
+  DC.B  "RPB",0
+  even
+  DC.L   CMD_RPB
+
   DC.B  "CD",0
   even
   DC.L  CMD_CD
@@ -5078,6 +5152,14 @@ commandTable:
   DC.B  "RT",0
   even
   DC.L  CMD_RT
+
+  DC.B  "RS",0
+  even
+  DC.L  CMD_RS
+
+  DC.B  "RB",0
+  even
+  DC.L  CMD_RB
 
   DC.B  "WT",0
   even
@@ -5374,6 +5456,46 @@ CMD_INFO:
   MOVE.W  D0,LAB_A480AC
 LAB_A12BCC:
   BSR.W SUB_A166C8
+  LEA ChipsetHeaderText(PC),A0
+  BSR.W PrintText
+  BTST.B #2,ChipsetIdValue
+  BNE.S .notaga
+
+  LEA agaText(PC),A0
+  BSR.W PrintText
+  BRA .chipsetdone
+
+.notaga
+  BTST.B #0,ChipsetIdValue
+  BEQ.S .notocs
+  BTST.B #1,ChipsetIdValue
+  BEQ.S .notocs
+
+  LEA ocsText(PC),A0
+  BSR.W PrintText
+  BRA .chipsetdone
+
+.notocs
+  BTST.B #0,ChipsetIdValue
+  BNE.S .ecsDenise
+
+  BTST.B #1,ChipsetIdValue
+  BNE.S .ecsAgnus
+
+  LEA ecsText(PC),A0
+  BSR.W PrintText
+  BRA .chipsetdone
+
+.ecsAgnus
+  LEA ecsAgnusText(PC),A0
+  BSR.W PrintText
+  BRA .chipsetdone
+
+.ecsDenise
+  LEA ecsDeniseText(PC),A0
+  BSR.W PrintText
+
+.chipsetdone
   LEA DisplayWinHeaderText(PC),A0
   BSR.W PrintText
   LEA CopyDiwStart,A0
@@ -5534,6 +5656,24 @@ LAB_A12D9C:
   DBF D3,LAB_A12D9C
   JSR PrintReady
   RTS
+
+ChipsetHeaderText
+  DC.B  "CHIPSET: ",0
+
+agaText
+  DC.B  "AGA",$D,0
+
+ocsText
+  DC.B  "OCS",$D,0
+
+ecsText
+  DC.B  "ECS",$D,0
+
+ecsAgnusText
+  DC.B  "ECS Agnus",$D,0
+
+ecsDeniseText
+  DC.B  "ECS Denise",$D,0
 
 DisplayWinHeaderText:
   DC.B  "DIWSTRT DIWSTOP DDFSTRT DDFSTOP",$D,0
@@ -7655,13 +7795,13 @@ ChangedToText:
   DC.B  " to $",0
 
 aboutText:
-  DC.B  "********************************************************************************",$D
+  DC.B  "********************************************************************************"
   DC.B  "                             ACTION REPLAY AMIGA V5",$D
   DC.B  "                           (c)2025 by REbEL / QUARTEX",$D
-  DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,0
+  DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.13012025 - private alpha release for TTE",$D,$D
+  DC.B  "                 v0.7.0.15012025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -10042,8 +10182,12 @@ LAB_A169AC:
   BCS.S LAB_A169D6
   CMPI.W  #$01be,D2
   BHI.S LAB_A169D6
-  TST.W CopyBplCon3
+  BTST #2,ChipsetIdValue      ;aga
+  BNE.S .1
+  MOVE.W CopyBplCon3,D3
+  AND.W #%1110001000000000,D3
   BNE.S LAB_A169D6
+.1
   MOVE.W  D2,D3
   SUBI.W  #$0180,D3
   SWAP  D2
@@ -11978,7 +12122,6 @@ LAB_A17D26:
   MOVE.W  #$0aaa,ArBgCol
   MOVE.W  #0,ArFgCol
   CLR.W BlankerCount
-  MOVE.W #-1,RegSnoop+$1dc  ;flag beamcon0 as not written
   MOVE.L  #$5052494e,PrinFlag
   SF  LAB_A483CC
   SF  BootblockCoderPrefsFlag
@@ -12428,6 +12571,7 @@ CMD_FLASH
   BNE.S .copy
  
   JSR mt_sin
+  ;JSR flashcode
   RTS
   
 .loaderr:
@@ -12512,6 +12656,19 @@ flashcode
   CMP.W #$1FD5,D0
   BNE noflash
 
+  JSR Cls
+  SF  cursorEnabled
+
+  MOVE.W  #35,cursorX
+  MOVE.W  #10,cursorY
+  LEA flashingtext,A0
+  JSR PrintText
+
+  MOVE.W  #34,cursorX
+  MOVE.W  #14,cursorY
+  LEA verifyingtext,A0
+  JSR PrintText
+
   LEA EXT_DFF000,A6
   MOVE.W intenar(a6),D1
   SWAP D1
@@ -12521,6 +12678,18 @@ flashcode
   
   MOVE.W #$7fff,intena(a6)
   MOVE.W #$7fff,dmacon(a6)
+ 
+  lea $60000,a0
+  move.w  #bpl1pth,(A0)+
+  move.w  #0,(A0)+
+  move.w  #bpl1ptl,(A0)+
+  move.w  #EXT_1000,(A0)+
+  move.w  #$ffff,(A0)+
+  move.w  #$fffe,(A0)+
+  
+  move.l  #$60000,cop1lch(a6)
+  clr.w copjmp1(a6)
+  move.w #$8380,dmacon(a6)
  
   MOVE.W #1,D3  ;two passes (one for each chip)
 
@@ -12568,25 +12737,68 @@ flashcode
   CMP.B D1,D0
   BNE.S .wait
   
+  LEA EXT_1000+97*80-8,A3
+  BSR DoProgress
+  
   DBF D2,.write2
   DBF D3,.write3
 
   CLR.L bronFlag
   ;verify results
+  MOVEQ #-1,D7
+  MOVE.L #$20000-1,D4
   LEA SECSTRT_0+4,A0
   LEA EXT_20000+4,A1
+.2
+  MOVE.L D4,D2
+  AND.L #$3F,D2
+  BNE.S .1
+  
+  CLR.W D3
+  MOVE.L D4,D2
+  LSR.L #6,D2
+  LEA EXT_1000+129*80-8,A3
+  BSR DoProgress
 .1
   CMP.W (A0)+,(A1)+
-  BNE.S badflash
+  BEQ.S .ok
+  MOVEQ #0,D7
+.ok
+  SUB.L #1,D4
+  
   CMP.L #arramstart,A0
-  BNE.S .1
-
+  BNE.S .2
+  
+  TST.L D7
+  BEQ.W badflash
 
 goodflash
-  MOVE.W #$7fff,EXT_DFF096
+  ;MOVE.W #$7fff,EXT_DFF096
   MOVE.W #$7fff,EXT_DFF09A
   MOVE.W #$0f0,EXT_DFF180
   BRA.S goodflash
+
+DoProgress
+  MOVE.W D3,D0
+  LSL.W #6,D0
+  LSL.W #4,D0
+  ADD.W D2,D0
+  LSR.W #2,D0
+  MOVEQ #0,D1
+  MOVE.W D0,D1
+  LSR.W #3,D1
+  SUB.L D1,A3
+  AND.W #7,D0
+  BSET D0,(A3) 
+  BSET D0,80(A3) 
+  BSET D0,160(A3) 
+  BSET D0,240(A3) 
+  BSET D0,320(A3) 
+  BSET D0,400(A3) 
+  BSET D0,480(A3) 
+  BSET D0,560(A3) 
+  RTS
+
 
 FlDelay:
   MOVE.B  #0,EXT_BFE801
@@ -12607,20 +12819,26 @@ noflash
   RTS
 
 badflash
-  MOVE.W #$7fff,EXT_DFF096
+  ;MOVE.W #$7fff,EXT_DFF096
   MOVE.W #$7fff,EXT_DFF09A
   MOVE.W #$f00,EXT_DFF180
   BRA.S badflash
 flashend
 
+flashingtext
+  DC.B  "FLASHING..",0
+
+verifyingtext
+  DC.B  "VERIFYING...",0
+
 invalidrom:
   DC.B  "This is not an action replay rom.",$D,0
 
 invalidcrc:
-  DC.B  "Warning: The ROM CRC is incorrect. It will be corrected during flashing",$D,$D,0
+  DC.B  "Warning: The ROM CRC is incorrect. It will be corrected during flashing.",$D,$D,0
 
 flashwarn:
-  DC.B "Flashing is about to begin, the screen will turn white for 20-30 seconds.",$D
+  DC.B "Flashing is about to begin, the process will take 20-30 seconds.",$D
   DC.B "DO NOT POWER OFF DURING THIS TIME! On completion the screen will turn",$D
   DC.B "green for success or red for failure, after this you must reset.",$D,$D
   DC.B "Note that if you attempt this on unmodified AR hardware it will cause a crash.",$D
@@ -12628,7 +12846,6 @@ flashwarn:
 
 noflashText
   DC.B "Unable to find flash chip.",$D,0
-
 
   even
 
@@ -13286,8 +13503,6 @@ SUB_A18AD6:
   MOVE.W  #$ffff,memPeekerBlackFlag
   SF  memPeekerHelpFlag
   SF  memPeekerDdfMode
-  JSR GetLisaId
-  MOVE.W D0,lisaIdValue
   CLR.W D0
   CLR.W D1
   BSR.W setMemPeekerXY
@@ -13894,11 +14109,7 @@ LAB_A19398:
   MOVE.W  CopyBplCon2,SaveBplCon2
   MOVE.W  CopyBplCon3,SaveBplCon3
   MOVE.W  CopyBplCon4,SaveBplCon4
-
-  CMP.W #-1,CopyBeamCon0
-  BEQ.S .skip
   MOVE.W  CopyBeamCon0,SaveBeamCon0
-.skip:
   MOVE.W  CopyFmode,SaveFmode
   MOVE.W  CopyBplMod1,SaveBpl1Mod
   MOVE.W  CopyBplMod2,SaveBpl2Mod
@@ -14158,7 +14369,7 @@ LAB_A1973C:
   BRA.W LAB_A19C8E
 memPeekKeyPlus:
   MOVE.W #6,D2
-  CMP.W #$f8,lisaIdValue
+  BTST.B #2,ChipsetIdValue     ;aga
   BNE.S .2
   MOVE.W #8,D2
 .2:
@@ -14178,7 +14389,7 @@ memPeekKeyPlus:
 
   ADDQ.W  #1,D0
   MOVE.W D0,bitplaneCount
-  CMP.W #$f8,lisaIdValue
+  BTST.B #2,ChipsetIdValue     ;aga
   BEQ.S .1
 
   CMPI.W  #5,D0
@@ -14208,7 +14419,7 @@ memPeekKeyMinus:
   MOVE.W D0,bitplaneCount
   JSR BplCountToBplCon
 
-  CMP.W #$f8,lisaIdValue
+  BTST.B #2,ChipsetIdValue     ;aga
   BEQ.S .1
 
   CMPI.W  #$5000,D0
@@ -30624,10 +30835,30 @@ RNCREAD_DONE:
   MOVEM.L (A7)+,D1-D2/A0-A3/A5
   RTS
 
+CMD_RB:
+  ST byteRead
+  BRA.S CMD_RT
+
+CMD_RS:
+  ST sectorRead
+  BRA.S CMD_RT
+
 CMD_RR:
   ST mfmRead
   CLR.W mfmSync
   CLR.W mfmLength
+  BRA.S CMD_RT
+
+CMD_RPB:
+  ST pdosRead
+  CLR.L pdosKey
+  ST byteRead
+  BRA.S CMD_RT
+
+CMD_RPS:
+  ST pdosRead
+  CLR.L pdosKey
+  ST sectorRead
   BRA.S CMD_RT
 
 CMD_RP:
@@ -30639,19 +30870,104 @@ CMD_RT:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
-  MOVE.W  D0,D1
+  MOVE.L  D0,D1
   JSR ReadParameter
   MOVEQ #1,D2
   TST.B ParamFound
   BEQ.S LAB_A24B1A
-  MOVE.W  D0,D2
+  MOVE.L  D0,D2
 LAB_A24B1A:
-  SUBQ.W  #1,D2
-  MOVE.W  D1,D3
-  ADD.W D2,D3
+  SUBQ.L  #1,D2
+  MOVE.L  D1,D3
+  ADD.L D2,D3
+  
+  CLR.L trackStartSkip
+  MOVE.L #-1,trackMaxByteCount
+  TST.B sectorRead
+  BEQ.S .tr
+  MOVE.L #11*$10000+1759,D0
+  TST.B pdosRead
+  BEQ.S .1
+  MOVE.L #12*$10000+1919,D0
+.1  
+  CMP.W  D0,D3
+  BHI.W LAB_A21070
+
+  SWAP D0
+  MOVE.W D0,D3
+
+  MOVE.L D1,D0
+  DIVU D3,D0
+  CLR.W D0
+  SWAP D0
+  LSL.L #4,D0
+  LSL.L #5,D0
+  MOVE.L D0,trackStartSkip
+
+  MOVEQ #0,D0
+  MOVE.W D2,D0
+  ADDQ.L #1,D0
+  LSL.L #4,D0
+  LSL.L #5,D0
+  MOVE.L D0,trackMaxByteCount
+  
+  MOVE.L D1,D0
+  DIVU D3,D0
+  MOVE.W D0,D1
+
+  MOVE.L D2,D0
+  ADD.W D3,D0
+  SUB.W #1,D0
+  DIVU D3,D0
+  MOVE.W D0,D2
+  
+  BRA.S .tr3
+  
+.tr
+  TST.B byteRead
+  BEQ.S .tr2
+  MOVE.L #1760*512-1,D0
+  TST.B pdosRead
+  BEQ.S .s1
+  MOVE.L #1920*512-1,D0
+.s1  
+  CMP.L  D0,D3
+  BHI.W LAB_A21070
+
+
+  MOVE.W #$1600,D3
+  TST.B pdosRead
+  BEQ.S .2
+  MOVE.W #$1800,D3
+.2
+
+  MOVE.L D1,D0
+  DIVU D3,D0
+  CLR.W D0
+  SWAP D0
+  MOVE.L D0,trackStartSkip
+
+  MOVEQ #0,D0
+  MOVE.W D2,D0
+  ADDQ.L #1,D0
+  MOVE.L D0,trackMaxByteCount
+  
+  MOVE.L D1,D0
+  DIVU D3,D0
+  MOVE.W D0,D1
+
+  MOVE.L D2,D0
+  ADD.W D3,D0
+  SUB.W #1,D0
+  DIVU D3,D0
+  MOVE.W D0,D2
+  
+  BRA.S .tr3
+.tr2
   CMPI.W  #$009f,D3
   BHI.W LAB_A21070
 
+.tr3
   TST.B mfmRead
   BEQ.S .notmfm
 
@@ -30800,6 +31116,8 @@ LAB_A24CD8:
   BSR.W restoreMfmBuffer
   SF pdosRead
   SF mfmRead
+  SF sectorRead
+  SF byteRead
   RTS
 ReadTracks:
   MOVEM.L D1-D7/A0-A6,-(A7)
@@ -30863,9 +31181,21 @@ LAB_A24D58:
   LEA mfmSectorAddresses,A1
 LAB_A24D60:
   MOVEA.L (A1)+,A3
-  MOVEQ #$7F,D3
+  MOVE.W #511,D3
 LAB_A24D64:
-  MOVE.L  (A3)+,(A2)+
+  TST.L trackStartSkip
+  BEQ.S .noskip1
+  TST.B (A3)+
+  SUB.L #1,trackStartSkip
+  BRA.S .cont
+
+.noskip1
+  TST.L trackMaxByteCount
+  BEQ.S .cont
+
+  MOVE.B  (A3)+,(A2)+
+  SUB.L #1,trackMaxByteCount
+.cont
   DBF D3,LAB_A24D64
   DBF D0,LAB_A24D60
   BRA.S LAB_A24D48
@@ -31383,7 +31713,7 @@ LAB_A254FE:
 LAB_A25508:
   JSR PrintCR
   LEA EXT_7000.W,A0
-  BSR.W backupMfmBuffer
+  JSR backupMfmBuffer
   MOVE.B  currDriveNo,-(A7)
   CLR.B currDriveNo
   BSR.W SUB_A237D2
@@ -34718,7 +35048,6 @@ CMD_PAL:
   MOVE.W  #$0020,EXT_DFF1DC
   MOVE.W  #$0020,SaveBeamCon0
   CLR.W VgaModeFlag
-  ST.B updateBeamcon
 
   JSR PrintReady
   RTS
@@ -34726,7 +35055,7 @@ CMD_NTSC:
   MOVE.W  #0,EXT_DFF1DC
   MOVE.W  #0,SaveBeamCon0
   CLR.W VgaModeFlag
-  ST.B updateBeamcon
+
   JSR PrintReady
   RTS
   MOVE.W  D1,-(A7)
@@ -36795,8 +37124,7 @@ LAB_A2A166:
   RTS
 
 CMD_EA:
-  JSR GetLisaId
-  CMP.B #$F8,D0
+  BTST.B #2,ChipsetIdValue      ;aga
   BNE .3
 
   ST.B scrollLock
@@ -42375,7 +42703,7 @@ checksum:
   ;DC.L $e93aa3a2 ;v0.5.0
   ;DC.L $ea3aa3a2 ;v0.6.0
   ;DC.L $5a46e2fc ;v0.6.1
-  DC.L $0abaf3da  ;v0.7.0
+  DC.L $68f7869b  ;v0.7.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -42463,8 +42791,6 @@ robdmode:
   DS.B  1
 decryptins:
   DS.B  1
-updateBeamcon:
-  DS.B  1
   even
 cpuAddrSize:
   DS.W  1
@@ -42479,13 +42805,13 @@ IgnoreShift
   even
 bitplaneCount:
   DS.W  1
-lisaIdValue:
-  DS.W  1
 diskOpResult2:
   DS.W  1
 debuggerMode:
   DS.B  1
 debuggerFocus:
+  DS.B  1
+ChipsetIdValue:
   DS.B  1
   even
 dbgMemBase:
@@ -43170,11 +43496,19 @@ pdosTrack:
   DS.B  1
 mfmRead:
   DS.B  1
+sectorRead:
+  DS.B  1
+byteRead:
+  DS.B  1
 full64k
   DS.B  1
 fullPal
   DS.B  1
   even
+trackStartSkip
+  DS.L  1
+trackMaxByteCount
+  DS.L  1
 memSaveEnd:
   DS.L  1
 pdosKey:
