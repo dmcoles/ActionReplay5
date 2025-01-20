@@ -109,11 +109,116 @@ The current api calls are as follows:
  ------------------------
 
  On Entry:
-   D0 = 7
+   D0 = 8
 	 D1 = start track
 	 D2 = track count
 	 A0 = save address
 
  Description:
-   Write tracks from memory to the current drive.
+   Write tracks from memory to the current drive in standard AmigaDOS format.
 
+ Function 9: Read Pdos tracks
+ ----------------------------
+
+ On Entry:
+   D0 = 9
+	 D1 = start track
+	 D2 = track count
+   D3 = pdos key (0 to calculate automatically)
+	 A0 = load address
+
+ Description:
+   Read pdos formatted tracks from the current drive into memory.
+
+ Function 10: Write Pdos tracks
+ ------------------------------
+
+ On Entry:
+   D0 = 10
+	 D1 = start track
+	 D2 = track count
+   D3 = pdos key
+	 A0 = save address
+
+ Description:
+   Write pdos formatted tracks from memory to the current drive.
+
+
+ Function 11: Read sectors
+ -------------------------
+
+ On Entry:
+   D0 = 11
+	 D1 = start sector
+	 D2 = sector count
+	 A0 = load address
+
+ Description:
+   Read sectors from the current drive into memory.
+
+ Function 12: Read Pdos sectors
+ ------------------------------
+
+ On Entry:
+   D0 = 12
+	 D1 = start sector
+	 D2 = sector count
+	 A0 = load address
+
+ Description:
+   Read pdos formatted sectors from the current drive into memory.
+
+ Function 13: Read bytes
+ -----------------------
+
+ On Entry:
+   D0 = 13
+	 D1 = start byte offset
+	 D2 = byte count
+	 A0 = load address
+
+ Description:
+   Read any number of bytes from the current drive into memory.
+
+ Function 14: Read Pdos bytes
+ ----------------------------
+
+ On Entry:
+   D0 = 14
+	 D1 = start byte offset
+	 D2 = byte count
+	 A0 = load address
+
+ Description:
+   Read any number of bytes from the current drive into memory from
+   a pdos format disk.
+
+ Function 15: Read Mfm track
+ ---------------------------
+
+ On Entry:
+   D0 = 15
+	 D1 = start track
+	 D2 = track count
+   D3 = sync marker
+   D4 = track length (in words)
+	 A0 = load address
+
+ Description:
+   Read data in raw mfm format from the current drive into memory. Note
+   that the initial sync marker is written to memory to allow it to be
+   written back to disk. This means the number of words transferred will
+   need to be 1 higher than the value written to DSKLEN
+
+ Function 16: Write Mfm track
+ ----------------------------
+
+ On Entry:
+   D0 = 16
+	 D1 = start track
+	 D2 = track count
+   D3 = track length (in words)
+	 A0 = save address
+
+ Description:
+   Write raw mfm data from memory to the current drive.

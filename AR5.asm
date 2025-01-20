@@ -305,6 +305,7 @@ spr5data  EQU $16C
 spr6data  EQU $174
 spr7data  EQU $17C
 color00 EQU $180
+color01 EQU $182
 
 rsnoop SET 0
   if arhardware=1
@@ -2050,7 +2051,6 @@ AREntry3:
   endc
   MOVE.L  RegSnoopColor00,SaveColor00
 
-  MOVE.L  #0,EXT_DFF180
   BTST  #6,EXT_DFF003
   BEQ.S LAB_A10A50
 LAB_A10A26:
@@ -2094,6 +2094,8 @@ LAB_A10A88:
   MOVE.W  #$c000,EXT_DFF09A
   JSR GetChipsetInfo
   JSR saveAgaColors
+  MOVE.L  #0,EXT_DFF180
+  
   MOVE  #$2000,SR
   LEA StackEnd,A7
   LEA EXT_DFF000,A5
@@ -2121,6 +2123,7 @@ LAB_A10A88:
   JSR LAB_A2A148
   JSR RestoreBreakpoints
   JSR RestoreMemWatch
+  ;BSR CheckKeys
   BSR.W RestoreDisplay1
   BSR.W KeyboardIntRemove
   BSR.W RestoreFloppy
@@ -2428,7 +2431,7 @@ KeyboardIntInstall:
   CLR.W KeyCode
   CLR.W ShiftKey
   CLR.W RawKeyCode
-  CLR.W LAB_A47F42
+  CLR.W flashLedOnKey
   ORI.B #$40,EXT_BFEE01
   MOVE.B  #0,EXT_BFEC01
   BSR.W SUB_A11032
@@ -2445,32 +2448,38 @@ KeyboardInt:
   MOVE.W  D0,RawKeyCode
   ORI.B #$40,EXT_BFEE01
   MOVE.B  #0,EXT_BFEC01
-  BSR.W SUB_A1105E
+  BSR.W keyAckDelay
   BCLR  #6,EXT_BFEE01
   MOVE.W  RawKeyCode,D0
   NOT.B D0
   LSR.B #1,D0
   BCLR  #0,D0
-  CMPI.B  #$64,D0
+
+  ;MOVE.L A0,-(Sp)
+  ;LEA keydata,A0
+  ;NOT.B (A0,D0.W)
+  ;MOVE.L (Sp)+,A0
+  
+  CMPI.B  #$64,D0   ;alt key
   BNE.S LAB_A10FB2
   BTST  #0,RawKeyCodeLo
-  SNE LAB_A483C8
+  SNE AltKey
 LAB_A10FB2:
-  CMPI.W  #$0060,D0
+  CMPI.W  #$0060,D0 ;shift key
   BNE.S LAB_A10FC6
   BTST  #0,RawKeyCodeLo
   SNE ShiftKey
 LAB_A10FC6:
   MOVE.W  RawKeyCode,D0
   ANDI.W  #$fffe,D0
-  CMPI.W  #$0074,D0
+  CMPI.W  #$0074,D0   ;Escape
   BNE.S LAB_A10FE4
   TST.B EscapeDisabled
   BNE.S LAB_A10FE4
   BTST  #0,RawKeyCodeLo
   SNE EscapePressed
 LAB_A10FE4:
-  TST.B LAB_A47F42
+  TST.B flashLedOnKey
   BNE.S LAB_A11006
   ORI.B #2,EXT_BFE001
   BTST  #0,RawKeyCodeLo
@@ -2500,7 +2509,7 @@ LAB_A1104A:
   BNE.S LAB_A1104A
   MOVE.B  #$80,EXT_BFDF00
   RTS
-SUB_A1105E:
+keyAckDelay:
   MOVE.B  #0,EXT_BFD600
   MOVE.B  #$20,EXT_BFD700
   MOVE.B  #$99,EXT_BFDF00
@@ -2953,6 +2962,12 @@ CalcBeamCon0
   EOR.W #$20,D0
   MOVE.W D0,beamcon0+EXT_DFF000
 
+.4a:
+  BTST  #5,EXT_DFF01F
+  BEQ.S .4a
+
+  MOVE.W  #$0020,EXT_DFF09C
+
 .5  
   MOVE.L tempD0,D0
   MOVE.L tempD1,D1
@@ -3002,12 +3017,17 @@ checkAgnus:
 
 saveAgaColors:
   BTST.B #2,ChipsetIdValue      ;aga
-  BNE.S .1
-  lea EXT_DFF000,a5
+  BNE.W .1
+
+  MOVEM.L D1-D5/A0/A4/A5,-(SP)
+
   MOVE.W RegSnoop+bplcon2,D4
   SWAP D4
   MOVE.W RegSnoop+bplcon3,D4
+
+  LEA EXT_DFF000,A5
   MOVE.W #$100,bplcon2(A5)
+
   MOVE.W #512,bplcon3(A5)
   MOVE.W $180(a5),D2
   MOVE.W $182(a5),D3
@@ -3020,27 +3040,113 @@ saveAgaColors:
   SWAP D3
   MOVE.L D2,SaveAgaColor0
   MOVE.L D3,SaveAgaColor1
+
+  MOVE.L AgaPaletteSave,D5
+  BEQ .2
+  MOVE.L D5,A4
+  MOVE.W #0,D5
+
+.nextbank
+  MOVE.W #31,D1
+  LEA color00(a5),A0
+.nextcol
+  MOVE.W D5,bplcon3(A5)
+
+  MOVE.W (A0),D2
+
+  EOR.W #512,D5
+  MOVE.W D5,bplcon3(A5)
+  EOR.W #512,D5
+
+  MOVE.W (A0)+,D3
+
+  MOVE.W D2,(A4)+
+  MOVE.W D3,(A4)+
+  
+  DBF D1,.nextcol
+
+  ADD.W #$2000,D5
+  BCC .nextbank
+  
+.2
   MOVE.W D4,bplcon3(A5)
   SWAP D4
   MOVE.W D4,bplcon2(A5)
+
+  MOVEM.L (SP)+,D1-D5/A0/A4/A5
+.1
+  RTS
+
+restoreAgaColors2
+  BTST.B #2,ChipsetIdValue      ;aga
+  BNE.S .1
+  MOVEM.L D1/D4/D5/A0/A4/A5,-(SP)
+  MOVE.L AgaPaletteCopy,D5
+
+  LEA EXT_DFF000,A5
+  BRA.S agarest
 .1
   RTS
 
 restoreAgaColors:
   BTST.B #2,ChipsetIdValue      ;aga
-  BNE.S .1
+  BNE.W restdone
+
+  MOVEM.L D1/D4/D5/A0/A4/A5,-(SP)
+
+  LEA EXT_DFF000,A5
+
   MOVE.L SaveAgaColor0,D2
   MOVE.L SaveAgaColor1,D3
-  MOVE.W #0,bplcon3+EXT_DFF000
-  MOVE.W D2,$dff180
-  MOVE.W D3,$dff182
-  MOVE.W #512,bplcon3+EXT_DFF000
+  MOVE.W #0,bplcon3(A5)
+  MOVE.W D2,color00(a5)
+  MOVE.W D3,color01(a5)
+  MOVE.W #512,bplcon3(a5)
   SWAP D2
   SWAP D3
-  MOVE.W D2,$dff180
-  MOVE.W D3,$dff182
-.1
+  MOVE.W D2,color00(a5)
+  MOVE.W D3,color01(a5)
+
+  MOVE.L AgaPaletteSave,D5
+agarest:
+  TST.L D5
+  BEQ.W restskip
+
+  MOVE.L D5,A4
+  MOVE.W #0,D5
+
+.nextbank
+  MOVE.W #31,D1
+  LEA color00(a5),A0
+.nextcol
+  MOVE.W D5,bplcon3(A5)
+
+  MOVE.W (A4)+,(A0)
+
+  EOR.W #512,D5
+  MOVE.W D5,bplcon3(A5)
+  EOR.W #512,D5
+
+  MOVE.W (A4)+,(A0)+
+  
+  DBF D1,.nextcol
+
+  ADD.W #$2000,D5
+  BCC .nextbank
+
+restskip:
+  MOVEM.L (SP)+,D1/D4/D5/A0/A4/A5
+restdone:
   RTS
+
+;CheckKeys
+;  LEA keydata,A0
+;  MOVE.W #128-1,D0
+;checkAll
+;  TST.B (A0)+
+;  BNE.S CheckKeys
+;  DBF D0,checkAll
+;  RTS
 
 RestoreDisplay1:
   LEA EXT_DFF000,A5
@@ -3387,6 +3493,13 @@ MakeMempeekerDisplay:
   MOVEM.L D0-D4/A0/A3-A5,-(A7)
   LEA EXT_DFF000,A5
 
+  MOVEQ #$F,D0
+  LEA SaveColor,A4
+  LEA $180(A5),A3
+LAB_A117EE:
+  MOVE.L  (A4)+,(A3)+
+  DBF D0,LAB_A117EE
+
   MOVE.B ChipsetIdValue,D0
   BTST #0,D0      ;ecs
   BNE.S .ecsskip
@@ -3401,6 +3514,12 @@ MakeMempeekerDisplay:
 .ecsskip2
   BTST #2,D0      ;aga
   BNE.S   .skip1
+  MOVE.L AgaPaletteCopy,D0
+  BEQ.S .skip1
+
+  BSR restoreAgaColors2
+  MOVE.W #0,bplcon3(a5)
+
   MOVE.W CopyFmode,fmode(a5)
   MOVE.W #$11,bplcon4(a5)
 .skip1
@@ -3412,13 +3531,8 @@ MakeMempeekerDisplay:
   MOVE.W  CopyBplMod2,bpl2mod(a5)
   MOVE.W  CopyBplCon1,bplcon1(a5)
 
-  MOVEQ #$F,D0
-  LEA SaveColor,A4
-  LEA $180(A5),A3
-LAB_A117EE:
-  MOVE.L  (A4)+,(A3)+
-  DBF D0,LAB_A117EE
   MOVEQ #7,D0
+paldone:
   LEA CopyBpl1Pth,A4
   LEA $E0(A5),A3
   BTST  #2,CopyBplCon0Lo
@@ -3511,19 +3625,19 @@ LAB_A1197E:
 LAB_A1199A:
   CLR.W BlankerCount
 LAB_A119A0:
-  ADDQ.W  #1,LAB_A47F3C
-  TST.B LAB_A482EE
+  ADDQ.W  #1,keyRepeat
+  TST.B trackerPlaying
   BNE.S LAB_A119CA
-  TST.B LAB_A47F42
+  TST.B flashLedOnKey
   BEQ.S LAB_A119CA
-  MOVE.W  LAB_A47F3C,D0
+  MOVE.W  keyRepeat,D0
   ANDI.W  #3,D0
   BNE.S LAB_A119CA
   EORI.B  #2,EXT_BFE001
 LAB_A119CA:
   JSR SUB_A22396
 
-  TST.B LAB_A482EE
+  TST.B trackerPlaying
   BEQ.W LAB_A119D0
   JSR SUB_413A54
 
@@ -3537,20 +3651,20 @@ GetMappedKeyCode:
   BEQ.S LAB_A11ACC
   CMP.W KeyCode,D0
   BNE.S LAB_A11ACC
-  CMPI.W  #$000d,LAB_A47F3C
+  CMPI.W  #$00d,keyRepeat
   BHI.S LAB_A11ADE
   CLR.W D0
   BRA.S LAB_A11AD8
 LAB_A11ACC:
   MOVE.W  D0,KeyCode
-  CLR.W LAB_A47F3C
+  CLR.W keyRepeat
 LAB_A11AD8:
   MOVEM.L (A7)+,D1/A0
   RTS
 
 
 LAB_A11ADE:
-  MOVE.W  #$000c,LAB_A47F3C
+  MOVE.W  #$000c,keyRepeat
   BRA.S LAB_A11AD8
 DecodeRawKeyCode:
   MOVEM.L D1/A0,-(A7)
@@ -3560,7 +3674,7 @@ DecodeRawKeyCode:
   ANDI.W  #$00ff,D1
   NOT.B D1
   LSR.W #1,D1
-  TST.B LAB_A483C8
+  TST.B AltKey
   BEQ.S LAB_A11B18
   MOVEQ #$40,D0
   CMPI.W  #2,D1
@@ -3829,7 +3943,7 @@ LAB_A1212C:
   MOVE.W  #$8300,EXT_DFF096
 arCommandLoop:
   SF.B EscapeDisabled
-  CLR.W LAB_A47F42
+  CLR.W flashLedOnKey
   ORI.B #2,EXT_BFE001
   TST.B debuggerMode
   BEQ.S .1
@@ -3844,7 +3958,7 @@ arCommandLoop:
   BNE.S LAB_A12108
   BSR.W PrintInputChar
 LAB_A12160:
-  ST  LAB_A47F42
+  ST  flashLedOnKey
   JSR readCmdCharSkipSpaces
   TST.B endOfCmdString
   BNE.S arCommandLoop
@@ -3922,7 +4036,7 @@ LAB_A12216:
 currentCopperText:
   DC.B  $D,"Current Copper 0: ",0
 
-maxApiCall EQU 8
+maxApiCall EQU 16
 
 handleApiCall
   ST  restartFlag
@@ -4001,13 +4115,17 @@ apiReadTracks:
   MOVE.W  D1,D3
   ADD.W D2,D3
   CMPI.W  #$009f,D3
-  BHI.W .1
+  BHI.W apiRdFail
 
   SF  LAB_A480CA
 
   MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
   JSR apiReadTracks2
-.1
+apiRdFail:
+  SF.B pdosRead
+  SF.B sectorRead
+  SF.B byteRead
+  SF.B mfmRead
   RTS
 
 apiWriteTracks:
@@ -4016,9 +4134,100 @@ apiWriteTracks:
 
   MOVE.L SaveCpuRegs+32,D0  ;save address from A0 to D0
   JSR apiWriteTracks2
-.1
+
+  SF.B pdosRead
+  SF.B mfmRead
   RTS
 
+apiReadPdosTracks
+  ST.B pdosRead
+  MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
+  BRA apiReadTracks
+
+apiWritePdosTracks
+  ST.B pdosRead
+  MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
+  BRA apiWriteTracks
+
+apiReadSectors
+  MOVE.L SaveCpuRegs+4,D1  ;start sector from D1 to D1
+  MOVE.L SaveCpuRegs+8,D2  ;sector count from D2 to D2
+
+  SUBQ.W  #1,D2
+  MOVE.W  D1,D3
+  ADD.W D2,D3
+
+  TST.B pdosRead
+  BNE.S .1
+
+  CMPI.W  #1759,D3
+  BHI.W apiRdFail
+
+.1
+  CMPI.W  #1919,D3
+  BHI.W apiRdFail
+
+  SF  LAB_A480CA
+  ST.B sectorRead
+
+  MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
+  JSR apiReadTracks2
+
+  RTS
+
+apiReadPdosSectors
+  ST.B pdosRead
+  MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
+  BRA apiReadSectors
+
+apiReadBytes
+  MOVE.L SaveCpuRegs+4,D1  ;start offset from D1 to D1
+  MOVE.L SaveCpuRegs+8,D2  ;byte count from D2 to D2
+
+  SUBQ.L  #1,D2
+  MOVE.L  D1,D3
+  ADD.L D2,D3
+  
+  TST.B pdosRead
+  BNE.S .1
+
+  CMPI.L  #901119,D3
+  BHI.W apiRdFail
+
+.1
+  CMPI.L  #983039,D3
+  BHI.W apiRdFail
+
+
+  SF  LAB_A480CA
+  ST.B byteRead
+
+  MOVE.L SaveCpuRegs+32,D0  ;load address from A0 to D0
+  JSR apiReadTracks2
+
+
+apiReadPdosBytes
+  ST.B pdosRead
+  MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
+  BRA apiReadBytes
+
+apiReadMfmTracks
+  ST.B mfmRead
+  MOVE.L SaveCpuRegs+12,D0  ;synx marker from D3
+  MOVE.W D0,mfmSync
+
+  MOVE.L SaveCpuRegs+16,D0  ;track length from D4
+  MOVE.W D0,mfmLength
+  BRA apiReadTracks
+
+apiWriteMfmTracks
+  ST.B mfmRead
+  MOVE.L SaveCpuRegs+12,D0
+  MOVE.W D0,mfmLength  ;track length from D3
+  BRA apiWriteTracks
+
+
+  
 apiCls:
   BSR.W Cls
   RTS
@@ -4057,7 +4266,10 @@ apiTable
   DC.L apiPrintText,apiPrintValue,apiCls,apiSelectScreen
   DC.L apiLoadFile,apiSaveFile,apiSaveData
   DC.L apiReadTracks,apiWriteTracks
-
+  DC.L apiReadPdosTracks,apiWritePdosTracks
+  DC.L apiReadSectors,apiReadPdosSectors
+  DC.L apiReadBytes,apiReadPdosBytes
+  DC.L apiReadMfmTracks,apiWriteMfmTracks
 
 debugger:
   SF  cursorEnabled
@@ -4682,6 +4894,14 @@ commandTable:
   even
   DC.L  CMD_DOSIO
 
+  DC.B  "CRC16",0
+  even
+  DC.L  CMD_CRC16
+
+  DC.B  "CRC32",0
+  even
+  DC.L  CMD_CRC32
+
   if arhardware=1
   DC.B  "ARRAM",0
   even
@@ -5160,6 +5380,14 @@ commandTable:
   DC.B  "RB",0
   even
   DC.L  CMD_RB
+
+  DC.B  "WR",0
+  even
+  DC.L  CMD_WR
+
+  DC.B  "WP",0
+  even
+  DC.L  CMD_WP
 
   DC.B  "WT",0
   even
@@ -7674,7 +7902,7 @@ LAB_A13B62:
 LAB_A13B7C:
   ST  forceUpper
   SF  EscapePressed
-  SF  LAB_A483C8
+  SF  AltKey
   SF  LAB_A48393
   SF  TBufferAllocated
   SF  LAB_A4839B
@@ -7682,7 +7910,7 @@ LAB_A13B7C:
   CLR.L rootBlockLoadedFlags
   ST  LAB_A48334
   CLR.W LAB_A481E8
-  SF  LAB_A482EE
+  SF  trackerPlaying
   CLR.W SaveCopJmp
   CLR.W picViewerMode
   TST.B TraceActive
@@ -7801,7 +8029,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.15012025 - private alpha release for TTE",0
+  DC.B  "                 v0.7.0.17012025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -9994,6 +10222,19 @@ LAB_A1675A:
   MOVE.W  (A1)+,(A0)+
   DBF D0,LAB_A1675A
   MOVE.L  SaveColor00,SaveColor
+
+  MOVE.L AgaPaletteSave,D0
+  BEQ.S .noaga1
+  MOVE.L D0,A0
+  MOVE.L AgaPaletteCopy,D0
+  BEQ.S .noaga1  
+  MOVE.L D0,A1
+  MOVE.W #256-1,D0
+.c
+  MOVE.L (A0)+,(A1)+
+  DBF D0,.c
+
+.noaga1 
   LEA RegSnoopBpl1Pt,A0
   MOVEQ #7,D0
   LEA CopyBpl1Pth,A1
@@ -10184,9 +10425,33 @@ LAB_A169AC:
   BHI.S LAB_A169D6
   BTST #2,ChipsetIdValue      ;aga
   BNE.S .1
+
+;  MOVEQ #0,D3
+;  MOVE.W CopyBplCon3,D3
+;  AND.W #%1110001000000000,D3
+;  BNE.S LAB_A169D6
+
+  MOVE.L AgaPaletteCopy,D3
+  BEQ.S .1
+  MOVE.L D3,A1
+;
   MOVE.W CopyBplCon3,D3
-  AND.W #%1110001000000000,D3
-  BNE.S LAB_A169D6
+  BTST #10,D3
+  BNE.S .2
+  ;low part of palette
+  ADDQ #2,A1
+.2
+  AND.W #$7000,D3
+  LSR.W #6,D3
+  ;add bank offset
+  ADD.L D3,A1
+
+  MOVE.W  D2,D3
+  SUBI.W  #$0180,D3
+  ADD.W D3,D3
+  SWAP  D2
+  MOVE.W  D2,0(A1,D3.W)
+  BRA.W LAB_A1688E
 .1
   MOVE.W  D2,D3
   SUBI.W  #$0180,D3
@@ -10240,7 +10505,6 @@ LAB_A16A5A:
   CMPI.W  #$0106,D2
   BNE.S LAB_A16A6C
   SWAP  D2
-  ANDI.W  #$f300,D0
   MOVE.W  D2,CopyBplCon3
 LAB_A16A6C:
   BRA.W LAB_A1688E
@@ -11824,22 +12088,7 @@ LAB_407CF6:
   DBF D0,LAB_407CF6
 ;  MOVE.L D1,debuginfo1
   MOVE.L  #BRON_TAG,bronFlag
-  CLR.W arramstart+16384
-  MOVE.W #$1234,arramstart
-  MOVE.L #EXT_4E80,memSaveEnd
-  MOVE.L #TextPage1,TextPage1Addr
-  MOVE.L #TextPage2,TextPage2Addr
-  TST.W arramstart+16384
-  BNE.S .1
-  ST.B full64k
-  JSR CheckPalMode
-  TST.B fullPal
-  BEQ.S .1
-  ADD.L #$1180,memSaveEnd
-  MOVE.L #ChipRamSave2-($a00*2),TextPage1Addr
-  MOVE.L #ChipRamSave2-($a00),TextPage2Addr
-.1:
-  CLR.W arramstart
+  JSR FirstInit
   BSR.W GetDrivesConnected
   JSR FindMemoryRanges
   MOVEQ #$10,D1
@@ -12155,20 +12404,8 @@ LAB_A17DC8:
 ArEntry1:
   CLR.L AronFlag
   CLR.W arramstart+16384
-  MOVE.W #$1234,arramstart
-  MOVE.L #EXT_4E80,memSaveEnd
-  MOVE.L #TextPage1,TextPage1Addr
-  MOVE.L #TextPage2,TextPage2Addr
-  TST.W arramstart+16384
-  BNE.S .1
-  ST.B full64k
-  JSR CheckPalMode
-  TST.B fullPal
-  BEQ.S .1
-  ADD.L #$1180,memSaveEnd
-  MOVE.L #ChipRamSave2-($a00*2),TextPage1Addr
-  MOVE.L #ChipRamSave2-($a00),TextPage2Addr
-.1:
+  JSR FirstInit
+
   MOVE.L EXT_200.W,Save200
   MOVEM.L D0-D7/A0-A6,SaveEntryRegs
   MOVE.L  D0,-(A7)
@@ -12211,6 +12448,32 @@ LAB_A17DDE:
   MOVEM.L SaveEntryRegs,D0-D7/A0-A6
   MOVE.L Save200,EXT_200.W
   JMP AREntry2
+
+FirstInit:
+  CLR.W arramstart
+  CLR.W arramstart+16384
+  MOVE.W #$1234,arramstart
+  MOVE.L #EXT_4E80,memSaveEnd
+  MOVE.L #TextPage1,TextPage1Addr
+  MOVE.L #TextPage2,TextPage2Addr
+  TST.W arramstart+16384
+  BNE.S .1
+  ST.B full64k
+  JSR CheckPalMode
+  TST.B fullPal
+  BEQ.S .2
+  ADD.L #$1180,memSaveEnd
+  MOVE.L #ChipRamSave2-($a00*2),TextPage1Addr
+  MOVE.L #ChipRamSave2-($a00),TextPage2Addr
+  MOVE.L #TextPage1,AgaPaletteSave
+  MOVE.L #TextPage1+1024,AgaPaletteCopy
+  BRA.S .1
+.2:
+  MOVE.L #ChipRamSave2-2048,AgaPaletteSave
+  MOVE.L #ChipRamSave2-1024,AgaPaletteCopy
+.1:
+  CLR.W arramstart
+  RTS
 
 SUB_A17DF4:
   CLR.L autoConfigMemStart
@@ -14095,6 +14358,16 @@ LAB_A19374:
   BSR.W PrintMemPeekerHelpLine5_2
   BRA.W LAB_A19C8E
 memPeekKeyF10:
+
+  ;BTST.B #2,ChipsetIdValue     ;aga
+  ;BNE.S .ecs
+  ;TST.L AgaPaletteCopy
+  ;BEQ.S .ecs
+
+  ;JSR restoreAgaColors2
+  ;BRA.S colsdone
+
+;.ecs
   LEA SaveColor,A0
   LEA EXT_DFF184,A1
   MOVE.L  (A0)+,SaveColor00
@@ -14102,6 +14375,8 @@ memPeekKeyF10:
 LAB_A19398:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A19398
+
+;colsdone
   MOVE.W  CopyBplCon0,D0
   ANDI.W  #$fe14,D0
   MOVE.W  D0,SaveBplCon0
@@ -18701,7 +18976,7 @@ LAB_A1CD6E:
   EXT.L D0
   JSR getVBR
   ADD.L D0,A0
-  BSR.W memSafeReadLong
+  JSR memSafeReadLong
   BSR.W PrintValue
   MOVEA.L A1,A0
   BSR.W FindNull
@@ -18718,7 +18993,7 @@ LAB_A1CD9C:
   BSR.W PrintValue
   BSR.W PrintSpace
   MOVEQ #7,D1
-  BSR.W memSafeReadLong
+  JSR memSafeReadLong
   ADDQ.L  #4,A0
   BSR.W PrintValue
   MOVEQ #1,D0
@@ -23182,12 +23457,12 @@ periodsdata:
   DS.L  1
   DS.W  1
 SUB_413B16:
-  ST  LAB_A482EE
+  ST  trackerPlaying
   RTS
 
 
 SUB_413B1E:
-  SF  LAB_A482EE
+  SF  trackerPlaying
   RTS
 
 SUB_413B26:
@@ -24428,12 +24703,10 @@ readRawMfmTrack:
   MOVE.W  #$9500,$9E(A5)
   MOVE.W  #$4000,$24(A5)
 
-  MOVE.L A2,D2
-  ADDQ.L #2,D2
-  MOVE.L  D2,$20(A5)
+  MOVE.L  #EXT_7000,$20(A5)
   MOVE.W  #2,$9C(A5)
   MOVE.W  mfmLength,D2
-  SUB.W #2,D2
+  SUB.W #1,D2
   OR.W    #$8000,D2
   MOVE.W  D2,$24(A5)
   MOVE.W  D2,$24(A5)
@@ -24456,7 +24729,13 @@ readRawMfmTrack:
   BEQ.S .2
 
   MOVE.W  #$4000,$24(A5)
-  MOVE.W  mfmSync,(A2)
+  MOVE.W  mfmSync,(A2)+
+  LEA EXT_7000,A0
+  MOVE.W mfmLength,D1
+  SUBQ.W #2,D1
+.copy
+  MOVE.W (A0)+,(A2)+
+  DBF D1,.copy
   BRA.S RawMfmReadOk
 RawMfmReadErr:
   MOVEQ #-2,D0    ;read error
@@ -24965,6 +25244,18 @@ SUB_A2006E:
   MOVE.L  D3,D0
   BSR.S SUB_A2007A
   RTS
+
+SUB_A2006C_2:
+  MOVE.L (A0)+,D0
+  EOR.L D3,D0
+  MOVE.L  D0,D3
+  LSR.L #1,D0
+  BSR.S SUB_A2007A
+  LEA $200-4(A1),A1
+  MOVE.L  D3,D0
+  BSR.S SUB_A2007A
+  LEA -$200(A1),A1
+  RTS
 SUB_A2007A:
   ANDI.L  #$55555555,D0
   MOVE.L  D0,D2
@@ -25029,25 +25320,134 @@ LAB_A2012C:
   BCLR  #7,(A1)
   RTS
 SUB_A20132:
+  TST.B mfmRead
+  BNE mfm1
+  
+  TST.B pdosRead
+  BNE makePdosTrack
+
   MOVEM.L D0-D1/A0-A2,-(A7)
+  ;a0=7000
+  ;track data 7000-8760 (11*544 bytes)
+  ;
   LEA $2E80(A0),A1
-  LEA $1540(A0),A0
+  LEA $1540(A0),A0  ;last sector track data
   MOVE.L  #$aaaaaaaa,$440(A1)
   MOVEQ #$A,D0
   MOVEQ #1,D1
 LAB_A2014A:
   MOVE.B  D1,7(A0)
-  BSR.W SUB_A1FFE4
-  LEA -544(A0),A0
-  LEA -1088(A1),A2
+  BSR.W SUB_A1FFE4  ;make sector
+  LEA -544(A0),A0 ;previous sector (source)
+  LEA -1088(A1),A2  ;previous sector (destination)
   LEA $440(A1),A1
   BSR.S SUB_A20118
   MOVEA.L A2,A1
   ADDQ.W  #1,D1
   DBF D0,LAB_A2014A
+  
   MOVEM.L (A7)+,D0-D1/A0-A2
+  BSR.W SUB_A20170
+mfm1:
+  RTS
+
+makePdosTrack
+  MOVEM.L D0-D7/A0-A3,-(A7)
+  ;1448
+  
+  ;4891
+  ;8 bytes track id
+  ;1024 bytes data
+  ;2 bytes gap size
+  ;a0=862c
+  
+  LEA 1036*12+2+$400(A0),A1
+
+  LEA 514*12(A0),A0 ;last sector
+  MOVEQ #12-1,D3
+.encodesector  
+
+  ;encode sector
+  LEA -1036(A1),A1
+  LEA -514(A0),A0
+
+  MOVE.W #$4891,(A1)+
+
+  MOVE.L A0,A2
+  MOVE.L A1,A3
+  MOVE.W (A0)+,D0
+  CLR.L (A1)+
+  CLR.L (A1)+
+  
+  MOVE.L D3,-(SP)
+  MOVE.W #512/4-1,D2
+  
+  MOVE.L pdosKey,D3
+.sectorenc
+  MOVEM.L D2/D4,-(SP)
+  ;encode to mfm
+  BSR SUB_A2006C_2
+  MOVEM.L (SP)+,D2/D4
+  DBF D2,.sectorenc
+  BSR SUB_A20118
+  LEA $200(A1),A1
+  BSR SUB_A20118
+  LEA -$200(A1),A1
+
+  MOVE.L A2,A0
+  MOVEQ #0,D2
+  MOVE.W (A0),D2
+
+  ;calc crc in low d0
+  LEA 8(A3),A0
+  BSR CalcPdosCrc
+  SWAP D0
+  MOVE.W D2,D0
+  SWAP D0
+  MOVE.L pdosKey,D2
+  BSET	#$1F,D2
+
+  EOR.L D2,D0
+
+  MOVE.L A3,A1
+  ;encode to mfm
+  BSR SUB_A2006E
+  BSR SUB_A20118
+  MOVE.L (SP)+,D3
+
+  LEA 1032(A3),A1
+  ;encode track gap byte to mfm
+  MOVE.W #$aaaa,(A1)
+  BSR SUB_A20118
+  LEA 2-1036(A1),A1
+  MOVE.L A2,A0
+ 
+  DBF D3,.encodesector
+  
+  LEA 1036*12(A1),A1
+  MOVE.L #$aaaaaaaa,(A1)
+  BSR SUB_A20118
+  
+  MOVEM.L (A7)+,D0-D7/A0-A3
+  MOVE.W #$1448,$400(A0)
   BSR.S SUB_A20170
   RTS
+
+CalcPdosCrc
+  MOVEM.L	D1/D2/A2,-(SP)
+	MOVEQ	#0,D0
+	MOVE.W	#$FF,D1
+chkloop	MOVE.L	(A0)+,D2
+	EOR.L	D2,D0
+	DBRA	D1,chkloop
+	AND.L	#$55555555,D0
+	MOVE.L	D0,D1
+	SWAP	D1
+	ADD.W	D1,D1
+	OR.W	D1,D0
+	MOVEM.L	(SP)+,D1/D2/A2
+	RTS
+
 SUB_A20170:
   MOVEM.L D0/A0,-(A7)
   MOVE.W  #$00ff,D0
@@ -25097,7 +25497,7 @@ writeTrack:
   BNE.S LAB_A2021E
   MOVEQ #-11,D0
   BSR.W SUB_A1FAB4
-  BMI.S LAB_A20288
+  BMI.W LAB_A20288
 LAB_A2021E:
   BSR.W selectDrive
   MOVEQ #0,D0
@@ -25113,11 +25513,33 @@ LAB_A2021E:
   BCS.S LAB_A20260
   MOVE.W  #$a100,$9E(A5)
 LAB_A20260:
+  MOVE.W  #$1002,$9C(A5)
+
+  TST.B pdosRead
+  BEQ.S .0
+
+  LEA $96(A0),A1
+  MOVE.L  A1,$20(A5)
+  MOVE.W  #$da00,$24(A5)
+  MOVE.W  #$da00,$24(A5)
+  BRA.S .2
+
+.0
+  TST.B mfmRead
+  BEQ.S .1
+
+  MOVE.L  A0,$20(A5)
+  MOVE.W  #$da00,$24(A5)
+  MOVE.W  #$da00,$24(A5)
+  BRA.S .2
+
+.1
+  ;a0=7000
   LEA $1A(A0),A1
   MOVE.L  A1,$20(A5)
-  MOVE.W  #$1002,$9C(A5)
   MOVE.W  #$d955,$24(A5)
   MOVE.W  #$d955,$24(A5)
+.2
   BSR.W checkDiskBlockDone
   MOVE.W  #$4000,$24(A5)
   BSR.W deselectAllDrives
@@ -25285,7 +25707,7 @@ LAB_A207B2:
   BMI.S LAB_A207DE
   BRA.S .1
 .rawmfm
-  MOVE.B D0,pdosTrack
+  ;MOVE.B D0,pdosTrack
   BSR.W readRawMfmTrack
   BMI.S LAB_A207DE
   BRA.S .1
@@ -25319,7 +25741,8 @@ SUB_A207FC:
   MOVE.B  LAB_A4824A,currDriveNo
   MOVE.L  D1,-(A7)
   MOVEQ #5,D1
-  BSR.W SUB_A20132
+  
+  BSR.W SUB_A20132    ;build mfm track data
 LAB_A2081A:
   BSR.W writeTrack
   BMI.S LAB_A2083E
@@ -30516,6 +30939,130 @@ dosiohelp:
 
   even
 
+CMD_CRC16:
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ crcWTF
+  MOVE.L  D0,A1
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ crcWTF
+  MOVE.L D0,A2
+
+  CMP.L A2,A1
+  BHI crcWTF
+
+  LEA CalculatingCRC,A0
+  JSR PrintText
+  MOVE.W #$16,D0
+  JSR Print2DigitHex
+  JSR PrintRangeInfo
+ 
+  MOVEQ #0,D0
+
+  ;#define ucrc16(ch,crc) Eor(zm.crc16tbl[Eor(Shr(crc,8) AND $ff,ch)],Shl(crc,8)) AND $ffff
+  ;a = Shr(crc,8) AND $ff
+  ;b = Eor(a,ch)
+  ;crc = Eor(zm.crc16tbl[a],Shl(crc,8))
+ 
+  LEA crc16tbl,A3
+.crc16
+  MOVE.B (A1)+,D1
+  
+  MOVE.W D0,D2
+  LSR.W #8,D2
+  
+  EOR.B D1,D2
+  
+  ADD.W D2,D2
+  MOVE.W (A3,D2),D2
+  LSL.W #8,D0
+  EOR.W D2,D0
+  
+  CMP.L A1,A2
+  BNE.S .crc16
+  
+  JSR Print4DigitHex
+  JSR PrintCR
+  JSR PrintCR
+ 
+  JMP PrintReady
+
+CMD_CRC32:
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S crcWTF
+  MOVE.L  D0,A1
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S crcWTF
+  MOVE.L D0,A2
+
+  CMP.L A2,A1
+  BHI.S crcWTF
+
+  LEA CalculatingCRC,A0
+  JSR PrintText
+  MOVE.W #$32,D0
+  JSR Print2DigitHex
+  JSR PrintRangeInfo
+  MOVEQ #-1,D0
+  
+  ;a = (Eor(crc,ch)) AND 255
+  ;crc = Eor(zm.crc32tbl[a],Shr(crc,8) AND $ffffff)
+  LEA crc32tbl,A3
+.crc16
+  MOVE.B (A1)+,D1
+  
+  MOVEQ #0,D2
+  MOVE.B D0,D2  
+  EOR.B D1,D2
+  
+  ADD.W D2,D2
+  ADD.W D2,D2
+  MOVE.L (A3,D2),D2
+  
+  LSR.L #8,D0
+  EOR.L D2,D0
+  
+  CMP.L A1,A2
+  BNE.S .crc16
+  NOT.L D0
+  
+  JSR Print8DigitHex
+  JSR PrintCR
+  JSR PrintCR
+
+  JMP PrintReady
+crcWTF
+  JMP PrintWTF
+
+PrintRangeInfo:
+  MOVEM.L D0/A0,-(A7)
+  LEA RangeFromText(PC),A0
+  JSR PrintText
+  MOVE.L  A1,D0
+  JSR PrintAddressHex
+  LEA RangeToText(PC),A0
+  JSR PrintText
+  MOVE.L  A2,D0
+  JSR PrintAddressHex
+  JSR PrintCrIfNotBlankLine
+  MOVEM.L (A7)+,D0/A0
+  RTS
+
+CalculatingCRC:
+  DC.B  "Calculating CRC",0
+
+RangeFromText:
+  DC.B  " from: ",0
+
+RangeToText:
+  DC.B  " to: ",0
+
+
   if arhardware=1
 CMD_ARRAM:
  
@@ -30997,9 +31544,12 @@ apiReadTracks2
   MOVEA.L D0,A1
   ST  LAB_A480CA
 
+  TST.B apiCall
+  BNE.W LAB_A24C46
+
   TST.B pdosRead
   BEQ.S .notpdos
-
+ 
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S .notpdos
@@ -31249,6 +31799,17 @@ SUB_A24E64:
   BSR.S SUB_A24E3E
   MOVEA.L (A7)+,A0
   RTS
+
+CMD_WP:
+  ST pdosRead
+  CLR.L pdosKey
+  BRA.S CMD_WT
+
+CMD_WR:
+  ST mfmRead
+  CLR.W mfmSync
+  CLR.W mfmLength
+
 CMD_WT:
   JSR ReadParameter
   TST.B ParamFound
@@ -31261,11 +31822,48 @@ CMD_WT:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
+
+  TST.B pdosRead
+  BEQ.S .notpdos
+
+  MOVE.L D0,tempD0
+  ;get pdos key
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.W LAB_A21070
+
+  MOVE.L D0,pdosKey
+  MOVE.L tempD0,D0
+
+.notpdos
+
+  TST.B mfmRead
+  BEQ.S .notmfm
+
+  MOVE.L D0,tempD0
+  ;get length parameter
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.W LAB_A21070
+  MOVE.W D0,mfmLength
+  CMPI.L  #$9999,D0
+  BHI.W LAB_A21070
+
+  MOVE.L tempD0,D0
+.notmfm
+
 apiWriteTracks2:
   BCLR  #0,D0
   MOVEA.L D0,A1
   MOVE.L  D2,D0
+  TST.B pdosRead
+  BEQ.S .1
+
+  MULU  #$1800,D0
+  BRA.S .2
+.1
   MULU  #$1600,D0
+.2
   ADD.L A1,D0
   CMPA.L  #ChipramSave1,A1
   BHI.S LAB_A24EC4
@@ -31292,12 +31890,19 @@ LAB_A24EC4:
   BSR.W restoreMfmBuffer
   MOVE.L  (A7)+,D0
   BRA.W PrintDiskOpResult
+
 SUB_A24EF0:
   MOVEM.L D1-D7/A0-A6,-(A7)
+  ;a0=mfm buffer (7000)
+  ;a1=data to write
 LAB_A24EF4:
   MOVEQ #9,D4
   MOVEA.L A1,A3
   MOVEA.L A0,A2
+  TST.B pdosRead
+  BNE.S pdos
+  TST.B mfmRead
+  BNE.S mfm
   MOVEQ #0,D3
 LAB_A24EFC:
   CLR.L (A2)+
@@ -31314,8 +31919,42 @@ LAB_A24F12:
   MOVE.L  (A1)+,(A2)+
   DBF D0,LAB_A24F12
   ADDQ.W  #1,D3
-  CMPI.W  #$000b,D3
+  CMP.W  #11,D3
   BNE.S LAB_A24EFC
+  ;a2=8760
+  BRA.S done
+
+pdos:
+  MOVEQ #0,D3
+pdosSector:
+  MOVE.B  D3,(A2)+    ;sector
+  MOVE.B  D1,(A2)+    ;track
+
+  MOVEQ #$7F,D0
+pdosData:
+  MOVE.L  (A1)+,(A2)+
+  DBF D0,pdosData
+  ADDQ.W  #1,D3
+  CMP.W  #12,D3
+  BNE.S pdosSector
+  BRA.S done
+
+mfm:
+  MOVEQ #0,D0
+  MOVE.W #$1a00-1,D0
+  SUB.W mfmLength,D0
+
+.clr
+  MOVE.W #$AAAA,(A2)+
+  DBF D0,.clr
+
+  MOVE.W mfmLength,D0
+  SUB.W #1,D0
+.copy
+  MOVE.W (A1)+,(A2)+
+  DBF D0,.copy
+
+done 
   MOVE.B  D1,LAB_A48249
   MOVE.B  currDriveNo,LAB_A4824A
 LAB_A24F30:
@@ -31341,8 +31980,13 @@ LAB_A24F30:
   CMPI.W  #$fff8,D0
   BEQ.S LAB_A24F9A
 LAB_A24F7A:
+  TST.B mfmRead
+  BNE.S LAB_A24F88
+  ;TST.B pdosRead
+  ;BNE.S LAB_A24F88
+  
   EXG A1,A3
-  BSR.S SUB_A24FD6
+  BSR.S SUB_A24FD6    ;verify data
   EXG A1,A3
   BPL.S LAB_A24F88
   DBF D4,LAB_A24F30
@@ -31356,6 +32000,8 @@ LAB_A24F88:
   MOVEQ #0,D0
 LAB_A24F9A:
   MOVEM.L (A7)+,D1-D7/A0-A6
+  SF pdosRead
+  SF mfmRead
   TST.W D0
   RTS
 
@@ -31380,7 +32026,11 @@ SUB_A24FD6:
   BSR.W SUB_A207AA
   BMI.S LAB_A2502A
   LEA mfmSectorAddresses,A2
-  MOVEQ #$A,D0
+  MOVEQ #11-1,D0
+  TST.B pdosRead
+  BEQ.S LAB_A25010
+  MOVEQ #12-1,D0
+  
 LAB_A25010:
   MOVEA.L (A2)+,A3
   MOVE.W  #$01ff,D1
@@ -31505,7 +32155,7 @@ LAB_A25168:
 LAB_A25194:
   ST  LAB_A48393
   LEA EXT_7000.W,A0
-  JSR backupMfmBuffer(PC)
+  JSR backupMfmBuffer
   TST.L foundSlowMemEnd
   BNE.S LAB_A25204
   CMPI.L  #$00100000,foundChipMemEnd
@@ -31573,7 +32223,7 @@ LAB_A2527A:
 LAB_A25282:
   LEA EXT_7000.W,A0
   MOVE.W  D0,-(A7)
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   MOVE.W  (A7)+,D0
   MOVE.B  (A7)+,currDriveNo
   TST.W D0
@@ -31719,10 +32369,10 @@ LAB_A25508:
   BSR.W SUB_A237D2
   BPL.S LAB_A25532
   BSR.W PrintDiskOpResult
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   BRA.S LAB_A25552
 LAB_A25532:
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   TST.W D0
   BMI.S LAB_A2554E
   LEA NormalBBText(PC),A0
@@ -37123,51 +37773,111 @@ LAB_A2A166:
   MOVEM.L (A7)+,D0/A0
   RTS
 
+;CMD_EA:
+;  BTST.B #2,ChipsetIdValue      ;aga
+;  BNE .3
+;
+;  ST.B scrollLock
+;  MOVE.W #0,D5
+;  MOVE.W #0,D4
+;  LEA EXT_DFF000,A5
+;  MOVE.W intenar(A5),D6
+;  OR.W #$8000,D6
+;  MOVE.W #$7fff,intena(a5)
+;  MOVE.W #$100,bplcon2(A5)
+;.nextbank
+;  MOVE.W #31,D1
+;  LEA color00(a5),A0
+;.nextcol
+;  MOVE.W D5,bplcon3(A5)
+;
+;  MOVEQ #0,D2
+;  MOVE.W (A0),D2
+;
+;  EOR.W #512,D5
+;  MOVE.W D5,bplcon3(A5)
+;  EOR.W #512,D5
+;
+;  MOVEQ #0,D3
+;  MOVE.W (A0)+,D3
+;  TST.W D4
+;  BNE .1
+;
+;  MOVE.L SaveAgaColor0,D2
+;  MOVE.W D2,D3
+;  SWAP D2
+;.1
+;  CMP.W #1,D4
+;  BNE.S .2
+;
+;  MOVE.L SaveAgaColor1,D2
+;  MOVE.W D2,D3
+;  SWAP D2
+;
+;.2
+;  MOVE.W D6,intena(A5)
+;
+;  MOVE.W D4,D0
+;  JSR Print2DigitHex
+;  JSR PrintSpace
+;
+;  ROL.W #8,D2
+;  ROL.W #8,D3
+;  MOVE.B D2,D0
+;  JSR Print1DigitHex
+;  MOVE.B D3,D0
+;  JSR Print1DigitHex
+;  ROL.W #4,D2
+;  ROL.W #4,D3
+;  MOVE.B D2,D0
+;  JSR Print1DigitHex
+;  MOVE.B D3,D0
+;  JSR Print1DigitHex
+;  ROL.W #4,D2
+;  ROL.W #4,D3
+;  MOVE.B D2,D0
+;  JSR Print1DigitHex
+;  MOVE.B D3,D0
+;  JSR Print1DigitHex
+;
+;  ADD.W #1,D4
+;  MOVE.W D4,D0
+;  AND.W #7,D0
+;  BEQ.S .4
+;
+;  JSR PrintSpace
+;  BRA.S .5
+;.4
+;  JSR PrintCR
+;.5
+;  DBF D1,.nextcol
+;.6
+;  ADD.W #$2000,D5
+;  BCC .nextbank
+;
+;  MOVE.W #0,bplcon3(A5)
+;  MOVE.W #0,bplcon2(A5)
+;  MOVE.W D6,intena(A5)
+;  SF.B scrollLock
+;  JSR PrintReady
+;  RTS
+
 CMD_EA:
   BTST.B #2,ChipsetIdValue      ;aga
   BNE .3
 
+  MOVE.L AgaPaletteSave,D1
+  BEQ .6
+  MOVE.L D1,A1  
+
   ST.B scrollLock
-  MOVE.W #0,D5
-  MOVE.W #0,D4
-  LEA EXT_DFF000,A5
-  MOVE.W intenar(A5),D6
-  OR.W #$8000,D6
-  MOVE.W #$7fff,intena(a5)
-  MOVE.W #$100,bplcon2(A5)
-.nextbank
-  MOVE.W #31,D1
-  LEA color00(a5),A0
+  MOVE.W #255,D1
+  MOVEQ #0,D4
 .nextcol
-  MOVE.W D5,bplcon3(A5)
-
-  MOVEQ #0,D2
-  MOVE.W (A0),D2
-
-  EOR.W #512,D5
-  MOVE.W D5,bplcon3(A5)
-  EOR.W #512,D5
-
-  MOVEQ #0,D3
-  MOVE.W (A0)+,D3
-  TST.W D4
-  BNE .1
-
-  MOVE.L SaveAgaColor0,D2
-  MOVE.W D2,D3
-  SWAP D2
-.1
-  CMP.W #1,D4
-  BNE.S .2
-
-  MOVE.L SaveAgaColor1,D2
-  MOVE.W D2,D3
-  SWAP D2
-
-.2
-  MOVE.W D6,intena(A5)
-
+  MOVE.W (A1)+,D2
+  MOVE.W (A1)+,D3
   MOVE.W D4,D0
+
   JSR Print2DigitHex
   JSR PrintSpace
 
@@ -37201,22 +37911,23 @@ CMD_EA:
   JSR PrintCR
 .5
   DBF D1,.nextcol
-.6
-  ADD.W #$2000,D5
-  BCC .nextbank
 
-  MOVE.W #0,bplcon3(A5)
-  MOVE.W #0,bplcon2(A5)
-  MOVE.W D6,intena(A5)
   SF.B scrollLock
   JSR PrintReady
   RTS
 
+.6
+  LEA NoAgaText(PC),A0
+  BRA.S .3a
 .3
   LEA NoAgaText(PC),A0
+.3a
   JSR PrintText
   JSR PrintReady
   RTS
+NoAgaText2:
+  DC.B "No AGA palette saved",0
+  
 NoAgaText:
   DC.B "No AGA detected",0
   even
@@ -42255,6 +42966,76 @@ LAB_A31946:
   MOVEM.L (A7)+,A1-A3
   MOVEQ #0,D0
   RTS
+
+crc16tbl:
+  DC.W $0000,$1021,$2042,$3063,$4084,$50A5,$60C6,$70E7
+  DC.W $8108,$9129,$A14A,$B16B,$C18C,$D1AD,$E1CE,$F1EF
+  DC.W $1231,$0210,$3273,$2252,$52B5,$4294,$72F7,$62D6
+  DC.W $9339,$8318,$B37B,$A35A,$D3BD,$C39C,$F3FF,$E3DE
+  DC.W $2462,$3443,$0420,$1401,$64E6,$74C7,$44A4,$5485
+  DC.W $A56A,$B54B,$8528,$9509,$E5EE,$F5CF,$C5AC,$D58D
+  DC.W $3653,$2672,$1611,$0630,$76D7,$66F6,$5695,$46B4
+  DC.W $B75B,$A77A,$9719,$8738,$F7DF,$E7FE,$D79D,$C7BC
+  DC.W $48C4,$58E5,$6886,$78A7,$0840,$1861,$2802,$3823
+  DC.W $C9CC,$D9ED,$E98E,$F9AF,$8948,$9969,$A90A,$B92B
+  DC.W $5AF5,$4AD4,$7AB7,$6A96,$1A71,$0A50,$3A33,$2A12
+  DC.W $DBFD,$CBDC,$FBBF,$EB9E,$9B79,$8B58,$BB3B,$AB1A
+  DC.W $6CA6,$7C87,$4CE4,$5CC5,$2C22,$3C03,$0C60,$1C41
+  DC.W $EDAE,$FD8F,$CDEC,$DDCD,$AD2A,$BD0B,$8D68,$9D49
+  DC.W $7E97,$6EB6,$5ED5,$4EF4,$3E13,$2E32,$1E51,$0E70
+  DC.W $FF9F,$EFBE,$DFDD,$CFFC,$BF1B,$AF3A,$9F59,$8F78
+  DC.W $9188,$81A9,$B1CA,$A1EB,$D10C,$C12D,$F14E,$E16F
+  DC.W $1080,$00A1,$30C2,$20E3,$5004,$4025,$7046,$6067
+  DC.W $83B9,$9398,$A3FB,$B3DA,$C33D,$D31C,$E37F,$F35E
+  DC.W $02B1,$1290,$22F3,$32D2,$4235,$5214,$6277,$7256
+  DC.W $B5EA,$A5CB,$95A8,$8589,$F56E,$E54F,$D52C,$C50D
+  DC.W $34E2,$24C3,$14A0,$0481,$7466,$6447,$5424,$4405
+  DC.W $A7DB,$B7FA,$8799,$97B8,$E75F,$F77E,$C71D,$D73C
+  DC.W $26D3,$36F2,$0691,$16B0,$6657,$7676,$4615,$5634
+  DC.W $D94C,$C96D,$F90E,$E92F,$99C8,$89E9,$B98A,$A9AB
+  DC.W $5844,$4865,$7806,$6827,$18C0,$08E1,$3882,$28A3
+  DC.W $CB7D,$DB5C,$EB3F,$FB1E,$8BF9,$9BD8,$ABBB,$BB9A
+  DC.W $4A75,$5A54,$6A37,$7A16,$0AF1,$1AD0,$2AB3,$3A92
+  DC.W $FD2E,$ED0F,$DD6C,$CD4D,$BDAA,$AD8B,$9DE8,$8DC9
+  DC.W $7C26,$6C07,$5C64,$4C45,$3CA2,$2C83,$1CE0,$0CC1
+  DC.W $EF1F,$FF3E,$CF5D,$DF7C,$AF9B,$BFBA,$8FD9,$9FF8
+  DC.W $6E17,$7E36,$4E55,$5E74,$2E93,$3EB2,$0ED1,$1EF0
+
+crc32tbl:
+ DC.L $00000000,$77073096,$ee0e612c,$990951ba,$076dc419,$706af48f,$e963a535,$9e6495a3
+ DC.L $0edb8832,$79dcb8a4,$e0d5e91e,$97d2d988,$09b64c2b,$7eb17cbd,$e7b82d07,$90bf1d91
+ DC.L $1db71064,$6ab020f2,$f3b97148,$84be41de,$1adad47d,$6ddde4eb,$f4d4b551,$83d385c7
+ DC.L $136c9856,$646ba8c0,$fd62f97a,$8a65c9ec,$14015c4f,$63066cd9,$fa0f3d63,$8d080df5
+ DC.L $3b6e20c8,$4c69105e,$d56041e4,$a2677172,$3c03e4d1,$4b04d447,$d20d85fd,$a50ab56b
+ DC.L $35b5a8fa,$42b2986c,$dbbbc9d6,$acbcf940,$32d86ce3,$45df5c75,$dcd60dcf,$abd13d59
+ DC.L $26d930ac,$51de003a,$c8d75180,$bfd06116,$21b4f4b5,$56b3c423,$cfba9599,$b8bda50f
+ DC.L $2802b89e,$5f058808,$c60cd9b2,$b10be924,$2f6f7c87,$58684c11,$c1611dab,$b6662d3d
+ DC.L $76dc4190,$01db7106,$98d220bc,$efd5102a,$71b18589,$06b6b51f,$9fbfe4a5,$e8b8d433
+ DC.L $7807c9a2,$0f00f934,$9609a88e,$e10e9818,$7f6a0dbb,$086d3d2d,$91646c97,$e6635c01
+ DC.L $6b6b51f4,$1c6c6162,$856530d8,$f262004e,$6c0695ed,$1b01a57b,$8208f4c1,$f50fc457
+ DC.L $65b0d9c6,$12b7e950,$8bbeb8ea,$fcb9887c,$62dd1ddf,$15da2d49,$8cd37cf3,$fbd44c65
+ DC.L $4db26158,$3ab551ce,$a3bc0074,$d4bb30e2,$4adfa541,$3dd895d7,$a4d1c46d,$d3d6f4fb
+ DC.L $4369e96a,$346ed9fc,$ad678846,$da60b8d0,$44042d73,$33031de5,$aa0a4c5f,$dd0d7cc9
+ DC.L $5005713c,$270241aa,$be0b1010,$c90c2086,$5768b525,$206f85b3,$b966d409,$ce61e49f
+ DC.L $5edef90e,$29d9c998,$b0d09822,$c7d7a8b4,$59b33d17,$2eb40d81,$b7bd5c3b,$c0ba6cad
+ DC.L $edb88320,$9abfb3b6,$03b6e20c,$74b1d29a,$ead54739,$9dd277af,$04db2615,$73dc1683
+ DC.L $e3630b12,$94643b84,$0d6d6a3e,$7a6a5aa8,$e40ecf0b,$9309ff9d,$0a00ae27,$7d079eb1
+ DC.L $f00f9344,$8708a3d2,$1e01f268,$6906c2fe,$f762575d,$806567cb,$196c3671,$6e6b06e7
+ DC.L $fed41b76,$89d32be0,$10da7a5a,$67dd4acc,$f9b9df6f,$8ebeeff9,$17b7be43,$60b08ed5
+ DC.L $d6d6a3e8,$a1d1937e,$38d8c2c4,$4fdff252,$d1bb67f1,$a6bc5767,$3fb506dd,$48b2364b
+ DC.L $d80d2bda,$af0a1b4c,$36034af6,$41047a60,$df60efc3,$a867df55,$316e8eef,$4669be79
+ DC.L $cb61b38c,$bc66831a,$256fd2a0,$5268e236,$cc0c7795,$bb0b4703,$220216b9,$5505262f
+ DC.L $c5ba3bbe,$b2bd0b28,$2bb45a92,$5cb36a04,$c2d7ffa7,$b5d0cf31,$2cd99e8b,$5bdeae1d
+ DC.L $9b64c2b0,$ec63f226,$756aa39c,$026d930a,$9c0906a9,$eb0e363f,$72076785,$05005713
+ DC.L $95bf4a82,$e2b87a14,$7bb12bae,$0cb61b38,$92d28e9b,$e5d5be0d,$7cdcefb7,$0bdbdf21
+ DC.L $86d3d2d4,$f1d4e242,$68ddb3f8,$1fda836e,$81be16cd,$f6b9265b,$6fb077e1,$18b74777
+ DC.L $88085ae6,$ff0f6a70,$66063bca,$11010b5c,$8f659eff,$f862ae69,$616bffd3,$166ccf45
+ DC.L $a00ae278,$d70dd2ee,$4e048354,$3903b3c2,$a7672661,$d06016f7,$4969474d,$3e6e77db
+ DC.L $aed16a4a,$d9d65adc,$40df0b66,$37d83bf0,$a9bcae53,$debb9ec5,$47b2cf7f,$30b5ffe9
+ DC.L $bdbdf21c,$cabac28a,$53b39330,$24b4a3a6,$bad03605,$cdd70693,$54de5729,$23d967bf
+ DC.L $b3667a2e,$c4614ab8,$5d681b02,$2a6f2b94,$b40bbe37,$c30c8ea1,$5a05df1b,$2d02ef8d
+
+
   if arsoft=1
   DC.L SECSTRT_0
   DC.B "AR5_"
@@ -43208,7 +43989,7 @@ printerDumpToggle:
 PrinterFound:
   DS.B  1
   even
-LAB_A482EE:
+trackerPlaying:
   DS.W  1
 LAB_A482F0:
   DS.W  1
@@ -43374,7 +44155,7 @@ Port1Button1:
   DS.B  1
 Port0Button1:
   DS.B  1
-LAB_A483C8:
+AltKey:
   DS.B  1
 forceUpper:
   DS.B  1
@@ -43527,6 +44308,10 @@ TextPage2Addr
 ;  DS.W  1
 SaveOldStk1
   DS.L 1
+AgaPaletteSave
+  DS.L 1
+AgaPaletteCopy
+  DS.L 1
 SaveAgaColor0
   DS.L 1
 SaveAgaColor1
@@ -43561,6 +44346,8 @@ stringWorkspace:
   DS.L  $14
 
 ;spare space here for more variables
+
+;keydata DS.B 128
 
   if rsnoop=1
   ds.b SECSTRT_0+$4f000-*
@@ -43732,13 +44519,13 @@ EscapePressed:
   even
 CurrentPage:
   DS.L  1
-LAB_A47F3C:
+keyRepeat:
   DS.W  1
 LAB_A47F3E:
   DS.W  1
 LAB_A47F40:
   DS.W  1
-LAB_A47F42:
+flashLedOnKey:
   DS.W  1
 ParamFound:
   DS.L  1
