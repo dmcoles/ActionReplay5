@@ -1,11 +1,13 @@
 
 ;Action Replay 5
-
-
 dbg=0
 pistorm=0
 arhardware=1
 arsoft=0
+
+dbgramdisk=0
+;  $00200000
+;  $07f00000
 
 ;trap 8 - breakpoint
 ;trap 15 - called by trap 8
@@ -2434,7 +2436,7 @@ KeyboardIntInstall:
   CLR.W flashLedOnKey
   ORI.B #$40,EXT_BFEE01
   MOVE.B  #0,EXT_BFEC01
-  BSR.W SUB_A11032
+  BSR.W keyAckDelay
   BCLR  #6,EXT_BFEE01
   MOVE.W  #$8008,$9A(A5)
   MOVEA.L (A7)+,A0
@@ -2500,18 +2502,10 @@ KeyboardIntRemove:
   MOVE.L  Int2Save,AUTO_INT2.W
   MOVEA.L (A7)+,A0
   RTS
-SUB_A11032:
-  MOVE.B  #$10,EXT_BFD600
-  MOVE.B  #0,EXT_BFD700
-  MOVE.B  #$99,EXT_BFDF00
-LAB_A1104A:
-  BTST  #0,EXT_BFDF00
-  BNE.S LAB_A1104A
-  MOVE.B  #$80,EXT_BFDF00
-  RTS
 keyAckDelay:
-  MOVE.B  #0,EXT_BFD600
-  MOVE.B  #$20,EXT_BFD700
+
+  MOVE.B  #140,EXT_BFD600
+  MOVE.B  #0,EXT_BFD700
   MOVE.B  #$99,EXT_BFDF00
 LAB_A11076:
   BTST  #0,EXT_BFDF00
@@ -3693,35 +3687,33 @@ LAB_A11B24:
   MOVEM.L (A7)+,D1/A0
   RTS
 getKeymap:
-  MOVE.B ShiftKey,-(A7)
-  TST.B IgnoreShift
-  BEQ.S .noignore
-
-  CLR.B ShiftKey
-.noignore:
-
   TST.B keymap
   BEQ.S LAB_A11B44
   CMP.B #1,keymap
   BEQ LAB_A11B44_2
   LEA keymapUK(PC),A0
+  TST.B IgnoreShift
+  BNE.S LAB_A11B54
   TST.B ShiftKey
   BEQ.S LAB_A11B54
   LEA keymapUpperUK(PC),A0
   BRA.S LAB_A11B54
 LAB_A11B44_2
   LEA keymapUS(PC),A0
+  TST.B IgnoreShift
+  BNE.S LAB_A11B54
   TST.B ShiftKey
   BEQ.S LAB_A11B54
   LEA keymapUpperUS(PC),A0
   BRA.S LAB_A11B54
 LAB_A11B44:
   LEA keymapDE(PC),A0
+  TST.B IgnoreShift
+  BNE.S LAB_A11B54
   TST.B ShiftKey
   BEQ.S LAB_A11B54
   LEA keymapUpperDE(PC),A0
 LAB_A11B54:
-  MOVE.B (A7)+,ShiftKey
   RTS
 keymapDE:
   DC.L  $60313233,$34353637,$383930df,$005c0030
@@ -5104,6 +5096,10 @@ commandTable:
   DC.B  "RNC",0
   even
   DC.L  CMD_RNC
+
+  DC.B  "MFM",0
+  even
+  DC.L  CMD_MFM
 
   DC.B  "DBG",0
   even
@@ -8029,7 +8025,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.17012025 - private alpha release for TTE",0
+  DC.B  "                 v0.7.0.22012025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -12473,6 +12469,36 @@ FirstInit:
   MOVE.L #ChipRamSave2-1024,AgaPaletteCopy
 .1:
   CLR.W arramstart
+  
+  if dbg=1
+  ifne dbgramdisk
+  MOVE.L #dbgramdisk,newRamdiskAddr  
+  LEA EXT_7000.W,A0
+  BSET #4,DrivesConnectedLo
+  MOVE.B #4,currDriveNo
+  JSR formatInitialise
+  MOVE.B #0,currDriveNo
+  endc
+  endc
+  
+  
+  if arhardware=1
+  ifne dbgramdisk
+  MOVE.L #dbgramdisk,newRamdiskAddr  
+  else
+  JSR CheckARRam
+  CMP.L #1024,D0
+  BLT.S .3
+  MOVE.L #arramstart+$10000,newRamdiskAddr
+  endc
+
+  LEA EXT_7000.W,A0
+  BSET #4,DrivesConnectedLo
+  MOVE.B #4,currDriveNo
+  JSR formatInitialise
+  MOVE.B #0,currDriveNo
+.3
+  endc
   RTS
 
 SUB_A17DF4:
@@ -25022,6 +25048,22 @@ LAB_A1FF74:
   MOVE.L  D5,$1C(A3)
   BRA.S LAB_A1FF4C
 
+findRamdiskSectors
+  MOVEM.L D1-D2/A2,-(A7)
+  LEA mfmSectorAddresses,A2
+  MOVE.L D0,D1
+  MULU #$1600,D1
+  ADD.L newRamdiskAddr,D1
+  
+  MOVEQ #$B,D2
+.1
+  MOVE.L D1,(A2)+
+  ADD.L #512,D1
+  DBF D2,.1
+  MOVEM.L (A7)+,D1-D2/A2
+  RTS
+
+
 findPdosMfmSectors:
   MOVEM.L D1-D3/A1-A3,-(A7)
   MOVE.L  A0,-(A7)
@@ -25320,6 +25362,8 @@ LAB_A2012C:
   BCLR  #7,(A1)
   RTS
 SUB_A20132:
+  CMP.B #4,currDriveNo
+  BEQ mfm1
   TST.B mfmRead
   BNE mfm1
   
@@ -25481,6 +25525,10 @@ LAB_A201D2:
   RTS
 writeTrack:
   MOVEM.L D1/A1/A5,-(A7)
+  CLR.L D0
+  CMP.B #4,currDriveNo
+  BEQ LAB_A20288
+  
   BSR.S checkDiskBlockDone
   BSR.W SUB_A2071A
   BMI.W LAB_A20288
@@ -25604,41 +25652,44 @@ PrintDiskOpResult2:
   RTS
 
 DiskOpResultTable:
-  DC.B  "Disk ok                      ",0
-  DC.B  "No disk in drive             ",0
-  DC.B  "Read error                   ",0
-  DC.B  "Headerchecksum error         ",0
-  DC.B  "Datachecksum error           ",0
-  DC.B  "Track malformed              ",0
-  DC.B  "Wrong blocktype              ",0
-  DC.B  "Not a bootblock              ",0
-  DC.B  "User break                   ",0
-  DC.B  "Not a dos-track              ",0
-  DC.B  "Disk is write-protected      ",0
-  DC.B  "Write error                  ",0
-  DC.B  "DMA not ready (sync ?)       ",0
-  DC.B  "Drive not available          ",0
-  DC.B  "Filename expected            ",0
-  DC.B  "Bam corrupt                  ",0
-  DC.B  "Bam not valid                ",0
-  DC.B  "Invalid sectornr             ",0
-  DC.B  "File not found               ",0
-  DC.B  "Disk full                    ",0
-  DC.B  "Sector not free              ",0
-  DC.B  "Dos structure corrupt        ",0
-  DC.B  "End of file                  ",0
-  DC.B  "Sector freed twice           ",0
-  DC.B  "Invalid pathname             ",0
-  DC.B  "Directory not found          ",0
-  DC.B  "File exists                  ",0
-  DC.B  "Directory not empty          ",0
-  DC.B  "No valid freeze-file         ",0
-  DC.B  "Verify error                 ",0
-  DC.B  "AAR MK II file: use old aload",0
-  DC.B  "Not enough ChipMem available ",0
-  DC.B  "Not enough FastMem available ",0
-  DC.B  "Not enough Exp.Mem available ",0
-  DC.B  "Not a DOS-disk               ",0
+  DC.B  "Disk ok                      ",0     ;0
+  DC.B  "No disk in drive             ",0     ;-1
+  DC.B  "Read error                   ",0     ;-2
+  DC.B  "Headerchecksum error         ",0     ;-3
+  DC.B  "Datachecksum error           ",0     ;-4
+  DC.B  "Track malformed              ",0     ;-5
+  DC.B  "Wrong blocktype              ",0     ;-6
+  DC.B  "Not a bootblock              ",0     ;-7
+  DC.B  "User break                   ",0     ;-8
+  DC.B  "Not a dos-track              ",0     ;-9
+  DC.B  "Disk is write-protected      ",0     ;-10
+  DC.B  "Write error                  ",0     ;-11
+  DC.B  "DMA not ready (sync ?)       ",0     ;-12
+  DC.B  "Drive not available          ",0     ;-13
+  DC.B  "Filename expected            ",0     ;-14
+  DC.B  "Bam corrupt                  ",0     ;-15
+  DC.B  "Bam not valid                ",0     ;-16
+  DC.B  "Invalid sectornr             ",0     ;-17
+  DC.B  "File not found               ",0     ;-18
+  DC.B  "Disk full                    ",0     ;-19
+  DC.B  "Sector not free              ",0     ;-20
+  DC.B  "Dos structure corrupt        ",0     ;-21
+  DC.B  "End of file                  ",0     ;-22
+  DC.B  "Sector freed twice           ",0     ;-23
+  DC.B  "Invalid pathname             ",0     ;-24
+  DC.B  "Directory not found          ",0     ;-25
+  DC.B  "File exists                  ",0     ;-26
+  DC.B  "Directory not empty          ",0     ;-27
+  DC.B  "No valid freeze-file         ",0     ;-28
+  DC.B  "Verify error                 ",0     ;-29
+  DC.B  "AR MK II file: use old aload ",0     ;-30
+  DC.B  "Not enough ChipMem available ",0     ;-31
+  DC.B  "Not enough FastMem available ",0     ;-32
+  DC.B  "Not enough Exp.Mem available ",0     ;-33
+  DC.B  "Not a DOS-disk               ",0     ;-34
+  DC.B  "Ramdisk not active           ",0     ;-35
+
+  even
 
 SUB_A2071A:
   BSR.W selectDrive
@@ -25697,6 +25748,11 @@ SUB_A207AA:
   MOVEQ #5,D1
 LAB_A207B2:
   MOVE.W  D2,D0
+  CMP.B #4,currDriveNo
+  BNE.S .notramdisk
+  JSR findRamdiskSectors
+  BRA.W .1
+.notramdisk  
   TST.B pdosRead
   BNE.S .pdos
   TST.B mfmRead
@@ -26012,11 +26068,19 @@ CMD_FORMAT:
   CMPI.B  #$46,D0
   SEQ FastFileSystemFlag2
 LAB_A20B88:
+  LEA ReadyToFormatRamdisk(PC),A0
+  CMP.B #4,currDriveNo
+  BEQ.S .1
+
   LEA ReadyToFormatText(PC),A0
+.1
   JSR PrintText
   MOVE.B  currDriveNo,D0
+  CMP.B #4,D0
+  BEQ.S .2
   MOVEQ #1,D1
   JSR PrintValue
+.2
   LEA AskYNText(PC),A0
   JSR AskYN
   TST.W D0
@@ -26126,6 +26190,9 @@ LAB_A20CF6:
 ReadyToFormatText:
   DC.B  "Ready to format disk in drive DF",0
 
+ReadyToFormatRamdisk:
+  DC.B  "Ready to format Ramdisk?",0
+
 AskYNText:
   DC.B  ": (y/n)?",$D,0
 
@@ -26137,6 +26204,7 @@ HeadText:
 
 VerifyingText:
   DC.B  "Verifying track !",0
+  even
 
 doVerify:
   MOVEM.L D1-D2/A1,-(A7)
@@ -26212,7 +26280,11 @@ LAB_A20E36:
   TST.W D0
   BNE.S LAB_A20E58
   MOVEQ #$13,D1
-  LEA ArProText(PC),A2
+  LEA Ar5Text(PC),A2
+  CMP.B #4,currDriveNo
+  BNE.S LAB_A20E58
+  LEA ArRamDiskText(PC),A2
+  
 LAB_A20E58:
   MOVE.W  #$0370,D0
   BSR.W loadSector
@@ -26254,7 +26326,7 @@ LAB_A20EAA:
   CLR.L (A1)+
   MOVE.L  #1,(A1)+
   LEA -512(A1),A1
-  BSR.S calcDataSectorChecksum
+  BSR calcDataSectorChecksum
   MOVE.W  #$0371,D0
   BSR.W loadSector
   BMI.S LAB_A20F16
@@ -26281,7 +26353,9 @@ LAB_A20F16:
   MOVEM.L (A7)+,D1-D4/A0-A2
   RTS
 
-ArProText:
+ArRamDiskText
+  DC.B  "AR5 Ramdisk",0
+Ar5Text:
   DC.B  "Action Replay 5",0
 
 calcBitmapChecksum:
@@ -27863,20 +27937,35 @@ SUB_A22080:
   MOVEM.L D1-D5/A1-A3,-(A7)
   CMPI.W  #1,D0
   BLS.S LAB_A220CA
-  CMPI.B  #$3a,1(A2)
+  CMPI.B  #$3a,1(A2)      ;colon
   BNE.S LAB_A220CA
-  CMPI.B  #$2f,(A2)
+  CMPI.B  #$2f,(A2)       ;slash
   BLS.S LAB_A220AE
-  CMPI.B  #$33,(A2)
-  BHI.S LAB_A220AE
+
+  ;ramdisk (r:)
+  MOVEQ #4,D1
+  CMP.B #"R",(A2)
+  BEQ.S .1
+  CMP.B #"r",(A2)
+  BEQ.S .1
+  
   MOVEQ #0,D1
+  CMPI.B  #$33,(A2)       ;3
+  BHI.S LAB_A220AE
   MOVE.B  (A2),D1
   SUBI.B  #$30,D1
+.1
   BTST  D1,DrivesConnectedLo
   BNE.S LAB_A220B4
 LAB_A220AE:
+  CMP.B #4,D1
+  BEQ.S .noramdisk
   MOVEQ #-13,D0
   BRA.W LAB_A22158
+.noramdisk
+  MOVEQ #-35,D0     ;ramdisk not active
+  BRA.W LAB_A22158
+  
 LAB_A220B4:
   MOVE.B  D1,currDriveNo
   MOVE.L  #$00000370,currentDirBlock
@@ -29457,6 +29546,8 @@ LAB_A2372E:
   TST.W D0
   RTS
 CMD_INSTALL:
+  CMP.B  #4,currDriveNo
+  BEQ installWTF
   MOVEQ #0,D1     ;default install type
   JSR ReadParameter
   TST.B ParamFound
@@ -29495,6 +29586,10 @@ LAB_A2378C:
 LAB_A237A0:
   BSR.W PrintDiskOpResult
   RTS
+
+installWTF:
+  JMP PrintWTF
+  
 InstallYNText:
   DC.B  "Ready to install disk in drive df",0
 
@@ -31065,7 +31160,21 @@ RangeToText:
 
   if arhardware=1
 CMD_ARRAM:
- 
+  JSR CheckARRam
+  JSR ConvertToBCD
+  MOVEQ #4,D1
+  JSR PrintValue
+
+  LEA ramfoundText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+  
+ramfoundText:
+  DC.B "K of action replay memory found",0 
+  even
+  endc
+
+CheckARRam:
   MOVE.W #40,D7
 
   LEA arramstart,A0
@@ -31106,18 +31215,8 @@ CMD_ARRAM:
 
   MOVEQ #0,D0
   MOVE.W D7,D0 
-  JSR ConvertToBCD
-  MOVEQ #4,D1
-  JSR PrintValue
+  RTS
 
-  LEA ramfoundText(PC),A0
-  JSR PrintText
-  JMP PrintReady
-  
-ramfoundText:
-  DC.B "K of action replay memory found",0 
-  even
-  endc
 
 CMD_RNC:
   LEA EXT_7000.W,A0
@@ -31481,7 +31580,14 @@ LAB_A24B1A:
   CMP.L  D0,D3
   BHI.W LAB_A21070
 
+  TST.B mfmRead
+  BEQ.S .notmfm
+  MOVEQ #0,D1
+  MOVE.W mfmLength,D3
+  ADD.W D3,D3
+  BRA.S .2
 
+.notmfm
   MOVE.W #$1600,D3
   TST.B pdosRead
   BEQ.S .2
@@ -31516,7 +31622,7 @@ LAB_A24B1A:
 
 .tr3
   TST.B mfmRead
-  BEQ.S .notmfm
+  BEQ.S .notmfm2
 
   ;get sync parameter
   JSR ReadParameter
@@ -31534,7 +31640,7 @@ LAB_A24B1A:
   CMPI.L  #$9999,D0
   BHI.W LAB_A21070
 
-.notmfm
+.notmfm2
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A24B46
@@ -31562,6 +31668,12 @@ LAB_A24B46:
   BSR.W AllocTBuff
 LAB_A24B52:
   MOVE.L  DiskMonBufferSize,D0
+  TST.B mfmRead
+  BEQ.S .notmfm
+  DIVU mfmLength,D0
+  ASR.W #1,D0
+  BRA.S .divdone
+.notmfm
   TST.B pdosRead
   BEQ.S .notpdos
   DIVU  #$1800,D0
@@ -31612,7 +31724,19 @@ LAB_A24C04:
   SUBQ.L  #1,D0
   BNE.S LAB_A24C04
   MOVE.L  DiskMonBufferSize,D0
+  TST.B mfmRead
+  BEQ.S .notmfm2
+  DIVU mfmLength,D0
+  ASR.W #1,D0
+  BRA.S .divdone2
+.notmfm2
+  TST.B pdosRead
+  BEQ.S .notpdos2
+  DIVU  #$1800,D0
+  BRA.S .divdone2
+.notpdos2:
   DIVU  #$1600,D0
+.divdone2:
   CMP.W D0,D2
   BLS.S LAB_A24C46
   MOVE.W  D0,D2
@@ -31628,7 +31752,7 @@ LAB_A24C04:
   JSR PrintText
 LAB_A24C46:
   TST.B TBufferAllocated
-  BEQ.S LAB_A24CB2
+  BEQ.W LAB_A24CB2
   MOVE.L  D1,D3
   LEA TBuffFromText(PC),A0
   JSR PrintText
@@ -31641,7 +31765,22 @@ LAB_A24C46:
   LEA TBuffHoldingText(PC),A0
   JSR PrintText
   MOVE.L  DiskMonBufferSize,D0
+  TST.B mfmRead
+  BEQ.S .0
+  MOVEQ #0,D1
+  MOVE.W mfmLength,D1
+  ADD.W D1,D1
+  DIVU  D1,D0
+  BRA.S .2
+.0
+  TST.B pdosRead
+  BEQ.S .1
+  DIVU  #$1800,D0
+  BRA.S .2
+  
+.1
   DIVU  #$1600,D0
+.2
   EXT.L D0
   JSR ConvertToBCD
   MOVEQ #3,D1
@@ -31676,7 +31815,7 @@ LAB_A24CEA:
   MOVE.W  D1,D0
   JSR SUB_A24E64
   BSR.W SUB_A207AA
-  BPL.S LAB_A24D58
+  BPL.W LAB_A24D58
   MOVE.L  D0,-(A7)
   MOVE.W  D1,D0
   BSR.W SUB_A25372
@@ -31702,6 +31841,7 @@ LAB_A24D3E:
   TST.B mfmRead
   BEQ.S .notmfm
   ADD.W mfmLength,A2
+  ADD.W mfmLength,A2
   BRA.S LAB_A24D48
 
 .notmfm
@@ -31720,6 +31860,7 @@ LAB_A24D50:
 LAB_A24D58:
   TST.B mfmRead
   BEQ.S .notmfm
+  ADD.W mfmLength,A2
   ADD.W mfmLength,A2
   BRA.S LAB_A24D48
 .notmfm
@@ -31856,6 +31997,12 @@ apiWriteTracks2:
   BCLR  #0,D0
   MOVEA.L D0,A1
   MOVE.L  D2,D0
+  TST.B mfmRead
+  BEQ.S .0
+  MULU  mfmLength,D0
+  ADD.L D0,D0
+  BRA.S .2
+.0
   TST.B pdosRead
   BEQ.S .1
 
@@ -32102,7 +32249,7 @@ LAB_A250E2:
   BLS.S LAB_A25132
 LAB_A250F0:
   LEA EXT_7000.W,A0
-  BSR.W backupMfmBuffer
+  JSR backupMfmBuffer
 LAB_A250F8:
   MOVE.W  D6,D1
   MOVEQ #0,D2
@@ -32115,7 +32262,7 @@ LAB_A250F8:
   BPL.S LAB_A25126
 LAB_A2511A:
   MOVE.L  D0,-(A7)
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   MOVE.L  (A7)+,D0
   TST.W D0
   RTS
@@ -32123,7 +32270,7 @@ LAB_A25126:
   ADDQ.W  #1,D6
   CMP.W D7,D6
   BLS.S LAB_A250F8
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   RTS
 LAB_A25132:
   TST.B LAB_A48393
@@ -32972,7 +33119,7 @@ LAB_A25DB4:
 LAB_A25DB6:
   JSR SUB_A1FAF8
   MOVE.B  (A7)+,currDriveNo
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   ST  cursorEnabled
   MOVE.W  #$0010,$96(A5)
   RTS
@@ -33542,6 +33689,217 @@ CMD_RESET:
   CLR.L AronFlag
   RESET
   JMP (A0)
+
+CMD_MFM:
+  JSR ReadParameter   ;source address
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVEA.L D0,A1
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D1     ;track length
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D2     ;track count
+
+  JSR ReadParameter   ;destination address
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,A2
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D3     ;sector sync
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D4     ;sector offset
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D5     ;sector count
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  MOVE.L D0,D6     ;sector length
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ mfmWtf
+  SWAP D6
+  MOVE.W D0,D6     ;sector interleave
+  SWAP D6
+
+  JSR ReadParameter
+  MOVEQ #-1,D7
+
+  TST.B ParamFound
+  BEQ .noparam
+  MOVE.L D0,D7     ;sector number offset
+.noparam
+
+  TST.W D1
+  BEQ mfmWtf
+
+  TST.W D2
+  BEQ mfmWtf
+
+  TST.W D5
+  BEQ mfmWtf
+
+  TST.W D6
+  BEQ mfmWtf
+
+  SWAP D6
+  TST.W D6
+  BEQ mfmWtf
+  SWAP D6
+  
+  SUBQ #1,D2
+  ADD.W D1,D1
+  
+.processTrack  
+  MOVEM.L D1/D2,-(SP)
+
+  LEA (A0,D1),A2  ;track end
+  MOVEQ #0,D0 ;sector count
+
+  MOVE.W D5,tempD1
+  SUBQ #1,D5
+
+.findsync  
+
+  CMP.W (A0)+,D3  ;find sector sync
+  BEQ.S .sectorsync
+  CMP.L A0,A2
+  BEQ.W .nexttrack
+  BRA.S .findsync
+
+.sectorsync
+  CMP.W (A0)+,D3  ;find sector sync
+  BEQ.S .sectorsync
+  LEA -2(A0),A0
+
+  CMP.L #-1,D7
+  BEQ.S .nosec
+  MOVEM.L D1/D2,-(A7)
+  MOVEQ #0,D1
+  MOVE.B (A0,D7),D1 
+  MOVE.B 4(A0,D7),D2
+  AND.B #$55,D1
+  AND.B #$55,D2
+  LSL.B #1,D1
+  OR.B D2,D1
+  MULU D6,D1
+  MOVE.W D1,tempD0    ;destination sector offset
+  LEA (A1,D1),A1
+  MOVEM.L (A7)+,D1/D2
+.nosec
+
+  ADD.L D4,A0   ;add sector offset
+
+  MOVE.L A0,A3
+  SWAP D6
+  LEA (A0,D6.W),A4
+  SWAP D6
+  MOVE.L D0,-(SP)
+  MOVE.W D6,D0
+  SUB.W #1,D0
+  
+  MOVEM.L D1-D3,-(A7)
+  MOVEQ #0,D3
+.mfmdecode
+  ;decode sector
+  MOVE.B (A3)+,D1
+  MOVE.B (A4)+,D2
+  
+  ADD.W #1,D3
+  SWAP D6
+  CMP.W D3,D6
+  BNE.S .noskip
+
+  LEA (A3,D6.W),A3
+  LEA (A4,D6.W),A4
+  CLR.W D3
+.noskip
+  SWAP D6
+
+
+  ;track end overrun check
+  CMP.L A4,A2
+  BNE.S .2
+
+
+.clrdata
+  CLR.B (A1)+
+  DBF D0,.clrdata
+
+  MOVE.W tempD0,D1    ;destination sector offset
+  ADD.W D6,D1 
+  NEG.W D1
+  LEA (A1,D1),A1
+
+  MOVEM.L (A7)+,D1-D3
+  MOVE.L (SP)+,D0
+  MOVE.W tempD1,D5
+  BRA.S .nexttrack
+  
+.2
+  AND.B #$55,D1
+  AND.B #$55,D2
+  LSL.B #1,D1
+  OR.B D2,D1
+  MOVE.B D1,(A1)+
+  DBF D0,.mfmdecode
+
+  CMP.L #-1,D7
+  BEQ.S .seqsec1
+  MOVE.W tempD0,D1    ;destination sector offset
+  ADD.W D6,D1 
+  NEG.W D1
+  LEA (A1,D1),A1
+.seqsec1
+
+  MOVEM.L (A7)+,D1-D3
+
+  MOVE.L (SP)+,D0
+  ADDQ #1,D0
+
+  MOVE.L A3,A0
+ 
+  DBF D5,.findsync
+
+.nexttrack
+  CMP.L #-1,D7
+  BEQ.S .seqsec2
+  MOVE.W tempD1,D1
+  MULU D6,D1
+  LEA (A1,D1),A1
+.seqsec2
+  MOVE.W tempD1,D5
+  CMP.W D0,D5
+  BEQ.S .1
+ 
+  ;print sector count warning
+  nop
+.1
+  
+  MOVEM.L (SP)+,D1/D2
+  MOVE.L A2,A0
+  DBF D2,.processTrack
+
+  JMP PrintReady
+
+mfmWtf:
+  JMP PrintWTF
 
 CMD_DBG:
   ST debuggerMode
@@ -37977,7 +38335,7 @@ ApiHandlerRemText:
 CMD_ED:
   TST.B TBufferAllocated
   BNE.W LAB_420C92
-  JSR AllocTBuff(PC)
+  JSR AllocTBuff
 LAB_420C92:
   JSR GetFilename
   MOVE.W  D0,D1
@@ -38488,451 +38846,375 @@ FileTooLargeText:
   DC.B  "File too large for dmon-buffer!",$D,0
 
 ShortcutsText:
-  DC.B  $D,"Shortcuts for some commands:",$D,"============================",$D,$D,"i"
-  DC.B  "nterrupts <--> int",$D,"exceptions <--> exc",$D,"normalchar <--> nchar",$D
-  DC.B  "setexcept  <--> sexc",$D,"libraries  <--> lib",$D,"resources  <--> res",$D
-  DC.B  "killvirus  <--> kvir",$D,"diskcheck  <--> dchk",$D,"megastick  <--> mst"
-  DC.B  $D,"smallchar  <--> schar",$D,"chipregs   <--> creg",$D,"execbase   <--> e"
-  DC.B  "xec",$D,"bootcode   <--> bcode",$D,"bootprot   <--> bprot",$D,"diskwipe   <-"
-  DC.B  "-> dwipe",$D,"codecopy   <--> ccopy",$D,"clrstick   <--> cst",$D,"safedisk  "
-  DC.B  " <--> sdisk",$D,"makedir    <--> mdir",$A
-  DC.B  "install    <--> inst",$D,"devices    <--> dev",$D,"tracker    <--> srip"
-  DC.B  $D,"nostick    <--> nst",$D,"relabel    <--> rel",$D,"rename     <--> ren",$D
-  DC.B  "delete     <--> del",$D,"lstick     <--> lst",$D,"sstick     <--> sst",$D,"s"
-  DC.B  "etmap     <--> key",$D,"trans      <--> i",$D,"comp       <--> v",$D,0
+  DC.B  $D,"Shortcuts for some commands:",$D
+  DC.B  "============================",$D,$D
+  DC.B  "interrupts <--> int",$D
+  DC.B  "exceptions <--> exc",$D
+  DC.B  "normalchar <--> nchar",$D
+  DC.B  "setexcept  <--> sexc",$D
+  DC.B  "libraries  <--> lib",$D
+  DC.B  "resources  <--> res",$D
+  DC.B  "killvirus  <--> kvir",$D
+  DC.B  "diskcheck  <--> dchk",$D
+  DC.B  "megastick  <--> mst",$D
+  DC.B  "smallchar  <--> schar",$D
+  DC.B  "chipregs   <--> creg",$D
+  DC.B  "execbase   <--> exec",$D
+  DC.B  "bootcode   <--> bcode",$D
+  DC.B  "bootprot   <--> bprot",$D
+  DC.B  "diskwipe   <--> dwipe",$D
+  DC.B  "codecopy   <--> ccopy",$D
+  DC.B  "clrstick   <--> cst",$D
+  DC.B  "safedisk   <--> sdisk",$D
+  DC.B  "makedir    <--> mdir",$A
+  DC.B  "install    <--> inst",$D
+  DC.B  "devices    <--> dev",$D
+  DC.B  "tracker    <--> srip",$D
+  DC.B  "nostick    <--> nst",$D
+  DC.B  "relabel    <--> rel",$D
+  DC.B  "rename     <--> ren",$D
+  DC.B  "delete     <--> del",$D
+  DC.B  "lstick     <--> lst",$D
+  DC.B  "sstick     <--> sst",$D
+  DC.B  "setmap     <--> key",$D
+  DC.B  "trans      <--> i",$D
+  DC.B  "comp       <--> v",$D
+  DC.B 0
 
 HelpText:
-  DC.B  $D,"COMMANDS + SYNTAX (space for next page):",$D,"==================="
-  DC.B  "=====================",$D,$D,"Commands for system information:",$D,"-----"
-  DC.B  "---------------------------",$D,"interrupts: Show execbase interru"
-  DC.B  "pt-lists        - interrupts",$D,"exceptions: Show exception- and "
-  DC.B  "interruptvectors - exceptions",$D,"  execbase: Show whole execbase"
-  DC.B  "structure         - execbase",$D,"     avail: Show free memory    "
-  DC.B  "                 - avail",$D,"      info: Show important systempar"
-  DC.B  "ameters      - info (picnr)",$D," libraries: Show execbase library"
-  DC.B  "-list           - libraries",$D," resources: Show execbase resourc"
-  DC.B  "e-list          - resources",$D,"  chipregs: Show name + offset of"
-  DC.B  " chipregisters  - chipregs",$D,"     dchip: Explain function of ch"
-  DC.B  "ipregister     - dchip registername",$D,"   devices: Show execbase"
-  DC.B  " device-list            - devices",$D,"     tasks: show execbase t"
-  DC.B  "ask-lists             - tasks",$D,"     ports: Show execbase port-"
-  DC.B  "list              - ports",$D,$A
-  DC.B  "Disk and diskcoding commands:",$D,"-----------------------------",$D," "
-  DC.B  " bootcode: Show/set bootblock codenumber        - bootcode (c"
-  DC.B  "odenumber)",$D,"  bootprot: Code bootblock of active drive       -"
-  DC.B  " bootprot (codenumber)",$D,"      code: Show/set disk codenumbers "
-  DC.B  "           - code (drive codenumber)",$D,"     dcopy: Backup amiga"
-  DC.B  "dos disks                - dcopy source dest",$D,"     burst: Turb"
-  DC.B  "o-Burstnibbler                   - burst (drive)",$D,"  codecopy: "
-  DC.B  "Diskcopy + decode source + code dest - codecopy source dest",$D," "
-  DC.B  " safedisk: Patch/show state of trackdisk.device - safedisk (a"
-  DC.B  "/b/s/n/u/v/q)",$D,"        cd: Show/change current module-path    "
-  DC.B  "  - cd (path)",$D,"       dir: Show disk-directory                "
-  DC.B  "  - dir (path)",$D,"      dira: Show whole disk-directory         "
-  DC.B  "   - dira (path)",$D,"      copy: Make copy of a File             "
-  DC.B  "     - copy (path)source,dest",$D,"   makedir: Create directory   "
-  DC.B  "                  - makedir path",$D,"    delete: Delete file     "
-  DC.B  "                     - delete (path)filename",$D,"    format: Form"
-  DC.B  "at disk in active drive (FFS)    - format (name)(,ffs)",$D,"   for"
-  DC.B  "matq: Format disk quick (FFS)              - formatq (name)(,"
-  DC.B  "ffs)",$D,"   formatv: Format disk and verify format (FFS)  - forma"
-  DC.B  "tv (name)(,ffs)",$D,"   install: Install disk in active drive     "
-  DC.B  "    - install (bootblocknr.)",$D," diskcheck: Checks disk for erro"
-  DC.B  "rs               - diskcheck (drive)",$D,"  diskwipe: Clears a dis"
-  DC.B  "k very fast              - diskwipe (drive)",$D,"      type: Type "
-  DC.B  "file on screen                  - type (path)filename",$D,"    ren"
-  DC.B  "ame: Rename file                          - rename (path)oldn"
-  DC.B  "ame,newname",$D,"   relabel: Change/set diskname                  "
-  DC.B  "- relabel diskname",$D,$D
-  DC.B  "Freezer and ripper commands:",$D,"----------------------------",$D,"   "
-  DC.B  "     sa: Save current program to disk         - sa (path)name"
-  DC.B  "(,crate)",$D,"        sr: Save current program and start       - s"
-  DC.B  "r (path)name(,crate)",$D,"        la: Load freezefile from disk   "
-  DC.B  "         - la (path)name",$D,"        lr: Load freezefile from dis"
-  DC.B  "k and start  - lr (path)name",$D,"   sloader: Save loader to activ"
-  DC.B  "e drive          - sloader",$D,"        lq: Load all from ramdisk "
-  DC.B  "               - lq",$D,"       lqr: Load all from ramdisk and res"
-  DC.B  "tart    - lqr",$D,"        sq: Save all to ramdisk                "
-  DC.B  "  - sq",$D,"       sqr: Save all to ramdisk and restart      - sqr"
-  DC.B  $D,"       exq: Exchange prg with ramdisk prg        - exq",$D,"     "
-  DC.B  " exqr: Exchange prg with ramdisk prg + run  - exqr",$D,"     sqmem"
-  DC.B  ": En/disable savequick in fastmemory   - sqmem (0/start)",$D,"    "
-  DC.B  "    sp: Save current picture to disk         - sp (path)name("
-  DC.B  ",nr hight)",$D,"         p: Show current picture/mempeeker       -"
-  DC.B  " p (picnr)",$D,"       spm: Save picture of memory-peeker        -"
-  DC.B  " spm (path)name",$D,$A
-  DC.B  "Diskmonitor commands:",$D,"---------------------",$D,"        rt: Read "
-  DC.B  "tracks from active drive        - rt strack (num dest)",$D,"      "
-  DC.B  "  wt: Write tracks to active drive         - wt strack num so"
-  DC.B  "urce",$D
-
-  DC.B  "        rp: Read pdos tracks from active drive   - rp strack (num dest)",$D
-  DC.B  "        rr: Read raw mfm tracks from active dr   - rr str sync len (num dest)",$D
+  DC.B  $D
+	DC.B  "COMMANDS + SYNTAX (space for next page):",$D
+	DC.B  "========================================",$D
+	DC.B  $D
+	DC.B  "Commands for system information:",$D
+	DC.B  "--------------------------------",$D
+	DC.B  "interrupts: Show execbase interrupt-lists        - interrupts",$D
+	DC.B  "exceptions: Show exception- and interruptvectors - exceptions",$D
+	DC.B  "  execbase: Show whole execbase structure         - execbase",$D
+	DC.B  "     avail: Show free memory                     - avail",$D
+	DC.B  "      info: Show important systemparameters      - info (picnr)",$D
+	DC.B  " libraries: Show execbase library-list           - libraries",$D
+	DC.B  " resources: Show execbase resource-list          - resources",$D
+	DC.B  "  chipregs: Show name + offset of chipregisters  - chipregs",$D
+	DC.B  "     dchip: Explain function of chipregister     - dchip registername",$D
+	DC.B  "   devices: Show execbase device-list            - devices",$D
+	DC.B  "     tasks: show execbase task-lists             - tasks",$D
+	DC.B  "     ports: Show execbase port-list              - ports",$D
+  DC.B  $D
+  DC.B  "Disk and diskcoding commands:",$D
+	DC.B  "-----------------------------",$D
+	DC.B  "  bootcode: Show/set bootblock codenumber        - bootcode (codenumber)",$D
+	DC.B  "  bootprot: Code bootblock of active drive       - bootprot (codenumber)",$D
+	DC.B  "      code: Show/set disk codenumbers            - code (drive codenumber)",$D
+	DC.B  "     dcopy: Backup amigados disks                - dcopy source dest",$D
+	DC.B  "     burst: Turbo-Burstnibbler                   - burst (drive)",$D
+	DC.B  "  codecopy: Diskcopy + decode source + code dest - codecopy source dest",$D
+	DC.B  "  safedisk: Patch/show state of trackdisk.device - safedisk (a/b/s/n/u/v/q)",$D
+	DC.B  "        cd: Show/change current module-path      - cd (path)",$D
+	DC.B  "       dir: Show disk-directory                  - dir (path)",$D
+	DC.B  "      dira: Show whole disk-directory            - dira (path)",$D
+	DC.B  "      copy: Make copy of a File                  - copy (path)source,dest",$D
+	DC.B  "   makedir: Create directory                     - makedir path",$D
+	DC.B  "    delete: Delete file                          - delete (path)filename",$D
+	DC.B  "    format: Format disk in active drive (FFS)    - format (name)(,ffs)",$D
+	DC.B  "   formatq: Format disk quick (FFS)              - formatq (name)(,ffs)",$D
+	DC.B  "   formatv: Format disk and verify format (FFS)  - formatv (name)(,ffs)",$D
+	DC.B  "   install: Install disk in active drive         - install (bootblocknr.)",$D
+	DC.B  " diskcheck: Checks disk for errors               - diskcheck (drive)",$D
+	DC.B  "  diskwipe: Clears a disk very fast              - diskwipe (drive)",$D
+	DC.B  "      type: Type file on screen                  - type (path)filename",$D
+	DC.B  "    rename: Rename file                          - rename (path)oldname,newname",$D
+	DC.B  "   relabel: Change/set diskname                  - relabel diskname",$A
+  DC.B  $D
+  DC.B  "Freezer and ripper commands:",$D
+	DC.B  "----------------------------",$D
+	DC.B  "        sa: Save current program to disk         - sa (path)name(,crate)",$D
+	DC.B  "        sr: Save current program and start       - sr (path)name(,crate)",$D
+	DC.B  "        la: Load freezefile from disk            - la (path)name",$D
+	DC.B  "        lr: Load freezefile from disk and start  - lr (path)name",$D
+	DC.B  "   sloader: Save loader to active drive          - sloader",$D
+	DC.B  "        lq: Load all from ramdisk                - lq",$D
+	DC.B  "       lqr: Load all from ramdisk and restart    - lqr",$D
+	DC.B  "        sq: Save all to ramdisk                  - sq",$D
+	DC.B  "       sqr: Save all to ramdisk and restart      - sqr",$D
+	DC.B  "       exq: Exchange prg with ramdisk prg        - exq",$D
+	DC.B  "      exqr: Exchange prg with ramdisk prg + run  - exqr",$D
+	DC.B  "     sqmem: En/disable savequick in fastmemory   - sqmem (0/start)",$D
+	DC.B  "        sp: Save current picture to disk         - sp (path)name(,nr hight)",$D
+	DC.B  "         p: Show current picture/mempeeker       - p (picnr)",$D
+	DC.B  "       spm: Save picture of memory-peeker        - spm (path)name",$A
+  DC.B  $D
+  DC.B  "Diskmonitor commands:",$D
+	DC.B  "---------------------",$D
+	DC.B  "        rt: Read tracks from active drive        - rt strack (num dest)",$D
+	DC.B  "        rs: Read sectors from active drive       - rs start-sector (num dest)",$D
+	DC.B  "        rb: Read bytes from active drive         - rb start-offset (num dest)",$D
+  DC.B  "        rp: Read pdos tracks from active drive   - rp strack (num dest key)",$D
+  DC.B  "       rps: Read pdos sectors from active drive  - rps start-sector (num dest)",$D
+  DC.B  "       rpb: Read pdos bytes from active drive    - rpb start-offset (num dest)",$D
+  DC.B  "        rr: Read raw mfm tracks from active dr   - rr st sync words (num dest)",$D
+	DC.B  "        wt: Write tracks to active drive         - wt strack num source",$D
+	DC.B  "        wp: Write pdos tracks to active drive    - wp strack num src key",$D
+	DC.B  "        wr: Write raw mfm data to active drive   - wr strack num src words",$D
+	DC.B  "       mfm: Decode mfm data                      - mfm src tlen tcnt dest",$D
+  DC.B  "                                                    	sync soff scnt slen",$D
+	DC.B  "                                                    	sint (snumoff)",$D
   DC.B  "       rnc: Show rnc serial track                - rnc",$D
-  DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
-  DC.B  "   clrdmon: Restore disk-mon buffer              - clrdmon",$D,"  "
-  DC.B  " bootchk: Set correct bootblockchecksum        - bootchk sect"
-  DC.B  "oraddr.",$D,"   datachk: Set correct datachecksum             - da"
-  DC.B  "tachk sectoraddr.",$D,"    bamchk: Set correct bitmapchecksum     "
-  DC.B  "      - bamchk sectoraddr.",$D,$A,"Trainer commands:",$D,"---------------"
-  DC.B  "--",$D,"        ts: Start trainer/trainermode            - ts star"
-  DC.B  "tlives startaddress",$D,"         t: Show addresses/continue train"
-  DC.B  "er      - t (actlives)",$D,"        tx: Exit trainermode          "
-  DC.B  "           - tx",$D,"        tf: Search for decrementing opcodes  "
-  DC.B  "    - tf address",$D,"       tfd: Search and remove decrement opco"
-  DC.B  "des  - tfd address",$D,"        pc: Show current picture + energy "
-  DC.B  "count  - pc (picnr)",$D,"       tds: Deep trainer start count     "
-  DC.B  "        - tds",$D,"       tdc: Deep trainer change count          "
-  DC.B  "  - tdc",$D,"       tdd: Deep trainer delete addresses        - td"
-  DC.B  "d start end",$D,"        td: Display deep trainer addresses       "
-  DC.B  "- td",$D,"       tdi: Display probable trainer addresses   - tdi",$D," "
-  DC.B  "      tdx: Exit old deep trainer                - tdx",$D
-  DC.B  "Misc. commands",$D,"--------------",$D,"   ramtest: Checks memoryblock "
-  DC.B  "for harderrors    - ramtest start end",$D,"      pack: Packs memor"
-  DC.B  "y                         - pack start end dest crrate",$D,"    un"
-  DC.B  "pack: Unpacks with pack-command packed mem - unpack dest endo"
-  DC.B  "fpacked",$D,"     color: Set/show module-editor colors        - co"
-  DC.B  "lor (back pen)",$D,"    rcolor: Reset module-editor colors        "
-  DC.B  "   - rcolor",$D,"        tm: Show remarks about curr. program     "
-  DC.B  "- tm",$D,"       tms: Set remark about curr. programaddr.  - tms a"
-  DC.B  "ddr",$D,"       tmd: Delete remark about program          - tmd ad"
-  DC.B  "dr",$D,"       spr: Show/edit sprites                    - spr nr|"
-  DC.B  "addr (nr|addr)",$D,"   version: Show cartridge-version            "
-  DC.B  "   - version",$D," megastick: Joystick-handler (1 = only player 1)"
-  DC.B  " - megastick (1)",$D,"   nostick: Remove joystick-handler         "
-  DC.B  "     - nostick",$D,"  clrstick: Clear all joystick-handler codes  "
-  DC.B  "   - clrstick",$D,"    lstick: Load joystick-handler data         "
-  DC.B  "  - lstick (path)name",$D,"    sstick: Save joystick-handler data "
-  DC.B  "          - sstick (path)name",$D,"     reset: Exit AR and res"
-  DC.B  "et Amiga          - reset",$D,"       pal: Switch to ECS PAL mode "
-  DC.B  "              - pal",$D,"      ntsc: Switch to ECS NTSC mode      "
-  DC.B  "        - ntsc",$D,"    setmap: Keymap editor                     "
-  DC.B  "   - setmap",$D,"    setcop: Copper specify for Exit of AR-PRO    "
-  DC.B  "- setcop (address)",$D,"     ascii: Show ASCII-Table              "
-  DC.B  "       - ascii",$D,"     alert: Display alert (guru) list         "
-  DC.B  "   - alert (guru-number)",$D,$D
-  DC.B  "Printer commands:",$D,"-----------------",$D," smallchar: Activate very"
-  DC.B  " small printer chars   - smallchar",$D,"normalchar: Normal printer"
-  DC.B  "chars                 - normalchar",$D,"       prt: Print string  "
-  DC.B  "                      - prt string",$D,$D,"Virus commands:",$D,"---------"
-  DC.B  "------",$D,"    virus: Search virus in memory                - vir"
-  DC.B  "us",$D,"killvirus: Search and remove virus in memory     - killvir"
-  DC.B  "us",$D,$D,"New monitor commands/changes:",$D,"---------------------------"
-  DC.B  "--",$D,"*       ts: Start trainer/trainermode            - ts star"
-  DC.B  "tlives startaddr.",$D,"*    imode: Entering AR-PRO mode           "
-  DC.B  "      - imode X",$D,"            where X can be 0 upto 3",$D
-  DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
-  DC.B  "      kill: Removes action replay from memory    - kill",$D,"    allexc: Enable/"
-  DC.B  "Disable exception activation  - allexc",$D,"    deepmw: Enable/Dis"
-  DC.B  "able deep memwatcher       - deepmw",$D,$A,"  romavoid: Change kickst"
-  DC.B  "art placement adr       - romavoid",$D,"     cache: Change cache s"
-  DC.B  "tatus (020/030 only)   - cache XXXX",$D,"            where X is ei"
-  DC.B  "ther 0 or 1",$D,$D
-  DC.B  "Monitor command:",$D,"----------------",$D," setexcept: Set exception "
-  DC.B  "handler (no more guru) - setexcept",$D,"      comp: Compare memory"
-  DC.B  "blocks                 - comp start end dest",$D,"        lm: Load"
-  DC.B  " file to memory                  - lm (path)name,dest",$D,"       "
-  DC.B  " sm: Save memoryblock to disk             - sm (path)name,sta"
-  DC.B  "rt end",$D,"      smdc: Save memoryblock to disk as dc.b     - sm "
-  DC.B  "(path)name,start end",$D,"    smdata: Save memoryblock to disk as "
-  DC.B  "data     - sm (path)name,start end",$D,"         a: Start mc68000 "
-  DC.B  "assembler              - a address",$D,"         b: Show current b"
-  DC.B  "reakpoints             - b address",$D,"        bs: Set breakpoint"
-  DC.B  "                       - bs address",$D,"        bd: Delete breakp"
-  DC.B  "oint                    - bd address",$D,"       bda: Delete all b"
-  DC.B  "reakpoints               - bda",$D,"        mw: Display memwatchpo"
-  DC.B  "ints               - mw",$D,"        ms: Set memwatchpoint        "
-  DC.B  "            - ms address",$D,"        md: Delete memwatchpoint    "
-  DC.B  "             - md address",$D,"       mda: Delete all memwatchpoin"
-  DC.B  "ts            - mda",$D,"        tr: Trace current program (not su"
-  DC.B  "bs)     - tr (steps)",$D,"        st: Trace current program (also "
-  DC.B  "subs)    - st (steps)",$D,"         x: Restart current program    "
-  DC.B  "          - x",$D,"         c: Copperassembler/disassembler       "
-  DC.B  "  - c 1|2|address",$D,"         d: MC68000 disassembler           "
-  DC.B  "      - d (0|address)",$D,"         e: Show/edit chipregisters    "
-  DC.B  "          - e (offset)",$D,"         f: Search for string (casesen"
-  DC.B  "sitive)    - f string(,start end)",$D,"        fa: Search for adr "
-  DC.B  "addressing opcode     - fa address (start end)",$D,"       faq: Fa"
-  DC.B  "stsearch for adr addressing opcode - faq adr (start end)",$D,"    "
-  DC.B  "    fr: Search for relative-string           - fr string(,sta"
-  DC.B  "rt end)",$D
+	DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
+  DC.B  "   clrdmon: Restore disk-mon buffer              - clrdmon",$D
+	DC.B  "   bootchk: Set correct bootblockchecksum        - bootchk sectoraddr.",$D
+	DC.B  "   datachk: Set correct datachecksum             - datachk sectoraddr.",$D
+	DC.B  "    bamchk: Set correct bitmapchecksum           - bamchk sectoraddr.",$A
+  DC.B  $D
+  DC.B  "Trainer commands:",$D
+	DC.B  "-----------------",$D
+	DC.B  "        ts: Start trainer/trainermode            - ts startlives startaddress",$D
+	DC.B  "         t: Show addresses/continue trainer      - t (actlives)",$D
+	DC.B  "        tx: Exit trainermode                     - tx",$D
+	DC.B  "        tf: Search for decrementing opcodes      - tf address",$D
+	DC.B  "       tfd: Search and remove decrement opcodes  - tfd address",$D
+	DC.B  "        pc: Show current picture + energy count  - pc (picnr)",$D
+	DC.B  "       tds: Deep trainer start count             - tds",$D
+	DC.B  "       tdc: Deep trainer change count            - tdc",$D
+	DC.B  "       tdd: Deep trainer delete addresses        - tdd start end",$D
+	DC.B  "        td: Display deep trainer addresses       - td",$D
+	DC.B  "       tdi: Display probable trainer addresses   - tdi",$D
+	DC.B  "       tdx: Exit old deep trainer                - tdx",$A
+  DC.B  $D
+  DC.B  "Misc. commands",$D
+	DC.B  "--------------",$D
+	DC.B  "   ramtest: Checks memoryblock for harderrors    - ramtest start end",$D
+	DC.B  "      pack: Packs memory                         - pack start end dest crrate",$D
+	DC.B  "    unpack: Unpacks with pack-command packed mem - unpack dest endofpacked",$D
+	DC.B  "     color: Set/show module-editor colors        - color (back pen)",$D
+	DC.B  "    rcolor: Reset module-editor colors           - rcolor",$D
+	DC.B  "        tm: Show remarks about curr. program     - tm",$D
+	DC.B  "       tms: Set remark about curr. programaddr.  - tms addr",$D
+	DC.B  "       tmd: Delete remark about program          - tmd addr",$D
+	DC.B  "       spr: Show/edit sprites                    - spr nr|addr (nr|addr)",$D
+	DC.B  "   version: Show cartridge-version               - version",$D
+	DC.B  " megastick: Joystick-handler (1 = only player 1) - megastick (1)",$D
+	DC.B  "   nostick: Remove joystick-handler              - nostick",$D
+	DC.B  "  clrstick: Clear all joystick-handler codes     - clrstick",$D
+	DC.B  "    lstick: Load joystick-handler data           - lstick (path)name",$D
+	DC.B  "    sstick: Save joystick-handler data           - sstick (path)name",$D
+	DC.B  "     reset: Exit AR and reset Amiga              - reset",$D
+	DC.B  "       pal: Switch to ECS PAL mode               - pal",$D
+	DC.B  "      ntsc: Switch to ECS NTSC mode              - ntsc",$D
+	DC.B  "    setmap: Keymap editor                        - setmap",$D
+	DC.B  "    setcop: Copper specify for Exit of AR-PRO    - setcop (address)",$D
+	DC.B  "     ascii: Show ASCII-Table                     - ascii",$D
+	DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
+	DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
+	DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
+	DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
+	DC.B  "     arram: display the amount of memory on cart - arram",$D
+	DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
+	DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
+	DC.B  "       led: toggle led status                    - led",$D
+	DC.B  "     imode: Entering AR-PRO mode                 - imode X",$D
+	DC.B  "            where X can be 0 upto 3",$D
+  DC.B  "      kill: Removes action replay from memory    - kill",$D
+	DC.B  "    allexc: Enable/Disable exception activation  - allexc",$D
+	DC.B  "    deepmw: Enable/Disable deep memwatcher       - deepmw",$D
+	DC.B  "  romavoid: Change kickstart placement adr       - romavoid",$D
+	DC.B  "     cache: Change cache status (020/030 only)   - cache XXXX",$D
+	DC.B  "            where X is either 0 or 1",$A
+  DC.B  $D
+  DC.B  "Printer commands:",$D
+	DC.B  "-----------------",$D
+	DC.B  " smallchar: Activate very small printer chars    - smallchar",$D
+	DC.B  "normalchar: Normal printerchars                  - normalchar",$D
+	DC.B  "       prt: Print string                         - prt string",$D
+	DC.B  $D
+	DC.B  "Virus commands:",$D
+	DC.B  "---------------",$D
+	DC.B  "    virus: Search virus in memory                - virus",$D
+	DC.B  "killvirus: Search and remove virus in memory     - killvirus",$A
+  DC.B  $D
+  DC.B  "Monitor command:",$D
+	DC.B  "----------------",$D
+	DC.B  " setexcept: Set exception handler (no more guru) - setexcept",$D
+	DC.B  "    setapi: Set api handler (see api document)   - setapi",$D
+	DC.B  "    clrapi: Remove api handler (see api document)- clrapi",$D
+	DC.B  "      comp: Compare memoryblocks                 - comp start end dest",$D
+	DC.B  "        lm: Load file to memory                  - lm (path)name,dest",$D
+	DC.B  "        sm: Save memoryblock to disk             - sm (path)name,start end",$D
+	DC.B  "      smdc: Save memoryblock to disk as dc.b     - sm (path)name,start end",$D
+	DC.B  "    smdata: Save memoryblock to disk as data     - sm (path)name,start end",$D
+	DC.B  "         a: Start mc68000 assembler              - a address",$D
+	DC.B  "         b: Show current breakpoints             - b address",$D
+	DC.B  "        bs: Set breakpoint                       - bs address",$D
+	DC.B  "        bd: Delete breakpoint                    - bd address",$D
+	DC.B  "       bda: Delete all breakpoints               - bda",$D
+	DC.B  "        mw: Display memwatchpoints               - mw",$D
+	DC.B  "        ms: Set memwatchpoint                    - ms address",$D
+	DC.B  "        md: Delete memwatchpoint                 - md address",$D
+	DC.B  "       mda: Delete all memwatchpoints            - mda",$D
+	DC.B  "        tr: Trace current program (not subs)     - tr (steps)",$D
+	DC.B  "        st: Trace current program (also subs)    - st (steps)",$D
+	DC.B  "         x: Restart current program              - x",$D
+	DC.B  "         c: Copperassembler/disassembler         - c 1|2|address",$D
+	DC.B  "         d: MC68000 disassembler                 - d (0|address)",$D
+	DC.B  "         e: Show/edit chipregisters              - e (offset)",$D
+	DC.B  "        ea: Show complete aga pallete            - ea",$D
+	DC.B  "         f: Search for string (casesensitive)    - f string(,start end)",$D
+	DC.B  "        fa: Search for adr addressing opcode     - fa address (start end)",$D
+	DC.B  "       faq: Fastsearch for adr addressing opcode - faq adr (start end)",$D
+	DC.B  "        fr: Search for relative-string           - fr string(,start end)",$D
   DC.B  "        fc: Search for copylock code             - fc (start end)",$D
   DC.B  "        ci: Show copylock info                   - ci <addr>",$D
-  DC.B  "        fs: Search string (not casesensitive)    - fs"
-  DC.B  " string(,start end)",$D,"         g: Restart program at address   "
-  DC.B  "        - g (address)",$D,"     trans: Copy memoryblock           "
-  DC.B  "          - trans start end dest",$D,"        ws: Write string to "
-  DC.B  "memory               - ws string, address",$D,"         m: Show/ed"
-  DC.B  "it memory as bytes            - m address",$D,"   memcode: Codes m"
-  DC.B  "emory (eor.b)                 - memcode start end code",$D,"      "
-  DC.B  " add: Adds value to memory-range           - add start end va"
-  DC.B  "lue",$D,"         n: Show/edit memory as ascii            - n addr"
-  DC.B  "ess",$D,"        no: Show/set ascii-dump offset           - no (of"
-  DC.B  "fset)",$D,"        nq: Display memory quick as ascii        - nq a"
-  DC.B  "ddress",$D,"         o: Fill memoryblock with string         - o s"
-  DC.B  "tring, start end",$D
-  DC.B  "         r: Show/edit processor registers   - r (reg value)",$D
-  DC.B  "         rc: Show 020+ control registers    - rf",$D
-  DC.B  "         rf: Show fpu registers             - rf",$D
-  DC.B  "         rm: Show mmu registers             - rm",$D,$A
-  DC.B  "         w: Show/edit cia's             "
-  DC.B  "         - w (register)",$D,"         y: Show/edit memory as binar"
-  DC.B  "y           - y address",$D,"        ys: Show/set datawidth for th"
-  DC.B  "e y command - ys (bytes)",$D,"         ?: Calculator              "
-  DC.B  "             - ? (+|-|*|/ value)",$D
-  DC.B  "Number formats:",$D,"---------------",$D,"hexadecimal:  $12ab or 12ab",$D,$D
-  DC.B  "decimal:      -!15 , !880",$D,$D,"binary:       %001110101 , -%101",$D,$D
-  DC.B  "register:     \d0,..,\d7,\a0,..,\a7,\pc,\sp(=usp) \b(=Dmon-Bu"
-  DC.B  "ffer)",$D,$D,"diskmonitor (if using rt and wt commands with diskbuff"
-  DC.B  "er):",$D," a) t = track (!0 - !159), s = sector (!0 - !10), o = of"
-  DC.B  "fset (!0 - !511)",$D," b) s = sector (!0 - !1760) , o = offset (!0"
-  DC.B  " - !511)",$D,$D," Example to read/display rootblock:",$D,"     rt !75 !10"
-  DC.B  $D,"     m t!80 or m t!80s0 or m t$50s0o0 or m t50s0o0 or m s!88"
-  DC.B  "0 or m s370",$D,$A
-  DC.B  "Editor-tools:",$D,"-------------",$D,"HELP   : This short help",$D,$D,"SH HELP"
-  DC.B  ": Show shortcuts for some commands",$D,"SHIFT  : No Scroll/pause",$D,$D
-  DC.B  "TAB    : Insert space(s)",$D,"ESC    : Escape any command (not t/t"
-  DC.B  "s !)",$D,"F1     : Clr + cursor home",$D,"SH F1  : Cursor home",$D,"F2     :"
-  DC.B  " Restore screen from second screen",$D,"SH F2  : Save screen to se"
-  DC.B  "cond screen",$D,"F3     : Preferences+system control",$D,"F4     : Repe"
-  DC.B  "at last command",$D,"F5     : Print screen",$D,"F6     : Switch printer"
-  DC.B  "dump on/off",$D,"F7     : Switch overwrite/insert mode",$D,"F8     : Sh"
-  DC.B  "ow instructions for the mempeeker",$D,"F9     : Switch uk, german & us"
-  DC.B  "a keyboard",$D,"SH F9  : Compare screen pages",$D,"F10    : Switch scre"
-  DC.B  "en",$D,"SH F10 : Switch between 15Mhz/31Mhz",$D,$D,"POWER-LED is off = rea"
-  DC.B  "dy to execute commands!",$D,"Press left mousebutton to abort print"
-  DC.B  "er output",$D,"Use cursorkeys in combination with shift too",$D,"======"
-  DC.B  "======================================",$D,$D,0
+  DC.B  "        fs: Search string (not casesensitive)    - fs string(,start end)",$D
+	DC.B  "         g: Restart program at address           - g (address)",$D
+	DC.B  "     trans: Copy memoryblock                     - trans start end dest",$D
+	DC.B  "        ws: Write string to memory               - ws string, address",$D
+	DC.B  "         m: Show/edit memory as bytes            - m address",$D
+	DC.B  "   memcode: Codes memory (eor.b)                 - memcode start end code",$D
+	DC.B  "       add: Adds value to memory-range           - add start end value",$D
+	DC.B  "         n: Show/edit memory as ascii            - n address",$D
+	DC.B  "        no: Show/set ascii-dump offset           - no (offset)",$D
+	DC.B  "        nq: Display memory quick as ascii        - nq address",$D
+	DC.B  "         o: Fill memoryblock with string         - o string, start end",$D
+  DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
+  DC.B  "         r: Show/edit processor registers        - r (reg value)",$D
+  DC.B  "         rc: Show 020+ control registers         - rf",$D
+  DC.B  "         rf: Show fpu registers                  - rf",$D
+  DC.B  "         rm: Show mmu registers                  - rm",$D
+  DC.B  "         w: Show/edit cia's                      - w (register)",$D
+	DC.B  "         y: Show/edit memory as binary           - y address",$D
+	DC.B  "        ys: Show/set datawidth for the y command - ys (bytes)",$D
+	DC.B  "         ?: Calculator                           - ? (+|-|*|/ value)",$A
+  DC.B  $D
+  DC.B  "Number formats:",$D
+	DC.B  "---------------",$D
+	DC.B  "hexadecimal:  $12ab or 12ab",$D
+	DC.B  $D
+  DC.B  "decimal:      -!15 , !880",$D
+	DC.B  $D
+	DC.B  "binary:       %001110101 , -%101",$D
+	DC.B  $D
+  DC.B  "register:     \d0,..,\d7,\a0,..,\a7,\pc,\sp(=usp) \b(=Dmon-Buffer)",$D
+	DC.B  $D
+	DC.B  "diskmonitor (if using rt and wt commands with diskbuffer):",$D
+	DC.B  " a) t = track (!0 - !159), s = sector (!0 - !10), o = offset (!0 - !511)",$D
+	DC.B  " b) s = sector (!0 - !1760) , o = offset (!0 - !511)",$D
+	DC.B  $D
+	DC.B  " Example to read/display rootblock:",$D
+	DC.B  "     rt !75 !10",$D
+	DC.B  "     m t!80 or m t!80s0 or m t$50s0o0 or m t50s0o0 or m s!880 or m s370",$A
+  DC.B  $D
+  DC.B  "Editor-tools:",$D
+	DC.B  "-------------",$D
+	DC.B  "HELP   : This short help",$D
+	DC.B  $D
+	DC.B  "SH HELP: Show shortcuts for some commands",$D
+	DC.B  "SHIFT  : No Scroll/pause",$D
+	DC.B  $D
+  DC.B  "TAB    : Insert space(s)",$D
+	DC.B  "ESC    : Escape any command (not t/ts !)",$D
+	DC.B  "F1     : Clr + cursor home",$D
+	DC.B  "SH F1  : Cursor home",$D
+	DC.B  "F2     : Restore screen from second screen",$D
+	DC.B  "SH F2  : Save screen to second screen",$D
+	DC.B  "F3     : Preferences+system control",$D
+	DC.B  "F4     : Repeat last command",$D
+	DC.B  "F5     : Print screen",$D
+	DC.B  "F6     : Switch printer dump on/off",$D
+	DC.B  "F7     : Switch overwrite/insert mode",$D
+	DC.B  "F8     : Show instructions for the mempeeker",$D
+	DC.B  "F9     : Switch uk, german & usa keyboard",$D
+	DC.B  "SH F9  : Compare screen pages",$D
+	DC.B  "F10    : Switch screen",$D
+	DC.B  "SH F10 : Switch between 15Mhz/31Mhz",$D
+	DC.B  $D
+	DC.B  "POWER-LED is off = ready to execute commands!",$D
+	DC.B  "Press left mousebutton to abort printer output",$D
+	DC.B  "Use cursorkeys in combination with shift too",$D
+	DC.B  "============================================",$D
+	DC.B  $D
+	DC.B  0
 
 MemPeekerText:
-  DC.B  $0d
-
-  DC.B  "Instructions for the mempeeker v2.2"
-  DC.B  $0d
-
-  DC.B  "==============================="
-  DC.B  $0d
-
-  DC.B  "      a - Autoplane"
-  DC.B  $0d
-
-  DC.B  "      b - Brightness plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT b - Brightness minus"
-  DC.B  $0d
-
-  DC.B  "      c - Colorreg plus"
-  DC.B  $0d
-
-  DC.B  "      d - Dual playfield mode on"
-  DC.B  $0d
-
-  DC.B  "SHIFT d - Dual playfield mode off"
-  DC.B  $0d
-
-  DC.B  "      e - Right border plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT e - Right border minus"
-  DC.B  $0d
-
-  DC.B  "      f - Fast plane up"
-  DC.B  $0d
-
-  DC.B  "SHIFT f - Fast plane down"
-  DC.B  $0d
-
-  DC.B  "      g - Interlace mode on"
-  DC.B  $0d
-
-  DC.B  "SHIFT g - Interlace mode off"
-  DC.B  $0d
-
-  DC.B  "      h - Hold and modify (ham) on"
-  DC.B  $0d
-
-  DC.B  "SHIFT h - Hold and modify (ham) off"
-  DC.B  $0d
-
-  DC.B  "      i - Invert all colors"
-  DC.B  $0d
-
-  DC.B  "      l - Lores mode on"
-  DC.B  $0d
-
-  DC.B  "SHIFT l - Hires mode on"
-  DC.B  $0d
-
-  DC.B  "      m - Modulo 1+2 plus"
-  DC.B  $0d
-
-  DC.B  "      n - Modulo 1+2 minus"
-  DC.B  $0d
-
-  DC.B  "      o - Modulo 1 minus"
-  DC.B  $0d
-
-  DC.B  "SHIFT o - Modulo 2 minus"
-  DC.B  $0d
-
-  DC.B  "      p - Modulo 1 plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT p - Modulo 2 plus"
-  DC.B  $0d
-
-  DC.B  "      q - Clr modulo 1+2"
-  DC.B  $0d
-
-  DC.B  "      r - Rotate planepointer"
-  DC.B  $0d
-
-  DC.B  "      s - Left border minus"
-  DC.B  $0d
-
-  DC.B  "SHIFT s - Left border plus"
-  DC.B  $0d
-
-  DC.B  "      w - White helpscreen"
-  DC.B  $0d
-
-  DC.B  "SHIFT w - Black helpscreen"
-  DC.B  $0d
-
-  DC.B  "      x - Colorreg minus"
-  DC.B  $0d
-
-  DC.B  "      y - Switch diw and ddf mode"
-  DC.B  $0d
-
-  DC.B  "      0 - Unlock all planes"
-  DC.B  $0d
-
-  DC.B  "SHIFT 0 - Lock all planes"
-  DC.B  $0d
-
-  DC.B  "      1 - Lock plane 1"
-  DC.B  $0d
-
-  DC.B  "SHIFT 1 - Unlock plane 1"
-  DC.B  $0d
-
-  DC.B  "      2 - Lock plane 2"
-  DC.B  $0d
-
-  DC.B  "SHIFT 2 - Unlock plane 2"
-  DC.B  $0d
-
-  DC.B  "      3 - Lock plane 3"
-  DC.B  $0d
-
-  DC.B  "SHIFT 3 - Unlock plane 3"
-  DC.B  $0d
-
-  DC.B  "      4 - Lock plane 4"
-  DC.B  $0d
-
-  DC.B  "SHIFT 4 - Unlock plane 4"
-  DC.B  $0d
-
-  DC.B  "      5 - Lock plane 5"
-  DC.B  $0d
-
-  DC.B  "SHIFT 5 - Unlock plane 5"
-  DC.B  $0d
-
-  DC.B  "      6 - Lock plane 6"
-  DC.B  $0d
-
-  DC.B  "SHIFT 6 - Unlock plane 6"
-  DC.B  $0d
-
-  DC.B  "      7 - Lock plane 7"
-  DC.B  $0d
-
-  DC.B  "SHIFT 8 - Unlock plane 8"
-  DC.B  $0d
-
-  DC.B  "      + - 1 bitplane plus"
-  DC.B  $0d
-
-  DC.B  "      - - 1 bitplane minus"
-  DC.B  $0d
-
-  DC.B  "      = - Set all bitplanes to bitplane1"
-  DC.B  $0d
-
-  DC.B  "    F1  - Default colors"
-  DC.B  $0d
-
-  DC.B  "    F2  - Random colors"
-  DC.B  $0d
-
-  DC.B  "    F3 - Red color plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT F3 - Red color minus"
-  DC.B  $0d
-
-  DC.B  "    F4 - Blue color plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT F4 - Blue color minus"
-  DC.B  $0d
-
-  DC.B  "    F5 - Green color plus"
-  DC.B  $0d
-
-  DC.B  "SHIFT F5 - Green color minus"
-  DC.B  $0d
-
-  DC.B  "   F10  - Set chosen picture into current program"
-  DC.B  $0d
-
-  DC.B  "   LEFT - Rotate picture left"
-  DC.B  $0d
-
-  DC.B  "  RIGHT - Rotate picture right"
-  DC.B  $0d
-
-  DC.B  "     UP - Scroll picture up"
-  DC.B  $0d
-
-  DC.B  "SHFT UP - Scroll picture up fast"
-  DC.B  $0d
-
-  DC.B  "   DOWN - Scroll picture down"
-  DC.B  $0d
-
-  DC.B  "SH DOWN - Scroll picture down fast"
-  DC.B  $0d
-
-  DC.B  "    DEL - Hide helpscreen"
-  DC.B  $0d
-
-  DC.B  "LEFT MOUSEBUTTON  - Picture heigth plus"
-  DC.B  $0d
-
-  DC.B  "RIGHT MOUSEBUTTON - Picture heigth minus"
-  DC.B  $0d
-
-  DC.B  "Set helpscreen with mouse on position"
-  DC.B  $0d
-  DC.B  $0d
-
-  DC.B  "    ESC - Quit mempeeker"
-  DC.B  $0d
-
-  DC.B  "   HELP - Show helpscreen"
-  DC.B  $0d
-  DC.B  $0d
-
-  DC.B  "To save mempeeker-picture quit mempeeker and save picture wit"
-  DC.B  "h spm command"
-  DC.B  $0d
-  DS.W  1
-
+  DC.B  $D
+  DC.B  "Instructions for the mempeeker v2.2",$D
+  DC.B  "===============================",$D
+  DC.B  "      a - Autoplane",$D
+  DC.B  "      b - Brightness plus",$D
+  DC.B  "SHIFT b - Brightness minus",$D
+  DC.B  "      c - Colorreg plus",$D
+  DC.B  "      d - Dual playfield mode on",$D
+  DC.B  "SHIFT d - Dual playfield mode off",$D
+  DC.B  "      e - Right border plus",$D
+  DC.B  "SHIFT e - Right border minus",$D
+  DC.B  "      f - Fast plane up",$D
+  DC.B  "SHIFT f - Fast plane down",$D
+  DC.B  "      g - Interlace mode on",$D
+  DC.B  "SHIFT g - Interlace mode off",$D
+  DC.B  "      h - Hold and modify (ham) on",$D
+  DC.B  "SHIFT h - Hold and modify (ham) off",$D
+  DC.B  "      i - Invert all colors",$D
+  DC.B  "      l - Lores mode on",$D
+  DC.B  "SHIFT l - Hires mode on",$D
+  DC.B  "      m - Modulo 1+2 plus",$D
+  DC.B  "      n - Modulo 1+2 minus",$D
+  DC.B  "      o - Modulo 1 minus",$D
+  DC.B  "SHIFT o - Modulo 2 minus",$D
+  DC.B  "      p - Modulo 1 plus",$D
+  DC.B  "SHIFT p - Modulo 2 plus",$D
+  DC.B  "      q - Clr modulo 1+2",$D
+  DC.B  "      r - Rotate planepointer",$D
+  DC.B  "      s - Left border minus",$D
+  DC.B  "SHIFT s - Left border plus",$D
+  DC.B  "      w - White helpscreen",$D
+  DC.B  "SHIFT w - Black helpscreen",$D
+  DC.B  "      x - Colorreg minus",$D
+  DC.B  "      y - Switch diw and ddf mode",$D
+  DC.B  "      0 - Unlock all planes",$D
+  DC.B  "SHIFT 0 - Lock all planes",$D
+  DC.B  "      1 - Lock plane 1",$D
+  DC.B  "SHIFT 1 - Unlock plane 1",$D
+  DC.B  "      2 - Lock plane 2",$D
+  DC.B  "SHIFT 2 - Unlock plane 2",$D
+  DC.B  "      3 - Lock plane 3",$D
+  DC.B  "SHIFT 3 - Unlock plane 3",$D
+  DC.B  "      4 - Lock plane 4",$D
+  DC.B  "SHIFT 4 - Unlock plane 4",$D
+  DC.B  "      5 - Lock plane 5",$D
+  DC.B  "SHIFT 5 - Unlock plane 5",$D
+  DC.B  "      6 - Lock plane 6",$D
+  DC.B  "SHIFT 6 - Unlock plane 6",$D
+  DC.B  "      7 - Lock plane 7",$D
+  DC.B  "SHIFT 8 - Unlock plane 8",$D
+  DC.B  "      + - 1 bitplane plus",$D
+  DC.B  "      - - 1 bitplane minus",$D
+  DC.B  "      = - Set all bitplanes to bitplane1",$D
+  DC.B  "     F1 - Default colors",$D
+  DC.B  "     F2 - Random colors",$D
+  DC.B  "     F3 - Red color plus",$D
+  DC.B  "SHFT F3 - Red color minus",$D
+  DC.B  "     F4 - Blue color plus",$D
+  DC.B  "SHFT F4 - Blue color minus",$D
+  DC.B  "     F5 - Green color plus",$D
+  DC.B  "SHFT F5 - Green color minus",$D
+  DC.B  "   F10  - Set chosen picture into current program",$D
+  DC.B  "   LEFT - Rotate picture left",$D
+  DC.B  "  RIGHT - Rotate picture right",$D
+  DC.B  "     UP - Scroll picture up",$D
+  DC.B  "SHFT UP - Scroll picture up fast",$D
+  DC.B  "   DOWN - Scroll picture down",$D
+  DC.B  "SH DOWN - Scroll picture down fast",$D
+  DC.B  "    DEL - Hide helpscreen",$D
+  DC.B  "LEFT MOUSEBUTTON  - Picture heigth plus",$D
+  DC.B  "RIGHT MOUSEBUTTON - Picture heigth minus",$D
+  DC.B  "Set helpscreen with mouse on position",$D
+  DC.B  $D
+  DC.B  "    ESC - Quit mempeeker",$D
+  DC.B  "   HELP - Show helpscreen",$D
+  DC.B  $D
+
+  DC.B  "To save mempeeker-picture quit mempeeker and save picture with spm command",$D
+  DC.B  0
+  even
 LAB_424826:
   DC.L  $0006ab18,$0006ab80,$0006aaf8,$0006ab00
   DC.L  $0006ab58,$0006ac80,$0006ab08,$0006ab10
@@ -43484,7 +43766,7 @@ checksum:
   ;DC.L $e93aa3a2 ;v0.5.0
   ;DC.L $ea3aa3a2 ;v0.6.0
   ;DC.L $5a46e2fc ;v0.6.1
-  DC.L $68f7869b  ;v0.7.0
+  DC.L $8d559577  ;v0.7.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -43937,6 +44219,7 @@ LAB_A48250:
   DS.L  1
 oldTrackPositions:
   DS.L  1
+  DS.W  1
 mfmSectorAddresses:
   DS.L  $B
   DS.L  1   ;extra sector for PDOS read function
@@ -43950,6 +44233,8 @@ DiskCoderDf2Flag:
   DS.B  1
 DiskCoderDf3Flag:
   DS.B  1
+DiskCoderDf4Flag:
+  DS.B  1
   even
 DiskCoderValues:
 DiskCoderDf0Value:
@@ -43959,6 +44244,8 @@ DiskCoderDf1Value:
 DiskCoderDf2Value:
   DS.L  1
 DiskCoderDf3Value:
+  DS.L  1
+DiskCoderDf4Value:
   DS.L  1
 LAB_A4829A:
   DS.L  1
@@ -44059,9 +44346,10 @@ currentDirBlock:
 rootBlockLoadedFlags:
 ;one byte per drive
   DS.L  1
+  DS.W  1 ;extra for ramdisk (drive 4)
 rootBlockLoadedCrc:
 ;one long per drive
-  DS.L  4
+  DS.L  5 ;extra for ramdisk (drive 4)
 LAB_A48350:
   DS.L  1
 LAB_A48354:
@@ -44286,6 +44574,8 @@ full64k
 fullPal
   DS.B  1
   even
+newRamdiskAddr
+  DS.L  1
 trackStartSkip
   DS.L  1
 trackMaxByteCount

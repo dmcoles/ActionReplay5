@@ -42,7 +42,7 @@ v0.2.1 Updates (private release)
 v0.2.2 Updates (private release)
   - added boot sequence colours to try and help work out why its not working
     on real AR3
-  - aded RM command for reading raw MFM
+  - aded RR command for reading raw MFM
   - some further tweaks to boot sequence to fix for AR3 hardware
   - added RC, RF, RM commands to display FPU, MMU and other registers on
     68020 and higher CPUs.
@@ -111,3 +111,7 @@ v0.7.0  Updates (tte private members release)
   - display chipset info in INFO command
   - add RS command (like RT but sector based), RPS (like RP but sector based)
   - add RB command (like RT but byte based), RPB (like RP but byte based)
+  - add CRC16 and CRC32 commands
+  - add WR (write raw mfm tracks) and WP (write pdos tracks) commands
+  - add MFM decode command
+  - added RAMDISK drive (R:) to support new AR hardware with extra memory
