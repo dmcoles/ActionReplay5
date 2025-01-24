@@ -1,0 +1,639 @@
+Action Replay 5 Complete Command List
+-------------------------------------
+
+  A (Assemble)
+    A <address>
+
+  ADD (Adds a value to memory range)
+    ADD <start-address> <end-address> <value>
+
+  ALERT (Display alert info)
+    ALERT <guru-number>
+
+  ALLEXC (Enable/disable all exceptions)
+    ALLEXC
+
+  ARRAM (Display Action Replay RAM info)
+    ARRAM
+
+  ASCII (Display ASCII character set)
+    ASCII
+
+  AVAIL (Display available memory)
+    AVAIL
+
+  B (Show breakpoints)
+    B
+
+  BAMCHK (Calculate bitmapblock checksum)
+    BAMCHK <addr>
+
+  BCODE (Alias for BOOTCODE)
+    BCODE <codenumber>
+
+  BD (Delete breakpoint)
+    BD <addr>
+
+  BDA (Delete all breakpoints)
+    BDA
+
+  BOOTCHK (Calculate bootblock checksum)
+    BOOTCHK <addr>
+
+  BOOTCODE (Set bootcode)
+    BOOTCODE <codenumber>
+
+  BOOTPROT (Protect the bootblock)
+    BOOTPROT <codenumber)
+
+  BPROT (Alias for BOOTPROT)
+    BPROT <codenumber)
+
+  BS (Set breakpoint)
+    BS <addr>
+
+  BURST (Burst nibbler)
+    BURST
+
+  C (Copper disassembler)
+    C <1|2|address>
+
+  CACHE (Enable/disable cache)
+    CACHE <0|1>
+
+  CCOPY (Alias for CODECOPY)
+    CCOPY <source-drive> <dest-drive>
+
+  CD (Change directory)
+    CD (<path>)
+
+  CHIPREGS (Display chip register info)
+    CHIPREGS
+
+  CI (Display copylock info)
+    CI <addr>
+
+  CLRAPI (Remove API handler)
+    CLRAPI
+
+  CLRDMON (Clear disk monitor buffer)
+    CLRDMON
+
+  CLRSTICK (Clear megastick values)
+    CLRSTICK
+
+  CODE (Set drive encoding)
+    CODE <drive> <code-number>
+
+  CODECOPY (Encodes or decodes a disk)
+    CODECOPY <source-drive> <dest-drive>
+
+  COLOR (Set screen colours)
+    COLOR <back-color> <pen-color>
+
+  COLOUR (Alias for COLOR)
+    COLOUR <back-color> <pen-color>
+
+  COMP (Compare memory)
+    COMP <start-addr> <end-addr> <dest-addr>
+
+  COPY (Copy a file)
+    COPY (<path>)<source-file>,<dest-file>
+
+  CRC16 (Calculate a CRC16 checksum)
+    CRC16 <start-addr> <end-addr>
+
+  CRC32 (Calculate a CRC32 checksum)
+    CRC32 <start-addr> <end-addr>
+
+  CREG (Alias for CHIPREGS)
+    CREG
+
+  CST (Alias for CLRSTICK)
+    CST
+
+  D (Disassemble)
+    D (<addr>)
+
+  DATACHK (Calculate datablock checksum)
+    DATACHK <addr>
+
+  DBG (Launch debugger)
+    DBG
+
+  DCHIP (Display register info)
+    DCHIP <registername>
+
+  DCHK (Alias for DISKCHECK)
+    DCHK <drive>
+
+  DCOPY (Copy an AmigaDOS disk)
+    DCOPY <source-drive> <dest-drive>
+
+  DD (Disassemble 8 lines)
+    DD (<addr>)
+
+  DDD (Disassemble 16 lines)
+    DDD (<addr>)
+
+  DEEPMW (Enable/disable deep memwatch)
+    DEEPMW
+
+  DEL (Alias for DELETE)
+    DEL (<path>)<file>
+
+  DELETE (Delete a file)
+    DELETE (<path>)<file>
+
+  DEV (Alias for DEVICES)
+    DEV
+
+  DEVICES (Show execbase device list)
+    DEVICES
+
+  DIR (Show directory contents)
+    DIR (<path>)
+
+  DIRA (Show recursive directory contents)
+    DIRA (<path>)
+
+  DISKCHECK (Checks disk for errors)
+    DISKCHECK <drive>
+
+  DISKIO (Copy Rob Northen DISKIO package to RAM)
+    DISKIO <addr>
+
+  DISKWIPE (Quick wipe disk contents)
+    DISKWIPE <drive>
+
+  DMON (Get/display disk-mon buffer)
+    DMON
+
+  DOSIO (Copy Rob Northen DOSIO package to RAM)
+    DOSIO <addr>
+
+  DWIPE (Alias for DISKWIPE)
+    DWIPE <drive>
+
+  E (Show/edit chip registers)
+    E (<offset>)
+
+  EA (Show full AGA pallete)
+    EA
+
+  ED (Edit text file)
+    ED (<path>)<file>
+
+  EXC (Alias for EXCEPTIONS)
+    EXC
+
+  EXCEPTIONS (Show exception and interrupt vectors)
+    EXCEPTIONS
+
+  EXEC (Alias for EXECBASE)
+    EXEC
+
+  EXECBASE (Show execbase structure)
+    EXECBASE
+
+  EXQ (Exchange prg with ramdisk prg)
+    EXQ
+
+  EXQR (Exchange prg with ramdisk prg and run)
+    EXQR
+
+  F (Search For string)
+    F <string>(,<start-addr> <end-addr>)
+
+  FA (Find addressing opcode)
+    FA <addr> (<start-addr> <end-addr>)
+
+  FAQ (Find addressing opcode quick)
+    FAQ <addr> (<start-addr> <end-addr>)
+
+  FC (Search for Rob Northen Copylock)
+    FC (<start-addr <end-addr>)
+
+  FLASH (Update firmware)
+    FLASH (<path>)<file>
+
+  FORMAT (Format disk in active drive)
+    FORMAT (<name>)(,FFS)
+
+  FORMATQ (Quick format disk in active drive)
+    FORMATQ (<name>)(,FFS)
+
+  FORMATV (Format and verify disk in active drive)
+    FORMATV (<name>)(,FFS)
+
+  FR (Search for relative-string)
+    FR <string>(,<start-addr> <end-addr>)
+
+  FS (Search for string case insensitive)
+    FR <string>(,<start-addr> <end-addr>)
+
+  G (Restart program at address)
+    G <addr>
+
+  I (Alias for TRANS)
+    I <start-addr> <end-addr> <dest-addr>
+
+  IMODE (Set interrupt mode)
+    IMODE <0|1|2|3>
+
+  INFO (Show system parameters)
+    INFO <picnr>
+
+  INST (Alias for INSTALL)
+    INST <bootblock-nr>
+
+  INSTALL (Install bootblock to current drive)
+    INSTALL <bootblock-nr>
+
+  INT (Alias for INTERRUPTS)
+    INT
+
+  INTERRUPTS (Show execbase interrupt-list)
+    INTERRUPTS
+
+  KEY (Alias for SETMAP)
+    KEY
+
+  KICKROMADR (Toggle kickstart ROM address)
+    KICKROMADR
+
+  KILL (Remove AR from memory)
+    KILL
+
+  KILLVIRUS (Search and remove virus)
+    KILLVIRUS
+
+  KVIR (Alias for KILLVIRUS)
+    KVIR
+
+  LA (Load freezefile from disk)
+    LA (<path>)<file>
+
+  LED (Toggle filter/LED status)
+    LED
+
+  LIB (Alias for LIBRARIES)
+    LIB
+
+  LIBRARIES (Show execbase library-list)
+    LIBRARIES
+
+  LM (Load file to memory)
+    LM (<path>)<file>,<dest-addr>
+
+  LQ (Load all from ramdisk)
+    LQ
+
+  LQR (Load all from ramdisk and restart)
+    LQR
+
+  LR (Load freezefile from disk and start)
+    LR (<path>)<file>
+
+  LST (Alias for LSTICK)
+    LST (<path>)<file>
+
+  LSTICK (Load joystick-handler data)
+    LSTICK (<path>)<file>
+
+  M (Show/edit memory as bytes)
+    M <address>
+
+  MAKEDIR (Create a directory)
+    MAKEDIR <path>
+
+  MD (Delete memwatchpoint)
+    MD <address>
+
+  MDA (Delete all memwatchpoints)
+    MDA
+
+  MDIR (Alias for MAKEDIR)
+    MDIR <path>
+
+  MEGASTICK (Joystick handler)
+    MEGASTICK (1)
+
+  MEMCODE (EOR.B encode memory)
+    MEMCODE <start-addr> <end-addr> <code>
+
+  MFM (Decode raw mfm data)
+    MFM <src-addr> <track-len> <track-count> <dest-addr> <sync> <sector-offset> <sector-count> <sector-len> <sector-interleave> (<sectornum-offset>)
+
+  MM (Show/edit memory bytes - 8 lines)
+    MM <address>
+
+  MMM  (Show/edit memory bytes - 16 lines)
+    MMM <address>
+
+  MS (Set memwatchpoint)
+    MS <address>
+
+  MST (Alias for MEGASTICK)
+    MST (1)
+
+  MW (Display memwatchpoints)
+    MW
+
+  N (Show/edit memory as ASCII)
+    N <address>
+
+  NCHAR (Alias for NORMALCHAR)
+
+  NN (Show/edit memory as ASCII - 8 lines)
+    NN <address>
+
+  NNN (Show/edit memory as ASCII - 16 lines)
+    NN <address>
+
+  NO (Show/set ascii-dump offset)
+    NO <offset>
+
+  NORMALCHAR (Normal printerchars)
+    NORMALCHAR
+
+  NOSTICK (Remove joystick-handler)
+    NOSTICK
+
+  NQ (Display memory quick as ASCII)
+    NQ <address>
+
+  NST (Alias for NOSTICK)
+    NST
+
+  NTSC (Set NTSC display mode)
+    NTSC
+
+  O (Fill memoryblock with string)
+    O <string>, <start-addr> <end-addr>
+
+  P (Show current picture/mempeeker)
+    P <picnr>
+
+  PACK (Pack memory)
+    PACK <start-addr> <end-addr> <dest-addr> <rate>
+
+  PAL (Set PAL display mode)
+    PAL
+
+  PC (Show current picture + energy count)
+    PC <picnr>
+
+  PORTS (Show execbase port-list)
+    PORTS
+
+  PRT (Print string)
+    PRT <string>
+
+  R (Show/edit processor registers)
+    R (<reg> <value>)
+
+  RAMTEST (Checks memory for errors)
+    RAMTEST <start-addr> <end-addr>
+
+  RB (Read bytes from active drive)
+    RB <start-offset> (<num-bytes> <dest-addr>)
+
+  RC (Show 020+ control registers)
+    RC
+
+  RCOLOR (Reset colors)
+    RCOLOR
+
+  RCOLOUR (Alias for RCOLOR)
+    RCOLOUR
+
+  REL (Alias for RELABEL)
+
+  RELABEL (Change disk label)
+    RELABEL <diskname>
+
+  REN (Alias for RENAME)
+    REN (<path>)<old-file>,<new-file>
+
+  RENAME (Rename a file)
+    RENAME (<path>)<old-file>,<new-file>
+
+  RES (Alias for RESOURCES)
+    RESOURCES
+
+  RESET (Exit AR and reset Amiga)
+    RESET
+
+  RESOURCES (Show execbase resource-list)
+    RESOURCES
+
+  RF (Show FPU registers)
+    RF
+
+  RM (Show MMU registers)
+    RM
+
+  RNC (Show rnc serial track)
+    RNC
+
+  ROBD (Enable/disable Rob Northen decryptor)
+    ROBD
+
+  ROMAVOID (Enable/disable triggering from ROM)
+    ROMAVOID
+
+  RP (Read pdos tracks from active drive)
+    RP <start-track> (<num-tracks> <dest-addr>)
+
+  RPB (Read pdos bytes from active drive)
+    RPB <start-offset> (<num-bytes> <dest-addr>)
+
+  RPS (Read pdos sectors from active drive)
+    RPS <start-sector> (<num-sectors> <dest-addr>)
+
+  RR (Read raw mfm tracks from active drive)
+    RR <start-track>
+
+  RS (Read sectors from active drive)
+    RS <start-sector> (<num-sectors> <dest-addr>)
+
+  RT (Read tracks from active drive)
+    RT <start-track> (<num-tracks> <dest-addr>)
+
+  SA (Save current program to disk)
+    SA (<path>)<name>,<crate>)
+
+  SAFEDISK
+    SAFEDISK (a/b/s/n/u/v/q)
+
+  SCAN (Scan memory for samples)
+    SCAN
+
+  SCHAR (Alias for SMALLCHAR)
+    SCHAR
+
+  SDISK (Alias for SAFEDISK)
+    SDISK (a/b/s/n/u/v/q)
+
+  SETAPI (Set api handler)
+    SETAPI
+
+  SETCOP (Specify copper for exit)
+    SETCOP <copper-addr>
+
+  SETEXCEPT (Set exception handler)
+    SETEXCEPT
+
+  SETMAP (Keymap editor)
+    SETMAP
+
+  SEXC (Alias for SETEXCEPT)
+    SEXC
+
+  SLOADER (Save loader to active drive)
+    SLOADER
+
+  SM (Save memoryblock to disk)
+    SM (<path>)<name>,<start-addr> <end-addr>
+
+  SMALLCHAR (Activate very small printer chars)
+    SMALLCHAR
+
+  SMDATA (Save memoryblock to disk as data)
+    SMDATA (<path>)<file>,<start-addr> <end-addr>
+
+  SMDC (Save memoryblock to disk as dc.b)
+    SMDC (<path>)<file>,<start-addr> <end-addr>
+
+  SP (Save current picture to disk)
+    SP (<path>)<file>(,<nr> <height>)
+
+  SPM (Save picture of memory-peeker)
+    SPM (<path>)<name>
+
+  SPR (Show/edit sprites)
+    SPR <nr|addr> (<nr|addr>)
+
+  SQ (Save all to ramdisk)
+    SQ
+
+  SQMEM (En/disable savequick in fastmemory)
+    SQMEM (<0/start>)
+
+  SQR (Save all to ramdisk and restart)
+    SQR
+
+  SR (Save current program and start)
+    SR (<path>)<name>,<crate>)
+
+  SRIP (Alias for TRACKER)
+    SRIP (<start-addr>)
+
+  SST  (Alias for SSTICK)
+    SST (<path>)<file>
+
+  SSTICK (Save joystick-handler data)
+    SSTICK (<path>)<file>
+
+  ST (Trace current program (also subs))
+    ST <steps>
+
+  T (Show addresses/continue trainer)
+    T <lives>
+
+  TASKS (Show execbase task-lists)
+    TASKS
+
+  TD (Display deep trainer addresses)
+    TD
+
+  TDC (Deep trainer change count)
+    TDC
+
+  TDD (Deep trainer delete addresses)
+    TDD <start-addr> <end-addr>
+
+  TDI (Display probable trainer addresses)
+    TDI
+
+  TDS (Deep trainer start count)
+    TDS
+
+  TDX (Exit old deep trainer)
+    TDX
+
+  TF (Search for decrementing opcodes)
+    TF <address>
+
+  TFD (Search and remove decrement opcodes)
+    TFD <address>
+
+  TM (Show remarks about curr. program)
+    TM
+
+  TMD (Delete remark about program)
+    TMD <address>
+
+  TMS (Set remark about curr. program addr.)
+    TMS <address>
+
+  TR (Trace current program (not subs))
+    TR <steps>
+
+  TRACKER (Rips soundtracker-modules in memory)
+    TRACKER (<start-addr>)
+
+  TRANS (Copy memoryblock)
+    TRANS <start-addr> <end-addr> <dest-addr>
+
+  TS (Start trainer/trainermode)
+    TS <start-lives> <start-address>
+
+  TX (Exit trainermode)
+    TX
+
+  TYPE (Type file on screen)
+    TYPE (<path>)<file>
+
+  UNPACK (Unpack packed mem)
+    UNPACK <dest-addr> <end-of-packed-addr>
+
+  V (Alias for COMP)
+    V <start-addr> <end-addr> <dest-addr>
+
+  VERSION (Show version info)
+    VERSION
+
+  VIRUS (Search for virus in memory)
+    VIRUS
+
+  W (Show/edit CIA data)
+    W <register>
+
+  WP (Write pdos tracks to active drive)
+    WP <start-track> <num-tracks> <src-addr> <pdos-key>
+
+  WR (Write raw mfm data to active drive)
+    WR <start-track> <num-tracks> <src-addr> <word-length>
+
+  WS (Write string to memory)
+    WS <string>, <start-addr>
+
+  WT (Write tracks to active drive)
+    WT <start-track> <num-tracks> <src-addr>
+
+  X (Restart current program)
+    X
+
+  Y (Show/edit memory as binary)
+    Y <addr>
+
+  YS (Show/set datawidth for the Y command)
+    YS <bytes>
+
+  YY (Show/edit memory as binary - 8 lines)
+    YY <addr>
+
+  YYY (Show/edit memory as binary - 16 lines)
+    YYY <addr>
