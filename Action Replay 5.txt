@@ -115,3 +115,9 @@ v0.7.0  Updates (tte private members release)
   - add WR (write raw mfm tracks) and WP (write pdos tracks) commands
   - add MFM decode command
   - added RAMDISK drive (R:) to support new AR hardware with extra memory
+v0.8.0
+  - add Italian keymap
+  - add KEYMAP command to switch between keymaps
+  - fixes for new AR hardware with extra memory
+  - add COLOUR and RCOLOUR aliases
+  - add command help templates (eg RENAME ? shows help)

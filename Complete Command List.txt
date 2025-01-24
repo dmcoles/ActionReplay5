@@ -259,6 +259,9 @@ Action Replay 5 Complete Command List
   KEY (Alias for SETMAP)
     KEY
 
+  KEYMAP (Set keymap)
+    KEYMAP US|UK|DE|IT
+
   KICKROMADR (Toggle kickstart ROM address)
     KICKROMADR
 
@@ -267,6 +270,9 @@ Action Replay 5 Complete Command List
 
   KILLVIRUS (Search and remove virus)
     KILLVIRUS
+
+  KM (Alias for KEYMAP)
+    KM US|UK|DE|IT
 
   KVIR (Alias for KILLVIRUS)
     KVIR

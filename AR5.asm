@@ -1,8 +1,8 @@
 
 ;Action Replay 5
-dbg=0
+dbg=1
 pistorm=0
-arhardware=1
+arhardware=0
 arsoft=0
 
 dbgramdisk=0
@@ -16,7 +16,7 @@ dbgramdisk=0
   if arsoft=1
     opt d-,s-
   endc
-  
+
 EXT_0   EQU $0
 EXT_4   EQU $4
 EXT_7   EQU $7
@@ -176,6 +176,7 @@ EXT_DFF1A2  EQU $DFF1A2
 EXT_DFF1A6  EQU $DFF1A6
 EXT_DFF1DC  EQU $DFF1DC
 
+EXT_4FF000  EQU $4FF000
 EXT_E80000  EQU $E80000
 EXT_F80004  EQU $F80004
 EXT_F80005  EQU $F80005
@@ -258,6 +259,7 @@ bpl1ptl EQU $E2
 intreq  EQU $9C
 intena  EQU $9A
 dmacon  EQU $96
+spr0pos EQU $140
 spr0pth EQU $120
 spr1pth EQU $124
 spr2pth EQU $128
@@ -308,6 +310,8 @@ spr6data  EQU $174
 spr7data  EQU $17C
 color00 EQU $180
 color01 EQU $182
+color17 EQU $1A2
+color19 EQU $1A6
 
 rsnoop SET 0
   if arhardware=1
@@ -552,7 +556,7 @@ setupDefaults:
   MOVE.B D1,keymap
 
   LSR.L #8,D0
-  
+
   BTST #0,D0
   SNE D1
   MOVE.B  D1,RomAvoidFlag
@@ -581,7 +585,7 @@ setupDefaults:
   BTST #6,D0
   SNE D1
   MOVE.B  D1,DisableVposWrite
-  
+
   RTS
 
 ColdCapture:
@@ -721,7 +725,7 @@ DisplayArInstalLogo:
   SWAP D7
   MOVE.W intenar+EXT_DFF000,D7
   OR.W #$8000,D7
-  
+
   MOVE.W #$7fff,dmacon+EXT_DFF000
   MOVE.W #$7fff,intena+EXT_DFF000
   MOVE.L A7,A6
@@ -751,7 +755,7 @@ DisplayArInstalLogo:
   SWAP D7
   MOVE.W  D7,dmacon+EXT_DFF000
   RTS
-  
+
 InstallExceptionHandlers:
   MOVEM.L D0-D7/A0-A6,-(A7)
   TST.B LAB_A10019
@@ -772,7 +776,7 @@ InstallExceptionHandlers:
   DBF D0,.savevecs
 
   MOVE.L OldVbr,A0
-  
+
   TST.B MoveVbr
   BEQ.S nomove
 
@@ -2046,12 +2050,18 @@ AREntry3:
   MOVE.B  EXT_BFEF01,SAVE_CIAACRB
   MOVE.W  EXT_DFF01E,SaveIntreq
   MOVE.W  EXT_DFF010,SaveAdkcon
-  MOVE.W  RegSnoopDskSync,SaveDskSync
   if rsnoop=1
-  MOVE.L  RegSnoop+$20,SaveDskPt
-  MOVE.L  RegSnoop+$24,SaveDskLen
+  MOVE.L A0,tempD0
+  MOVE.L RegSnoopAddr,A0
+  MOVE.W  dsksync(A0),SaveDskSync
+  MOVE.L  dskpth(A0),SaveDskPt
+  MOVE.L  dsklen(A0),SaveDskLen
+  MOVE.L  color00(A0),SaveColor00
+  MOVE.L A0,tempD0
+  else
+  MOVE.W  #4489,SaveDskSync
+  MOVE.L  #$00000fff,SaveColor00
   endc
-  MOVE.L  RegSnoopColor00,SaveColor00
 
   BTST  #6,EXT_DFF003
   BEQ.S LAB_A10A50
@@ -2078,7 +2088,10 @@ LAB_A10A64:
   BSET  #1,SaveIntReq1
   MOVE.L D0,LAB_A480CA
   MOVEQ #0,D0
-  MOVE.W RegSnoop+$24,D0  ;dsklen
+  MOVE.L A0,tempD0
+  MOVE.L RegSnoopAddr,A0
+  MOVE.W dsklen(A0),D0
+  MOVE.L tempD0,A0
   AND.w #$3fff,d0
   LSL.W #1,d0
   ADD.L D0,SaveDskPt
@@ -2097,11 +2110,11 @@ LAB_A10A88:
   JSR GetChipsetInfo
   JSR saveAgaColors
   MOVE.L  #0,EXT_DFF180
-  
+
   MOVE  #$2000,SR
   LEA StackEnd,A7
   LEA EXT_DFF000,A5
-  LEA RegSnoop,A6
+  MOVE.L RegSnoopAddr,A6
   CLR.L EXT_DFF144
   CLR.L EXT_DFF14C
   CLR.L EXT_DFF154
@@ -2188,8 +2201,11 @@ LAB_A10BF4:
   MOVE.W  SaveDmaCon,EXT_DFF096
   MOVE.W  SaveIntena,EXT_DFF09A
   if rsnoop=1
+  MOVE.L A0,tempD0
+  MOVE.L RegSnoopAddr,A0
   MOVE.L SaveCop1Lch,EXT_DFF080
-  MOVE.L RegSnoopCop2Lc,EXT_DFF084
+  MOVE.L cop2lch(A0),EXT_DFF084
+  MOVE.L tempD0,A0
   endc
   MOVE.W  #$7fff,EXT_DFF09C
   MOVE.W  SaveIntreq,EXT_DFF09C
@@ -2339,7 +2355,7 @@ LAB_A10E00:
 
   if rsnoop=1
 BlitterSave:
-  LEA RegSnoop,A0
+  MOVE.L RegSnoopAddr,A0
   MOVE.L  bltcon0(A0),SaveBltCon0
   MOVE.L  bltafwm(A0),SaveBltAfwm
   MOVE.L  bltcpth(A0),SaveBltCPth
@@ -2461,7 +2477,7 @@ KeyboardInt:
   ;LEA keydata,A0
   ;NOT.B (A0,D0.W)
   ;MOVE.L (Sp)+,A0
-  
+
   CMPI.B  #$64,D0   ;alt key
   BNE.S LAB_A10FB2
   BTST  #0,RawKeyCodeLo
@@ -2606,7 +2622,7 @@ LAB_A111A2:
   TST.W cursorX
   BNE.S LAB_A11176
 LAB_A111C0:
-  BSR.W SUB_A1727A
+  JSR SUB_A1727A
 LAB_A111C4:
   MOVEM.L (A7)+,D0-D3/A0
   RTS
@@ -2626,7 +2642,7 @@ LAB_A111F6:
   MOVE.L  cursorX,-(A7)
   MOVEQ #$20,D0
 LAB_A111FE:
-  BSR.W PrintChar
+  JSR PrintChar
   MOVE.W  PageHeight,D7
   CMP.W cursorY,D7
   BNE.S LAB_A1121A
@@ -2811,7 +2827,7 @@ InstallVblank:
   SF  viewingPrefs
   ST  cursorEnabled
   LEA EXT_DFF000,A5
-  LEA RegSnoop,A6
+  MOVE.L RegSnoopAddr,A6
   LEA EXT_1000,A0
   LEA ChipramSave1,A1
   MOVE.W PageHeight,D0
@@ -2851,7 +2867,7 @@ LAB_A11406:
   MOVE.L  $8E(A6),SaveDiwStart
   MOVE.L  $92(A6),SaveDdfStrt
   MOVE.W  $1e4(A6),SaveDiwHigh
-  
+
   JSR CalcBeamCon0
 
   MOVE.L  AUTO_INT3.W,Int3Save
@@ -2898,27 +2914,27 @@ CheckPalMode
 .4
   OR.W #$8000,D1
   MOVE.W D1,EXT_DFF09A
-  
+
   MOVE.L tempD0,D0
   MOVE.L tempD1,D1
 
   RTS
 
 CalcBeamCon0
-  MOVE.L D0,tempD0
-  MOVE.L D1,tempD1
+  MOVEM.L D0-D1/A0,-(A7)
 
-  MOVE.W RegSnoop+beamcon0,D0
+  MOve.L RegSnoopAddr,A0
+  MOVE.W beamcon0(A0),D0
   CMP.W #0,D0
   BEQ.S .0
-  
+
   CMP.W #$20,D0
   BEQ.S .0
-  
+
   MOVE.W D0,SaveBeamCon0
   MOVE.W #-1,VgaModeFlag
   RTS
-.0:  
+.0:
   MOVE.W #0,SaveBeamCon0
 
   MOVE.W EXT_DFF01C,D1
@@ -2948,7 +2964,7 @@ CalcBeamCon0
 .4
   OR.W #$8000,D1
   MOVE.W D1,EXT_DFF09A
-  
+
   BTST.B #2,ChipsetIdValue      ;aga
   BNE.S .5
 
@@ -2962,10 +2978,8 @@ CalcBeamCon0
 
   MOVE.W  #$0020,EXT_DFF09C
 
-.5  
-  MOVE.L tempD0,D0
-  MOVE.L tempD1,D1
-
+.5
+  MOVEM.L (A7)+,D0-D1/A0
   RTS
 
 BplCountToBplCon:
@@ -3004,7 +3018,7 @@ checkAgnus:
 
   BCLR #0,D0
 
-.1  
+.1
   MOVE.B D0,ChipsetIdValue
   MOVEM.L (A7)+,D1-D2
   rts
@@ -3015,9 +3029,10 @@ saveAgaColors:
 
   MOVEM.L D1-D5/A0/A4/A5,-(SP)
 
-  MOVE.W RegSnoop+bplcon2,D4
+  MOVE.L RegSnoopAddr,A5
+  MOVE.W bplcon2(A5),D4
   SWAP D4
-  MOVE.W RegSnoop+bplcon3,D4
+  MOVE.W bplcon3(A5),D4
 
   LEA EXT_DFF000,A5
   MOVE.W #$100,bplcon2(A5)
@@ -3056,12 +3071,12 @@ saveAgaColors:
 
   MOVE.W D2,(A4)+
   MOVE.W D3,(A4)+
-  
+
   DBF D1,.nextcol
 
   ADD.W #$2000,D5
   BCC .nextbank
-  
+
 .2
   MOVE.W D4,bplcon3(A5)
   SWAP D4
@@ -3122,7 +3137,7 @@ agarest:
   EOR.W #512,D5
 
   MOVE.W (A4)+,(A0)+
-  
+
   DBF D1,.nextcol
 
   ADD.W #$2000,D5
@@ -3291,7 +3306,7 @@ LAB_A11AA2:
 
   if rsnoop=0
 RestoreDisplay2:
-  LEA RegSnoop,A6
+  MOVE.L RegSnoopAddr,A6
   LEA EXT_DFF000,A5
   MOVE.L  SaveCop1Lch,$80(A6)
   MOVE.L  SaveCop2LcCopy,$84(A6)
@@ -3504,7 +3519,7 @@ LAB_A117EE:
   BTST #0,D0      ;ecs
   BNE.S .ecsskip2
   MOVE.W #0,bplcon3(a5)
-  
+
 .ecsskip2
   BTST #2,D0      ;aga
   BNE.S   .skip1
@@ -3691,6 +3706,9 @@ getKeymap:
   BEQ.S LAB_A11B44
   CMP.B #1,keymap
   BEQ LAB_A11B44_2
+
+  CMP.B #2,keymap
+  BEQ LAB_A11B44_3
   LEA keymapUK(PC),A0
   TST.B IgnoreShift
   BNE.S LAB_A11B54
@@ -3705,6 +3723,14 @@ LAB_A11B44_2
   TST.B ShiftKey
   BEQ.S LAB_A11B54
   LEA keymapUpperUS(PC),A0
+  BRA.S LAB_A11B54
+LAB_A11B44_3
+  LEA keymapIT(PC),A0
+  TST.B IgnoreShift
+  BNE.S LAB_A11B54
+  TST.B ShiftKey
+  BEQ.S LAB_A11B54
+  LEA keymapUpperIT(PC),A0
   BRA.S LAB_A11B54
 LAB_A11B44:
   LEA keymapDE(PC),A0
@@ -3748,19 +3774,60 @@ keymapUpperUS:
   DC.L  $8a8b8c8d,$8e8f9091,$92937b7d,$2f2a2b85
   DS.L  2
 keymapUK:
+  ;       ` 1 2 3  4  5 6 7   8 9 0 -   = \   0
   DC.L  $60313233,$34353637,$3839302d,$3d5c0030
+  ;       q w e r   t y u i   o p [ ]     1 2 3
   DC.L  $71776572,$74797569,$6f705b5d,$00313233
+  ;       a s d f   g h j k   l ; #       4 5 6
   DC.L  $61736466,$67686a6b,$6c3b2300,$00343536
+  ;         z x c   v b n m   , . /     . 7 8 9
   DC.L  $007a7863,$76626e6d,$2c2e2f00,$2e373839
   DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
-  DC.L  $8a8b8c8d,$8e8f9091,$92935b5d,$2f2a2b85
+  ;                               ( )   / * +
+  DC.L  $8a8b8c8d,$8e8f9091,$92932829,$2f2a2b85
   DS.L  2
+
 keymapUpperUK:
+  ;       ~ ! " £   $ % ^ &   * ( ) _   + \   0
   DC.L  $7e2122a3,$24255e26,$2a28295f,$2b7c0030
+  ;       Q W E R   T Y U I   O P { }     1 2 3
   DC.L  $51574552,$54595549,$4f507b7d,$00313233
+  ;       A S D F  G H J K    L : @       4 5 6
   DC.L  $41534446,$47484a4b,$4c3a4000,$00343536
+  ;         Z X C   V B N M   < > ?     . 7 8 9
   DC.L  $005a5843,$56424e4d,$3c3e3f00,$2e373839
   DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
+
+  ;                               ( )   / * +
+  DC.L  $8a8b8c8d,$8e8f9091,$92932829,$2f2a2b85
+  DS.L  2
+
+keymapIT:
+  ;       ` 1 2 3  4  5 6 7   8 9 0       \   0
+  DC.L  $60313233,$34353637,$38393000,$005c0030
+  ;       q w e r   t y u i   o p   +     1 2 3
+  DC.L  $71776572,$74797569,$6f70002b,$00313233
+  ;       a s d f   g h j k   l           4 5 6
+  DC.L  $61736466,$67686a6b,$6c000000,$00343536
+  ;       < z x c   v b n m   , . -     . 7 8 9
+  DC.L  $3c7a7863,$76626e6d,$2c2e2d00,$2e373839
+
+  DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
+  ;                               [ ]   / * +
+  DC.L  $8a8b8c8d,$8e8f9091,$92935b5d,$2f2a2b85
+  DS.L  2
+keymapUpperIT:
+  ;       ~ ! " £   $ % & /   ( ) = ?   ^ |   0
+  DC.L  $7e2122a3,$2425262f,$28293d3f,$5e7c0030
+  ;       Q W E R   T Y U I   O P   *     1 2 3
+  DC.L  $51574552,$54595549,$4f50002a,$00313233
+  ;       A S D F  G H J K    L @ #       4 5 6
+  DC.L  $41534446,$47484a4b,$4c4023a7,$00343536
+  ;       > Z X C   V B N M   ; : _     . 7 8 9
+  DC.L  $3e5a5843,$56424e4d,$3b3a5f00,$2e373839
+
+  DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
+  ;                               { }   / * +
   DC.L  $8a8b8c8d,$8e8f9091,$92937b7d,$2f2a2b85
   DS.L  2
 PrintCharToScreenAndPrinter:
@@ -3784,13 +3851,13 @@ LAB_A11D2C:
 Print1DigitHex:
   MOVE.L  D1,-(A7)
   MOVEQ #1,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 Print2DigitHex:
   MOVE.L  D1,-(A7)
   MOVEQ #2,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 ;Print3DigitHex:
@@ -3802,25 +3869,25 @@ Print2DigitHex:
 Print4DigitHex:
   MOVE.L  D1,-(A7)
   MOVEQ #4,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 Print6DigitHex:
   MOVE.L  D1,-(A7)
   MOVEQ #6,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 Print8DigitHex:
   MOVE.L  D1,-(A7)
   MOVEQ #8,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 PrintAddressHex:
   MOVE.L  D1,-(A7)
   MOVE.W cpuAddrSize,D1
-  BSR.W PrintValue
+  JSR PrintValue
   MOVE.L  (A7)+,D1
   RTS
 fontData:
@@ -3905,7 +3972,7 @@ LAB_A120BC:
 LAB_A120E4:
   BSR.W InsertSpaceChar
 LAB_A120E8:
-  BSR.W PrintChar
+  JSR PrintChar
   CMPI.W  #$000d,D0
   BNE.S LAB_A120BC
   MOVEQ #$50,D0
@@ -3969,7 +4036,7 @@ nextCmd:
   MOVE.L  D6,D7
   MOVEA.L A1,A0
 LAB_A1219A:
-  BSR.W readCmdChar
+  JSR readCmdChar
   CMP.B (A2)+,D0
   BNE.S LAB_A121A4
   BRA.S LAB_A1219A
@@ -3983,7 +4050,7 @@ LAB_A121AA:
   ADDQ.L  #1,D0
   ANDI.W  #$fffe,D0
   EXG D0,A2
-  ADDQ.W  #4,A2
+  ADDQ.W  #8,A2
   ADDQ.W  #1,D1
   TST.B (A2)
   BNE.S nextCmd
@@ -3994,20 +4061,86 @@ LAB_A121C4:
   ADDQ.W  #1,D0
   ANDI.W  #$fffe,D0
   EXG D0,A2
+  MOVE.L (A2),A1
+
+  MOVEM.L A0/D7,-(A7)
+  MOVE.B endOfCmdString,-(A7)
+  MOVE.B cmdSpacesSkipped,-(A7)
+
   MOVEQ #0,D0
-  MOVE.B 0(A2),D0
-  LSL.W #8,D0
-  MOVE.B  1(A2),D0
-  SWAP  D0
-  MOVE.B  2(A2),D0
-  LSL.W #8,D0
-  MOVE.B  3(A2),D0
-  MOVEA.L D0,A1
+
+  CMP.L #CMD_DIR,A1
+  BNE.S .notdir
+
+  JSR readCmdChar
+  CMP.B #" ",D0
+  BEQ.S .0
+  CMP.B #"A",D0
+  BNE.S .1
+
+  LEA dira_help_dummy,A2
+  BRA.S .0
+
+.notdir
+  CMP.L #CMD_FORMAT,A1
+  BNE.S .0
+
+  JSR readCmdChar
+  CMP.B #" ",D0
+  BEQ.S .0
+  CMP.B #"V",D0
+  BEQ.S .formatv
+
+  CMP.B #"Q",D0
+  BEQ.S .formatq
+  BRA.S .1
+
+.formatq
+  LEA formatq_help_dummy,A2
+  BRA.S .0
+
+.formatv
+  LEA formatv_help_dummy,A2
+.0
+  JSR readCmdCharSkipSpaces
+.1
+  TST.B endOfCmdString
+  BNE.S .exec0
+
+  MOVE.B (A7)+,cmdSpacesSkipped
+  MOVE.B (A7)+,endOfCmdString
+  MOVEM.L (A7)+,A0/D7
+
+  CMP.B #"?",D0
+  BNE.S .exec
+  MOVE.L 4(A2),A0
+  MOVE.L A0,D0
+  BNE.S .helpPrint
+
+  LEA noHelpText(PC),A0
+  JSR PrintText
+  BRA.W arCommandLoop
+
+.helpPrint
+  MOVE.L A0,-(A7)
+  LEA helpHeaderText(PC),A0
+  JSR PrintText
+  MOVE.L (A7)+,A0
+  JSR PrintText
+  JSR PrintCR
+  BRA.W arCommandLoop
+
+.exec0
+  MOVE.B (A7)+,cmdSpacesSkipped
+  MOVE.B (A7)+,endOfCmdString
+  MOVEM.L (A7)+,A0/D7
+
+.exec
 ; execute command
   JSR (A1)
   BRA.W arCommandLoop
 CMD_SETCOP:
-  BSR.W ReadParameter
+  JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A12216
   MOVEA.L D0,A1
@@ -4025,9 +4158,16 @@ LAB_A12216:
   JSR PrintReady
   RTS
 
+noHelpText
+  DC.B 13,"There is no help available for this command.",13,13,0
+
+helpHeaderText
+  DC.B 13,"Command help:",13,13,0
+
 currentCopperText:
   DC.B  $D,"Current Copper 0: ",0
 
+  even
 maxApiCall EQU 16
 
 handleApiCall
@@ -4179,7 +4319,7 @@ apiReadBytes
   SUBQ.L  #1,D2
   MOVE.L  D1,D3
   ADD.L D2,D3
-  
+
   TST.B pdosRead
   BNE.S .1
 
@@ -4219,11 +4359,11 @@ apiWriteMfmTracks
   BRA apiWriteTracks
 
 
-  
+
 apiCls:
-  BSR.W Cls
+  JSR Cls
   RTS
-  
+
 apiSelectScreen
   MOVE.L SaveCpuRegs+4,D1  ;screen number
   CMP.W #1,D1
@@ -4252,9 +4392,9 @@ switch:
   MOVE.B  D0,$4F(A0)
   MOVE.L  A0,CurrentPage
   JSR redrawTextPage
-  RTS  
+  RTS
 
-apiTable 
+apiTable
   DC.L apiPrintText,apiPrintValue,apiCls,apiSelectScreen
   DC.L apiLoadFile,apiSaveFile,apiSaveData
   DC.L apiReadTracks,apiWriteTracks
@@ -4642,14 +4782,14 @@ CMD_IMODE:
  JMP PrintReady
 
 noimodetext:
- DC.B "Imode is not available in hardware",$D,0
+ DC.B "IMODE is not available in hardware",$D,0
  even
  else
- BSR.W ReadParameter
+ JSR ReadParameter
  TST.B ParamFound
  BEQ.S LAB_A1225E
  CMPI.L  #4,D0
- BGE.W PrintWTF
+ BGE.S imodeWTF
  MOVE.B  D0,imode
 LAB_A1225E:
  LEA imode0Text(PC),A0
@@ -4660,8 +4800,11 @@ LAB_A1225E:
  ADD.L D0,D0
  MOVEA.L imode_table(PC,D0.W),A0
  BSR.W PrintText
- BSR.W PrintReady
+ JSR PrintReady
  RTS
+
+imodeWTF
+ JMP PrintWTF
 
 imode_table:
  DC.L  imode1Text
@@ -4686,891 +4829,2219 @@ imode4Text:
  DC.B  "-> Level 7 Int./button -+-  ']' on keypad disables montitor ",0
  endc
 
+
 commandTable:
   DC.B  "INTERRUPTS",0
   even
   DC.L  CMD_INTERRUPTS
+  DC.L  cmd_interrupts_help
 
   DC.B  "EXCEPTIONS",0
   even
   DC.L  CMD_EXCEPTIONS
+  DC.L cmd_exceptions_help
 
   DC.B  "NORMALCHAR",0
   even
   DC.L  CMD_NORMALCHAR
+  DC.L cmd_normalchar_help
 
+  if arsoft=1
   DC.B  "KICKROMADR",0
   even
   DC.L  CMD_KICKROMADR
+  DC.L cmd_kickromadr_help
+  endc
 
   DC.B  "SETEXCEPT",0
   even
   DC.L  CMD_SETEXCEPT
+  DC.L cmd_setexcept_help
 
   DC.B  "LIBRARIES",0
   even
   DC.L  CMD_LIBRARIES
+  DC.L cmd_libraries_help
 
   DC.B  "RESOURCES",0
   even
   DC.L  CMD_RESOURCES
+  DC.L cmd_resources_help
 
   DC.B  "KILLVIRUS",0
   DC.L  CMD_KILLVIRUS
+  DC.L cmd_killvirus_help
 
   DC.B  "DISKCHECK",0
   even
   DC.L  CMD_DISKCHECK
+  DC.L cmd_diskcheck_help
 
   DC.B  "MEGASTICK",0
   even
   DC.L  CMD_MEGASTICK
+  DC.L cmd_megastick_help
 
   DC.B  "SMALLCHAR",0
   even
   DC.L  CMD_SMALLCHAR
+  DC.L cmd_smallchar_help
 
   DC.B  "CHIPREGS",0
   even
   DC.L  CMD_CHIPREGS
+  DC.L cmd_chipregs_help
 
   DC.B  "EXECBASE",0
   even
   DC.L  CMD_EXECBASE
+  DC.L cmd_execbase_help
 
   DC.B  "BOOTCODE",0
   even
   DC.L  CMD_BOOTCODE
+  DC.L cmd_bootcode_help
 
   DC.B  "BOOTPROT",0
   even
   DC.L  CMD_BOOTPROT
+  DC.L cmd_bootprot_help
 
   DC.B  "ROMAVOID",0
   even
   DC.L  CMD_ROMAVOID
+  DC.L cmd_romavoid_help
 
   DC.B  "DISKWIPE",0
   even
   DC.L  CMD_DISKWIPE
+  DC.L cmd_diskwipe_help
 
   DC.B  "CODECOPY",0
   even
   DC.L  CMD_CODECOPY
+  DC.L cmd_codecopy_help
 
   DC.B  "CLRSTICK",0
   even
   DC.L  CMD_CLRSTICK
+  DC.L cmd_clrstick_help
 
   DC.B  "SAFEDISK",0
   even
   DC.L  CMD_SAFEDISK
+  DC.L cmd_safedisk_help
 
   DC.B  "MAKEDIR",0
   even
   DC.L  CMD_MAKEDIR
+  DC.L cmd_makedir_help
 
   DC.B  "INSTALL",0
   even
   DC.L  CMD_INSTALL
+  DC.L cmd_install_help
 
   DC.B  "RAMTEST",0
   even
   DC.L  CMD_RAMTEST
+  DC.L cmd_ramtest_help
 
   DC.B  "DEVICES",0
   even
   DC.L  CMD_DEVICES
+  DC.L cmd_devices_help
 
   DC.B  "TRACKER",0
   even
   DC.L  CMD_TRACKER
+  DC.L cmd_tracker_help
 
   DC.B  "SLOADER",0
   even
   DC.L  CMD_SLOADER
+  DC.L cmd_sloader_help
 
   DC.B  "CLRDMON",0
   even
   DC.L  CMD_CLRDMON
+  DC.L cmd_clrdmon_help
 
   DC.B  "BOOTCHK",0
   even
   DC.L  CMD_BOOTCHK
+  DC.L cmd_bootchk_help
 
   DC.B  "DATACHK",0
   even
   DC.L  CMD_DATACHK
+  DC.L cmd_datachk_help
 
   DC.B  "MEMCODE",0
   even
   DC.L  CMD_MEMCODE
+  DC.L cmd_memcode_help
 
   DC.B  "VERSION",0
   even
   DC.L  CMD_VERSION
+  DC.L cmd_version_help
 
   DC.B  "NOSTICK",0
   even
   DC.L  CMD_NOSTICK
+  DC.L cmd_nostick_help
 
   DC.B  "RELABEL",0
   even
   DC.L  CMD_RELABEL
+  DC.L cmd_relabel_help
+
+  DC.B  "RCOLOUR",0
+  even
+  DC.L  CMD_RCOLOR
+  DC.L cmd_rcolour_help
 
   DC.B  "DELETE",0
   even
   DC.L  CMD_DELETE
+  DC.L cmd_delete_help
 
   DC.B  "SETAPI",0
   even
   DC.L  CMD_SETAPI
+  DC.L cmd_setapi_help
 
   DC.B  "CLRAPI",0
   even
   DC.L  CMD_CLRAPI
+  DC.L cmd_clrapi_help
 
   DC.B  "FORMAT",0
   even
   DC.L  CMD_FORMAT
+  DC.L  cmd_format_help
 
   DC.B  "UNPACK",0
   even
   DC.L  CMD_UNPACK
+  DC.L cmd_unpack_help
 
   DC.B  "BAMCHK",0
   even
   DC.L  CMD_BAMCHK
+  DC.L cmd_bamchk_help
 
   DC.B  "RCOLOR",0
   even
   DC.L  CMD_RCOLOR
+  DC.L cmd_rcolor_help
+
+  DC.B  "COLOUR",0
+  even
+  DC.L  CMD_COLOR
+  DC.L cmd_colour_help
 
   DC.B  "SMDATA",0
   even
   DC.L  CMD_SMDATA
+  DC.L cmd_smdata_help
 
   DC.B  "LSTICK",0
   even
   DC.L  CMD_LSTICK
+  DC.L cmd_lstick_help
 
   DC.B  "SSTICK",0
   even
   DC.L  CMD_SSTICK
+  DC.L cmd_sstick_help
 
   DC.B  "RENAME",0
   even
   DC.L  CMD_RENAME
+  DC.L cmd_rename_help
 
   DC.B  "SETMAP",0
   even
   DC.L  CMD_SETMAP
+  DC.L cmd_setmap_help
 
   DC.B  "SETCOP",0
   even
   DC.L  CMD_SETCOP
+  DC.L cmd_setcop_help
 
   DC.B  "DEEPMW",0
   even
   DC.L  CMD_DEEPMW
+  DC.L cmd_deepmw_help
 
   DC.B  "ALLEXC",0
   even
   DC.L  CMD_ALLEXC
+  DC.L cmd_allexc_help
+
+  DC.B  "KEYMAP",0
+  even
+  DC.L  CMD_KEYMAP
+  DC.L cmd_keymap_help
 
   DC.B  "DISKIO",0
   even
   DC.L  CMD_DISKIO
+  DC.L cmd_diskio_help
 
   DC.B  "DOSIO",0
   even
   DC.L  CMD_DOSIO
+  DC.L cmd_dosio_help
 
   DC.B  "CRC16",0
   even
   DC.L  CMD_CRC16
+  DC.L cmd_crc16_help
 
   DC.B  "CRC32",0
   even
   DC.L  CMD_CRC32
+  DC.L cmd_crc32_help
 
   if arhardware=1
   DC.B  "ARRAM",0
   even
   DC.L  CMD_ARRAM
+  DC.L cmd_arram_help
 
   DC.B  "FLASH",0
   even
   DC.L  CMD_FLASH
+  DC.L cmd_flash_help
   endc
 
-  DC.B  "DEBUG",0
-  even
-  DC.L  CMD_DEBUG
+;  DC.B  "DEBUG",0
+;  even
+;  DC.L  CMD_DEBUG
+;  DC.L 0
 
 
   DC.B  "COLOR",0
   even
   DC.L  CMD_COLOR
+  DC.L cmd_color_help
 
   DC.B  "CACHE",0
   even
   DC.L  CMD_CACHE
+  DC.L cmd_cache_help
 
   DC.B  "AVAIL",0
   even
   DC.L  CMD_AVAIL
+  DC.L cmd_avail_help
 
   DC.B  "TASKS",0
   even
   DC.L  CMD_TASKS
+  DC.L cmd_tasks_help
 
   DC.B  "PORTS",0
   even
   DC.L  CMD_PORTS
+  DC.L cmd_ports_help
 
   DC.B  "VIRUS",0
   even
   DC.L  CMD_VIRUS
+  DC.L cmd_virus_help
 
   DC.B  "DCOPY",0
   even
   DC.L  CMD_DCOPY
+  DC.L cmd_dcopy_help
 
   DC.B  "TRANS",0
   even
   DC.L  CMD_TRANS
+  DC.L cmd_trans_help
 
   DC.B  "SQMEM",0
   even
   DC.L  CMD_SQMEM
+  DC.L cmd_sqmem_help
 
   DC.B  "RESET",0
   even
   DC.L  CMD_RESET
+  DC.L cmd_reset_help
 
   DC.B  "NCHAR",0
   even
   DC.L  CMD_NORMALCHAR
+  DC.L cmd_nchar_help
 
   DC.B  "SCHAR",0
   even
   DC.L  CMD_SMALLCHAR
+  DC.L cmd_schar_help
 
   DC.B  "BCODE",0
   even
   DC.L  CMD_BOOTCODE
+  DC.L cmd_bcode_help
 
   DC.B  "BPROT",0
   even
   DC.L  CMD_BOOTPROT
+  DC.L cmd_bprot_help
 
   DC.B  "DWIPE",0
   even
   DC.L  CMD_DISKWIPE
+  DC.L cmd_dwipe_help
 
   DC.B  "CCOPY",0
   even
   DC.L  CMD_CODECOPY
+  DC.L cmd_ccopy_help
 
   DC.B  "SDISK",0
   even
   DC.L  CMD_SAFEDISK
+  DC.L cmd_sdisk_help
 
   DC.B  "BURST",0
   even
   DC.L  CMD_BURST
+  DC.L cmd_burst_help
 
   DC.B  "ASCII",0
   even
   DC.L  CMD_ASCII
+  DC.L cmd_ascii_help
 
   DC.B  "ALERT",0
   even
   DC.L  CMD_ALERT
+  DC.L cmd_alert_help
 
   DC.B  "DCHIP",0
   even
   DC.L  CMD_DCHIP
+  DC.L cmd_dchip_help
 
   DC.B  "IMODE",0
   even
   DC.L  CMD_IMODE
+  DC.L cmd_imode_help
 
   DC.B  "DMON",0
   even
   DC.L  CMD_DMON
+  DC.L cmd_dmon_help
 
   DC.B  "INFO",0
   even
   DC.L  CMD_INFO
+  DC.L cmd_info_help
 
   DC.B  "COMP",0
   even
   DC.L  CMD_COMP
+  DC.L cmd_comp_help
 
   DC.B  "PACK",0
   even
   DC.L  CMD_PACK
+  DC.L cmd_pack_help
 
   DC.B  "CODE",0
   even
   DC.L  CMD_CODE
+  DC.L cmd_code_help
 
   DC.B  "SCAN",0
   even
   DC.L  CMD_SCAN
+  DC.L cmd_scan_help
 
   DC.B  "TYPE",0
   even
   DC.L  CMD_TYPE
+  DC.L cmd_type_help
 
   DC.B  "SMDC",0
   even
   DC.L  CMD_SMDC
+  DC.L cmd_smdc_help
 
   DC.B  "EXQR",0
   even
   DC.L  CMD_EXQR
+  DC.L cmd_exqr_help
 
   DC.B  "NTSC",0
   even
   DC.L  CMD_NTSC
+  DC.L cmd_ntsc_help
 
   DC.B  "COPY",0
   even
   DC.L  CMD_COPY
+  DC.L cmd_copy_help
 
   DC.B  "SEXC",0
   even
   DC.L  CMD_SETEXCEPT
+  DC.L cmd_sexc_help
 
   DC.B  "KVIR",0
   even
   DC.L  CMD_KILLVIRUS
+  DC.L cmd_kvir_help
 
   DC.B  "DCHK",0
   even
   DC.L  CMD_DISKCHECK
+  DC.L cmd_dchk_help
 
   DC.B  "CREG",0
   even
   DC.L  CMD_CHIPREGS
+  DC.L cmd_creg_help
 
   DC.B  "EXEC",0
   even
   DC.L  CMD_EXECBASE
+  DC.L cmd_exec_help
 
   DC.B  "MDIR",0
   even
   DC.L  CMD_MAKEDIR
+  DC.L cmd_mdir_help
 
   DC.B  "INST",0
   even
   DC.L  CMD_INSTALL
+  DC.L cmd_inst_help
 
   DC.B  "SRIP",0
   even
   DC.L  CMD_TRACKER
+  DC.L cmd_srip_help
 
   DC.B  "ROBD",0
   even
   DC.L  CMD_ROBD
+  DC.L cmd_robd_help
 
   DC.B  "KILL",0
   even
   DC.L  CMD_KILL
+  DC.L cmd_kill_help
 
   DC.B  "BDA",0
   even
   DC.L  CMD_BDA
+  DC.L cmd_bda_help
 
   DC.B  "FAQ",0
   even
   DC.L  CMD_FAQ
+  DC.L cmd_faq_help
 
   DC.B  "DIR",0
   even
   DC.L  CMD_DIR
+  DC.L cmd_dir_help
 
   DC.B  "RNC",0
   even
   DC.L  CMD_RNC
+  DC.L cmd_rnc_help
 
   DC.B  "MFM",0
   even
   DC.L  CMD_MFM
+  DC.L cmd_mfm_help
 
   DC.B  "DBG",0
   even
   DC.L  CMD_DBG
+  DC.L cmd_dbg_help
 
   DC.B  "MMM",0
   even
   DC.L  CMD_MMM
+  DC.L cmd_mmm_help
 
   DC.B  "NNN",0
   even
   DC.L  CMD_NNN
+  DC.L cmd_nnn_help
 
   DC.B  "YYY",0
   even
   DC.L  CMD_YYY
+  DC.L cmd_yyy_help
 
   DC.B  "DDD",0
   even
   DC.L  CMD_DDD
+  DC.L cmd_ddd_help
 
   DC.B  "SPM",0
   even
   DC.L  CMD_SPM
+  DC.L cmd_spm_help
 
   DC.B  "SQR",0
   even
   DC.L  CMD_SQR
+  DC.L cmd_sqr_help
 
   DC.B  "LQR",0
   even
   DC.L  CMD_LQR
+  DC.L cmd_lqr_help
 
   DC.B  "TFD",0
   even
   DC.L  CMD_TFD
+  DC.L cmd_tfd_help
 
   DC.B  "TMS",0
   even
   DC.L  CMD_TMS
+  DC.L cmd_tms_help
 
   DC.B  "TMD",0
   even
   DC.L  CMD_TMD
+  DC.L cmd_tmd_help
 
   DC.B  "SPR",0
   even
   DC.L  CMD_SPR
+  DC.L cmd_spr_help
 
   DC.B  "PRT",0
   even
   DC.L  CMD_PRT
+  DC.L cmd_prt_help
 
   DC.B  "EXQ",0
   even
   DC.L  CMD_EXQ
+  DC.L cmd_exq_help
 
   DC.B  "TDX",0
   even
   DC.L  CMD_TDX
+  DC.L cmd_tdx_help
 
   DC.B  "TDS",0
   even
   DC.L  CMD_TDS
+  DC.L cmd_tds_help
 
   DC.B  "TDC",0
   even
   DC.L  CMD_TDC
+  DC.L cmd_tdc_help
 
   DC.B  "TDI",0
   even
   DC.L  CMD_TDI
+  DC.L cmd_tdi_help
 
   DC.B  "TDD",0
   even
   DC.L  CMD_TDD
+  DC.L cmd_tdd_help
 
   DC.B  "MDA",0
   even
   DC.L  CMD_MDA
+  DC.L cmd_mda_help
 
   DC.B  "LED",0
   even
   DC.L  CMD_LED
+  DC.L cmd_led_help
 
   DC.B  "PAL",0
   even
   DC.L  CMD_PAL
+  DC.L cmd_pal_help
 
   DC.B  "ADD",0
   even
   DC.L  CMD_ADD
+  DC.L cmd_add_help
 
   DC.B  "INT",0
   even
   DC.L  CMD_INTERRUPTS
+  DC.L cmd_int_help
 
   DC.B  "EXC",0
   even
   DC.L  CMD_EXCEPTIONS
+  DC.L cmd_exc_help
 
   DC.B  "LIB",0
   even
   DC.L  CMD_LIBRARIES
+  DC.L cmd_lib_help
 
   DC.B  "RES",0
   even
   DC.L  CMD_RESOURCES
+  DC.L cmd_res_help
 
   DC.B  "MST",0
   even
   DC.L  CMD_MEGASTICK
+  DC.L cmd_mst_help
 
   DC.B  "CST",0
   even
   DC.L  CMD_CLRSTICK
+  DC.L cmd_cst_help
 
   DC.B  "DEV",0
   even
   DC.L  CMD_DEVICES
+  DC.L cmd_dev_help
 
   DC.B  "NST",0
   even
   DC.L  CMD_NOSTICK
+  DC.L cmd_nst_help
 
   DC.B  "REL",0
   even
   DC.L  CMD_RELABEL
+  DC.L cmd_rel_help
 
   DC.B  "DEL",0
   even
   DC.L  CMD_DELETE
+  DC.L cmd_del_help
 
   DC.B  "LST",0
   even
   DC.L  CMD_LSTICK
+  DC.L cmd_lst_help
 
   DC.B  "SST",0
   even
   DC.L  CMD_SSTICK
+  DC.L cmd_sst_help
 
   DC.B  "REN",0
   even
   DC.L  CMD_RENAME
+  DC.L cmd_ren_help
 
   DC.B  "KEY",0
   even
   DC.L  CMD_SETMAP
+  DC.L cmd_key_help
 
   DC.B  "RPS",0
   even
   DC.L  CMD_RPS
+  DC.L cmd_rps_help
 
   DC.B  "RPB",0
   even
   DC.L   CMD_RPB
+  DC.L cmd_rpb_help
 
   DC.B  "CD",0
   even
   DC.L  CMD_CD
+  DC.L cmd_cd_help
 
   DC.B  "SA",0
   even
   DC.L  CMD_SA
+  DC.L cmd_sa_help
 
   DC.B  "LA",0
   even
   DC.L  CMD_LA
+  DC.L cmd_la_help
 
   DC.B  "LQ",0
   even
   DC.L  CMD_LQ
+  DC.L cmd_lq_help
 
   DC.B  "SQ",0
   even
   DC.L  CMD_SQ
+  DC.L cmd_sq_help
 
   DC.B  "SP",0
   even
   DC.L  CMD_SP
+  DC.L cmd_sp_help
 
   DC.B  "SM",0
   even
   DC.L  CMD_SM
+  DC.L cmd_sm_help
 
   DC.B  "LM",0
   even
   DC.L  CMD_LM
+  DC.L cmd_lm_help
 
   DC.B  "BS",0
   even
   DC.L  CMD_BS
+  DC.L cmd_bs_help
 
   DC.B  "BD",0
   even
   DC.L  CMD_BD
+  DC.L cmd_bd_help
 
   DC.B  "FA",0
   even
   DC.L  CMD_FA
+  DC.L cmd_fa_help
 
   DC.B  "CI",0
   even
   DC.L  CMD_CI
+  DC.L cmd_ci_help
 
   DC.B  "FC",0
   even
   DC.L  CMD_FC
+  DC.L cmd_fc_help
 
   DC.B  "FR",0
   even
   DC.L  CMD_FR
+  DC.L cmd_fr_help
 
   DC.B  "FS",0
   even
   DC.L  CMD_FS
+  DC.L cmd_fs_help
 
   DC.B  "NO",0
   even
   DC.L  CMD_NO
+  DC.L cmd_no_help
 
   DC.B  "NQ",0
   even
   DC.L  CMD_NQ
+  DC.L cmd_nq_help
 
   DC.B  "PC",0
   even
   DC.L  CMD_PC
+  DC.L cmd_pc_help
 
   DC.B  "TS",0
   even
   DC.L  CMD_TS
+  DC.L cmd_ts_help
 
   DC.B  "TF",0
   even
   DC.L  CMD_TF
+  DC.L cmd_tf_help
 
   DC.B  "TX",0
   even
   DC.L  CMD_TX
+  DC.L cmd_tx_help
 
   DC.B  "TM",0
   even
   DC.L  CMD_TM
+  DC.L cmd_tm_help
 
   DC.B  "RR",0
   even
   DC.L  CMD_RR
+  DC.L cmd_rr_help
 
   DC.B  "RP",0
   even
   DC.L  CMD_RP
+  DC.L cmd_rp_help
+
+  DC.B  "KM",0
+  even
+  DC.L  CMD_KEYMAP
+  DC.L cmd_km_help
 
   DC.B  "RC",0
   even
   DC.L  CMD_RC
+  DC.L cmd_rc_help
 
   DC.B  "RM",0
   even
   DC.L  CMD_RM
+  DC.L cmd_rm_help
 
   DC.B  "RF",0
   even
   DC.L  CMD_RF
+  DC.L cmd_rf_help
 
   DC.B  "RT",0
   even
   DC.L  CMD_RT
+  DC.L cmd_rt_help
 
   DC.B  "RS",0
   even
   DC.L  CMD_RS
+  DC.L cmd_rs_help
 
   DC.B  "RB",0
   even
   DC.L  CMD_RB
+  DC.L cmd_rb_help
 
   DC.B  "WR",0
   even
   DC.L  CMD_WR
+  DC.L cmd_wr_help
 
   DC.B  "WP",0
   even
   DC.L  CMD_WP
+  DC.L cmd_wp_help
 
   DC.B  "WT",0
   even
   DC.L  CMD_WT
+  DC.L cmd_wt_help
 
   DC.B  "YS",0
   even
   DC.L  CMD_YS
+  DC.L cmd_ys_help
 
   DC.B  "LR",0
   even
   DC.L  CMD_LR
+  DC.L cmd_lr_help
 
   DC.B  "SR",0
   even
   DC.L  CMD_SR
+  DC.L cmd_sr_help
 
   DC.B  "WS",0
   even
   DC.L  CMD_WS
+  DC.L cmd_ws_help
 
   DC.B  "TD",0
   even
   DC.L  CMD_TD
+  DC.L cmd_td_help
 
   DC.B  "MS",0
   even
   DC.L  CMD_MS
+  DC.L cmd_ms_help
 
   DC.B  "MD",0
   even
   DC.L  CMD_MD
+  DC.L cmd_md_help
 
   DC.B  "MM",0
   even
   DC.L  CMD_MM
+  DC.L cmd_mm_help
 
   DC.B  "NN",0
   even
   DC.L  CMD_NN
+  DC.L cmd_nn_help
 
   DC.B  "YY",0
   even
   DC.L  CMD_YY
+  DC.L cmd_yy_help
 
   DC.B  "DD",0
   even
   DC.L  CMD_DD
+  DC.L cmd_dd_help
 
   DC.B  "MW",0
   even
   DC.L  CMD_MW
+  DC.L cmd_mw_help
 
   DC.B  "ED",0
   even
   DC.L  CMD_ED
+  DC.L cmd_ed_help
 
   DC.B  "EA",0
   even
   DC.L  CMD_EA
+  DC.L cmd_ea_help
 
   DC.B  "TR",0
   even
   DC.L  CMD_TR
+  DC.L cmd_tr_help
 
   DC.B  "ST",0
   even
   DC.L  CMD_ST
+  DC.L cmd_st_help
 
   DC.B  "A",0
   even
   DC.L  CMD_A
+  DC.L cmd_a_help
 
   DC.B  "B",0
   even
   DC.L  CMD_B
+  DC.L cmd_b_help
 
   DC.B  "X",0
   even
   DC.L  CMD_X
+  DC.L cmd_x_help
 
   DC.B  "C",0
   even
   DC.L  CMD_C
+  DC.L cmd_c_help
 
   DC.B  "D",0
   even
   DC.L  CMD_D
+  DC.L cmd_d_help
 
   DC.B  "E",0
   even
   DC.L  CMD_E
+  DC.L cmd_e_help
 
   DC.B  "F",0
   even
   DC.L  CMD_F
+  DC.L cmd_f_help
 
   DC.B  "G",0
   even
   DC.L  CMD_G
+  DC.L cmd_g_help
 
   DC.B  "I",0
   even
   DC.L  CMD_TRANS
+  DC.L cmd_i_help
 
   DC.B  "M",0
   even
   DC.L  CMD_M
+  DC.L cmd_m_help
 
   DC.B  "N",0
   even
   DC.L  CMD_N
+  DC.L cmd_n_help
 
   DC.B  "O",0
   even
   DC.L  CMD_O
+  DC.L cmd_o_help
 
   DC.B  "P",0
   even
   DC.L  CMD_P
+  DC.L cmd_p_help
 
   DC.B  "R",0
   even
   DC.L  CMD_R
+  DC.L cmd_r_help
 
   DC.B  "T",0
   even
   DC.L  CMD_T
+  DC.L cmd_t_help
 
   DC.B  "V",0
   even
   DC.L  CMD_COMP
+  DC.L cmd_v_help
 
   DC.B  "W",0
   even
   DC.L  CMD_W
+  DC.L cmd_w_help
 
   DC.B  "Y",0
   even
   DC.L  CMD_Y
+  DC.L cmd_y_help
 
   DC.B  "?",0
   even
   DC.L  CMD_QMARK
+  DC.L 0
 
   DC.B  "'",0
   even
   DC.L  CMD_APOS
+  DC.L 0
 
   DC.B  "~",0
   even
   DC.L  CMD_TILDE
+  DC.L 0
 
   DC.B  ".",0
   even
   DC.L  CMD_DOT
+  DC.L 0
 
   DC.B  ":",0
   even
   DC.L  CMD_COLON
+  DC.L 0
 
   DC.B  ";",0
   even
   DC.L  CMD_SEMICOLON
+  DC.L 0
 
   DC.B  ",",0
   even
   DC.L  CMD_COMMA
+  DC.L 0
 
   DC.B  "|",0
   even
   DC.L  CMD_BAR
+  DC.L 0
 
   DC.B  $a7,00
   even
   DC.L  CMD_A7CHAR
+  DC.L 0
 
   DC.B  "&",0
   even
   DC.L  CMD_AMP
+  DC.L 0
 
   DC.B  "^",0
   even
   DC.L  CMD_UPARROW
+  DC.L 0
 
   DS.W  1
 
+dira_help_dummy:
+  DC.L 0
+  DC.L cmd_dira_help
+
+formatq_help_dummy:
+  DC.L 0
+  DC.L cmd_formatq_help
+
+formatv_help_dummy:
+  DC.L 0
+  DC.L cmd_formatv_help
+
+cmd_a_help:
+  DC.B  "A (Assemble)",13
+  DC.B  "  A <address>",13
+  DC.B 0
+
+cmd_add_help:
+  DC.B  "ADD (Adds a value to memory range)",13
+  DC.B  "  ADD <start-address> <end-address> <value>",13
+  DC.B 0
+
+cmd_alert_help:
+  DC.B  "ALERT (Display alert info)",13
+  DC.B  "  ALERT <guru-number>",13
+  DC.B 0
+
+cmd_allexc_help:
+  DC.B  "ALLEXC (Enable/disable all exceptions)",13
+  DC.B  "  ALLEXC",13
+  DC.B 0
+
+cmd_arram_help:
+  DC.B  "ARRAM (Display Action Replay RAM info)",13
+  DC.B  "  ARRAM",13
+  DC.B 0
+
+cmd_ascii_help:
+  DC.B  "ASCII (Display ASCII character set)",13
+  DC.B  "  ASCII",13
+  DC.B 0
+
+cmd_avail_help:
+  DC.B  "AVAIL (Display available memory)",13
+  DC.B  "  AVAIL",13
+  DC.B 0
+
+cmd_b_help:
+  DC.B  "B (Show breakpoints)",13
+  DC.B  "  B",13
+  DC.B 0
+
+cmd_bamchk_help:
+  DC.B  "BAMCHK (Calculate bitmapblock checksum)",13
+  DC.B  "  BAMCHK <addr>",13
+  DC.B 0
+
+cmd_bcode_help:
+  DC.B  "BCODE (Alias for BOOTCODE)",13
+  DC.B  "  BCODE <codenumber>",13
+  DC.B 0
+
+cmd_bd_help:
+  DC.B  "BD (Delete breakpoint)",13
+  DC.B  "  BD <addr>",13
+  DC.B 0
+
+cmd_bda_help:
+  DC.B  "BDA (Delete all breakpoints)",13
+  DC.B  "  BDA",13
+  DC.B 0
+
+cmd_bootchk_help:
+  DC.B  "BOOTCHK (Calculate bootblock checksum)",13
+  DC.B  "  BOOTCHK <addr>",13
+  DC.B 0
+
+cmd_bootcode_help:
+  DC.B  "BOOTCODE (Set bootcode)",13
+  DC.B  "  BOOTCODE <codenumber>",13
+  DC.B 0
+
+cmd_bootprot_help:
+  DC.B  "BOOTPROT (Protect the bootblock)",13
+  DC.B  "  BOOTPROT <codenumber)",13
+  DC.B 0
+
+cmd_bprot_help:
+  DC.B  "BPROT (Alias for BOOTPROT)",13
+  DC.B  "  BPROT <codenumber)",13
+  DC.B 0
+
+cmd_bs_help:
+  DC.B  "BS (Set breakpoint)",13
+  DC.B  "  BS <addr>",13
+  DC.B 0
+
+cmd_burst_help:
+  DC.B  "BURST (Burst nibbler)",13
+  DC.B  "  BURST",13
+  DC.B 0
+
+cmd_c_help:
+  DC.B  "C (Copper disassembler)",13
+  DC.B  "  C <1|2|address>",13
+  DC.B 0
+
+cmd_cache_help:
+  DC.B  "CACHE (Enable/disable cache)",13
+  DC.B  "  CACHE <0|1>",13
+  DC.B 0
+
+cmd_ccopy_help:
+  DC.B  "CCOPY (Alias for CODECOPY)",13
+  DC.B  "  CCOPY <source-drive> <dest-drive>",13
+  DC.B 0
+
+cmd_cd_help:
+  DC.B  "CD (Change directory)",13
+  DC.B  "  CD (<path>)",13
+  DC.B 0
+
+cmd_chipregs_help:
+  DC.B  "CHIPREGS (Display chip register info)",13
+  DC.B  "  CHIPREGS",13
+  DC.B 0
+
+cmd_ci_help:
+  DC.B  "CI (Display copylock info)",13
+  DC.B  "  CI <addr>",13
+  DC.B 0
+
+cmd_clrapi_help:
+  DC.B  "CLRAPI (Remove API handler)",13
+  DC.B  "  CLRAPI",13
+  DC.B 0
+
+cmd_clrdmon_help:
+  DC.B  "CLRDMON (Clear disk monitor buffer)",13
+  DC.B  "  CLRDMON",13
+  DC.B 0
+
+cmd_clrstick_help:
+  DC.B  "CLRSTICK (Clear megastick values)",13
+  DC.B  "  CLRSTICK",13
+  DC.B 0
+
+cmd_code_help:
+  DC.B  "CODE (Set drive encoding)",13
+  DC.B  "  CODE <drive> <code-number>",13
+  DC.B 0
+
+cmd_codecopy_help:
+  DC.B  "CODECOPY (Encodes or decodes a disk)",13
+  DC.B  "  CODECOPY <source-drive> <dest-drive>",13
+  DC.B 0
+
+cmd_color_help:
+  DC.B  "COLOR (Set screen colours)",13
+  DC.B  "  COLOR <back-color> <pen-color>",13
+  DC.B 0
+
+cmd_colour_help:
+  DC.B  "COLOUR (Alias for COLOR)",13
+  DC.B  "  COLOUR <back-color> <pen-color>",13
+  DC.B 0
+
+cmd_comp_help:
+  DC.B  "COMP (Compare memory)",13
+  DC.B  "  COMP <start-addr> <end-addr> <dest-addr>",13
+  DC.B 0
+
+cmd_copy_help:
+  DC.B  "COPY (Copy a file)",13
+  DC.B  "  COPY (<path>)<source-file>,<dest-file>",13
+  DC.B 0
+
+cmd_crc16_help:
+  DC.B  "CRC16 (Calculate a CRC16 checksum)",13
+  DC.B  "  CRC16 <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_crc32_help:
+  DC.B  "CRC32 (Calculate a CRC32 checksum)",13
+  DC.B  "  CRC32 <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_creg_help:
+  DC.B  "CREG (Alias for CHIPREGS)",13
+  DC.B  "  CREG",13
+  DC.B 0
+
+cmd_cst_help:
+  DC.B  "CST (Alias for CLRSTICK)",13
+  DC.B  "  CST",13
+  DC.B 0
+
+cmd_d_help:
+  DC.B  "D (Disassemble)",13
+  DC.B  "  D (<addr>)",13
+  DC.B 0
+
+cmd_datachk_help:
+  DC.B  "DATACHK (Calculate datablock checksum)",13
+  DC.B  "  DATACHK <addr>",13
+  DC.B 0
+
+cmd_dbg_help:
+  DC.B  "DBG (Launch debugger)",13
+  DC.B  "  DBG",13
+  DC.B 0
+
+cmd_dchip_help:
+  DC.B  "DCHIP (Display register info)",13
+  DC.B  "  DCHIP <registername>",13
+  DC.B 0
+
+cmd_dchk_help:
+  DC.B  "DCHK (Alias for DISKCHECK)",13
+  DC.B  "  DCHK <drive>",13
+  DC.B 0
+
+cmd_dcopy_help:
+  DC.B  "DCOPY (Copy an AmigaDOS disk)",13
+  DC.B  "  DCOPY <source-drive> <dest-drive>",13
+  DC.B 0
+
+cmd_dd_help:
+  DC.B  "DD (Disassemble 8 lines)",13
+  DC.B  "  DD (<addr>)",13
+  DC.B 0
+
+cmd_ddd_help:
+  DC.B  "DDD (Disassemble 16 lines)",13
+  DC.B  "  DDD (<addr>)",13
+  DC.B 0
+
+cmd_deepmw_help:
+  DC.B  "DEEPMW (Enable/disable deep memwatch)",13
+  DC.B  "  DEEPMW",13
+  DC.B 0
+
+cmd_del_help:
+  DC.B  "DEL (Alias for DELETE)",13
+  DC.B  "  DEL (<path>)<file>",13
+  DC.B 0
+
+cmd_delete_help:
+  DC.B  "DELETE (Delete a file)",13
+  DC.B  "  DELETE (<path>)<file>",13
+  DC.B 0
+
+cmd_dev_help:
+  DC.B  "DEV (Alias for DEVICES)",13
+  DC.B  "  DEV",13
+  DC.B 0
+
+cmd_devices_help:
+  DC.B  "DEVICES (Show execbase device list)",13
+  DC.B  "  DEVICES",13
+  DC.B 0
+
+cmd_dir_help:
+  DC.B  "DIR (Show directory contents)",13
+  DC.B  "  DIR (<path>)",13
+  DC.B 0
+
+cmd_dira_help:
+  DC.B  "DIRA (Show recursive directory contents)",13
+  DC.B  "  DIRA (<path>)",13
+  DC.B 0
+
+cmd_diskcheck_help:
+  DC.B  "DISKCHECK (Checks disk for errors)",13
+  DC.B  "  DISKCHECK <drive>",13
+  DC.B 0
+
+cmd_diskio_help:
+  DC.B  "DISKIO (Copy Rob Northen DISKIO package to RAM)",13
+  DC.B  "  DISKIO <addr>",13
+  DC.B 0
+
+cmd_diskwipe_help:
+  DC.B  "DISKWIPE (Quick wipe disk contents)",13
+  DC.B  "  DISKWIPE <drive>",13
+  DC.B 0
+
+cmd_dmon_help:
+  DC.B  "DMON (Get/display disk-mon buffer)",13
+  DC.B  "  DMON",13
+  DC.B 0
+
+cmd_dosio_help:
+  DC.B  "DOSIO (Copy Rob Northen DOSIO package to RAM)",13
+  DC.B  "  DOSIO <addr>",13
+  DC.B 0
+
+cmd_dwipe_help:
+  DC.B  "DWIPE (Alias for DISKWIPE)",13
+  DC.B  "  DWIPE <drive>",13
+  DC.B 0
+
+cmd_e_help:
+  DC.B  "E (Show/edit chip registers)",13
+  DC.B  "  E (<offset>)",13
+  DC.B 0
+
+cmd_ea_help:
+  DC.B  "EA (Show full AGA pallete)",13
+  DC.B  "  EA",13
+  DC.B 0
+
+cmd_ed_help:
+  DC.B  "ED (Edit text file)",13
+  DC.B  "  ED (<path>)<file>",13
+  DC.B 0
+
+cmd_exc_help:
+  DC.B  "EXC (Alias for EXCEPTIONS)",13
+  DC.B  "  EXC",13
+  DC.B 0
+
+cmd_exceptions_help:
+  DC.B  "EXCEPTIONS (Show exception and interrupt vectors)",13
+  DC.B  "  EXCEPTIONS",13
+  DC.B 0
+
+cmd_exec_help:
+  DC.B  "EXEC (Alias for EXECBASE)",13
+  DC.B  "  EXEC",13
+  DC.B 0
+
+cmd_execbase_help:
+  DC.B  "EXECBASE (Show execbase structure)",13
+  DC.B  "  EXECBASE",13
+  DC.B 0
+
+cmd_exq_help:
+  DC.B  "EXQ (Exchange prg with ramdisk prg)",13
+  DC.B  "  EXQ",13
+  DC.B 0
+
+cmd_exqr_help:
+  DC.B  "EXQR (Exchange prg with ramdisk prg and run)",13
+  DC.B  "  EXQR",13
+  DC.B 0
+
+cmd_f_help:
+  DC.B  "F (Search For string)",13
+  DC.B  "  F <string>(,<start-addr> <end-addr>)",13
+  DC.B 0
+
+cmd_fa_help:
+  DC.B  "FA (Find addressing opcode)",13
+  DC.B  "  FA <addr> (<start-addr> <end-addr>)",13
+  DC.B 0
+
+cmd_faq_help:
+  DC.B  "FAQ (Find addressing opcode quick)",13
+  DC.B  "  FAQ <addr> (<start-addr> <end-addr>)",13
+  DC.B 0
+
+cmd_fc_help:
+  DC.B  "FC (Search for Rob Northen Copylock)",13
+  DC.B  "  FC (<start-addr <end-addr>)",13
+  DC.B 0
+
+cmd_flash_help:
+  DC.B  "FLASH (Update firmware)",13
+  DC.B  "  FLASH (<path>)<file>",13
+  DC.B 0
+
+cmd_format_help:
+  DC.B  "FORMAT (Format disk in active drive)",13
+  DC.B  "  FORMAT (<name>)(,FFS)",13
+  DC.B 0
+
+cmd_formatq_help:
+  DC.B  "FORMATQ (Quick format disk in active drive)",13
+  DC.B  "  FORMATQ (<name>)(,FFS)",13
+  DC.B 0
+
+cmd_formatv_help:
+  DC.B  "FORMATV (Format and verify disk in active drive)",13
+  DC.B  "  FORMATV (<name>)(,FFS)",13
+  DC.B 0
+
+cmd_fr_help:
+  DC.B  "FR (Search for relative-string)",13
+  DC.B  "  FR <string>(,<start-addr> <end-addr>)",13
+  DC.B 0
+
+cmd_fs_help:
+  DC.B  "FS (Search for string case insensitive)",13
+  DC.B  "  FR <string>(,<start-addr> <end-addr>)",13
+  DC.B 0
+
+cmd_g_help:
+  DC.B  "G (Restart program at address)",13
+  DC.B  "  G <addr>",13
+  DC.B 0
+
+cmd_i_help:
+  DC.B  "I (Alias for TRANS)",13
+  DC.B  "  I <start-addr> <end-addr> <dest-addr>",13
+  DC.B 0
+
+cmd_imode_help:
+  DC.B  "IMODE (Set interrupt mode)",13
+  DC.B  "  IMODE <0|1|2|3>",13
+  DC.B 0
+
+cmd_info_help:
+  DC.B  "INFO (Show system parameters)",13
+  DC.B  "  INFO <picnr>",13
+  DC.B 0
+
+cmd_inst_help:
+  DC.B  "INST (Alias for INSTALL)",13
+  DC.B  "  INST <bootblock-nr>",13
+  DC.B 0
+
+cmd_install_help:
+  DC.B  "INSTALL (Install bootblock to current drive)",13
+  DC.B  "  INSTALL <bootblock-nr>",13
+  DC.B 0
+
+cmd_int_help:
+  DC.B  "INT (Alias for INTERRUPTS)",13
+  DC.B  "  INT",13
+  DC.B 0
+
+cmd_interrupts_help:
+  DC.B  "INTERRUPTS (Show execbase interrupt-list)",13
+  DC.B  "  INTERRUPTS",13
+  DC.B 0
+
+cmd_key_help:
+  DC.B  "KEY (Alias for SETMAP)",13
+  DC.B  "  KEY",13
+  DC.B 0
+
+cmd_keymap_help:
+  DC.B  "KEYMAP (Set keymap)",13
+  DC.B  "  KEYMAP US|UK|DE",13
+  DC.B 0
+
+cmd_kickromadr_help:
+  DC.B  "KICKROMADR (Toggle kickstart ROM address)",13
+  DC.B  "  KICKROMADR",13
+  DC.B 0
+
+cmd_kill_help:
+  DC.B  "KILL (Remove AR from memory)",13
+  DC.B  "  KILL",13
+  DC.B 0
+
+cmd_killvirus_help:
+  DC.B  "KILLVIRUS (Search and remove virus)",13
+  DC.B  "  KILLVIRUS",13
+  DC.B 0
+
+cmd_km_help:
+  DC.B  "KM (Alias for KEYMAP)",13
+  DC.B  "  KM US|UK|DE",13
+  DC.B 0
+
+cmd_kvir_help:
+  DC.B  "KVIR (Alias for KILLVIRUS)",13
+  DC.B  "  KVIR",13
+  DC.B 0
+
+cmd_la_help:
+  DC.B  "LA (Load freezefile from disk)",13
+  DC.B  "  LA (<path>)<file>",13
+  DC.B 0
+
+cmd_led_help:
+  DC.B  "LED (Toggle filter/LED status)",13
+  DC.B  "  LED",13
+  DC.B 0
+
+cmd_lib_help:
+  DC.B  "LIB (Alias for LIBRARIES)",13
+  DC.B  "  LIB",13
+  DC.B 0
+
+cmd_libraries_help:
+  DC.B  "LIBRARIES (Show execbase library-list)",13
+  DC.B  "  LIBRARIES",13
+  DC.B 0
+
+cmd_lm_help:
+  DC.B  "LM (Load file to memory)",13
+  DC.B  "  LM (<path>)<file>,<dest-addr>",13
+  DC.B 0
+
+cmd_lq_help:
+  DC.B  "LQ (Load all from ramdisk)",13
+  DC.B  "  LQ",13
+  DC.B 0
+
+cmd_lqr_help:
+  DC.B  "LQR (Load all from ramdisk and restart)",13
+  DC.B  "  LQR",13
+  DC.B 0
+
+cmd_lr_help:
+  DC.B  "LR (Load freezefile from disk and start)",13
+  DC.B  "  LR (<path>)<file>",13
+  DC.B 0
+
+cmd_lst_help:
+  DC.B  "LST (Alias for LSTICK)",13
+  DC.B  "  LST (<path>)<file>",13
+  DC.B 0
+
+cmd_lstick_help:
+  DC.B  "LSTICK (Load joystick-handler data)",13
+  DC.B  "  LSTICK (<path>)<file>",13
+  DC.B 0
+
+cmd_m_help:
+  DC.B  "M (Show/edit memory as bytes)",13
+  DC.B  "  M <address>",13
+  DC.B 0
+
+cmd_makedir_help:
+  DC.B  "MAKEDIR (Create a directory)",13
+  DC.B  "  MAKEDIR <path>",13
+  DC.B 0
+
+cmd_md_help:
+  DC.B  "MD (Delete memwatchpoint)",13
+  DC.B  "  MD <address>",13
+  DC.B 0
+
+cmd_mda_help:
+  DC.B  "MDA (Delete all memwatchpoints)",13
+  DC.B  "  MDA",13
+  DC.B 0
+
+cmd_mdir_help:
+  DC.B  "MDIR (Alias for MAKEDIR)",13
+  DC.B  "  MDIR <path>",13
+  DC.B 0
+
+cmd_megastick_help:
+  DC.B  "MEGASTICK (Joystick handler)",13
+  DC.B  "  MEGASTICK (1)",13
+  DC.B 0
+
+cmd_memcode_help:
+  DC.B  "MEMCODE (EOR.B encode memory)",13
+  DC.B  "  MEMCODE <start-addr> <end-addr> <code>",13
+  DC.B 0
+
+cmd_mfm_help:
+  DC.B  "MFM (Decode raw mfm data)",13
+  DC.B  "  MFM <src-addr> <track-len> <track-count> <dest-addr> <sync> <sector-offset> <sector-count> <sector-len> <sector-interleave> (<sectornum-offset>)",13
+  DC.B 0
+
+cmd_mm_help:
+  DC.B  "MM (Show/edit memory bytes - 8 lines)",13
+  DC.B  "  MM <address>",13
+  DC.B 0
+
+cmd_mmm_help:
+  DC.B  "MMM  (Show/edit memory bytes - 16 lines)",13
+  DC.B  "  MMM <address>",13
+  DC.B 0
+
+cmd_ms_help:
+  DC.B  "MS (Set memwatchpoint)",13
+  DC.B  "  MS <address>",13
+  DC.B 0
+
+cmd_mst_help:
+  DC.B  "MST (Alias for MEGASTICK)",13
+  DC.B  "  MST (1)",13
+  DC.B 0
+
+cmd_mw_help:
+  DC.B  "MW (Display memwatchpoints)",13
+  DC.B  "  MW",13
+  DC.B 0
+
+cmd_n_help:
+  DC.B  "N (Show/edit memory as ASCII)",13
+  DC.B  "  N <address>",13
+  DC.B 0
+
+cmd_nchar_help:
+  DC.B  "NCHAR (Alias for NORMALCHAR)",13
+  DC.B 0
+
+cmd_nn_help:
+  DC.B  "NN (Show/edit memory as ASCII - 8 lines)",13
+  DC.B  "  NN <address>",13
+  DC.B 0
+
+cmd_nnn_help:
+  DC.B  "NNN (Show/edit memory as ASCII - 16 lines)",13
+  DC.B  "  NN <address>",13
+  DC.B 0
+
+cmd_no_help:
+  DC.B  "NO (Show/set ascii-dump offset)",13
+  DC.B  "  NO <offset>",13
+  DC.B 0
+
+cmd_normalchar_help:
+  DC.B  "NORMALCHAR (Normal printerchars)",13
+  DC.B  "  NORMALCHAR",13
+  DC.B 0
+
+cmd_nostick_help:
+  DC.B  "NOSTICK (Remove joystick-handler)",13
+  DC.B  "  NOSTICK",13
+  DC.B 0
+
+cmd_nq_help:
+  DC.B  "NQ (Display memory quick as ASCII)",13
+  DC.B  "  NQ <address>",13
+  DC.B 0
+
+cmd_nst_help:
+  DC.B  "NST (Alias for NOSTICK)",13
+  DC.B  "  NST",13
+  DC.B 0
+
+cmd_ntsc_help:
+  DC.B  "NTSC (Set NTSC display mode)",13
+  DC.B  "  NTSC",13
+  DC.B 0
+
+cmd_o_help:
+  DC.B  "O (Fill memoryblock with string)",13
+  DC.B  "  O <string>, <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_p_help:
+  DC.B  "P (Show current picture/mempeeker)",13
+  DC.B  "  P <picnr>",13
+  DC.B 0
+
+cmd_pack_help:
+  DC.B  "PACK (Pack memory)",13
+  DC.B  "  PACK <start-addr> <end-addr> <dest-addr> <rate>",13
+  DC.B 0
+
+cmd_pal_help:
+  DC.B  "PAL (Set PAL display mode)",13
+  DC.B  "  PAL",13
+  DC.B 0
+
+cmd_pc_help:
+  DC.B  "PC (Show current picture + energy count)",13
+  DC.B  "  PC <picnr>",13
+  DC.B 0
+
+cmd_ports_help:
+  DC.B  "PORTS (Show execbase port-list)",13
+  DC.B  "  PORTS",13
+  DC.B 0
+
+cmd_prt_help:
+  DC.B  "PRT (Print string)",13
+  DC.B  "  PRT <string>",13
+  DC.B 0
+
+cmd_r_help:
+  DC.B  "R (Show/edit processor registers)",13
+  DC.B  "  R (<reg> <value>)",13
+  DC.B 0
+
+cmd_ramtest_help:
+  DC.B  "RAMTEST (Checks memory for errors)",13
+  DC.B  "  RAMTEST <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_rb_help:
+  DC.B  "RB (Read bytes from active drive)",13
+  DC.B  "  RB <start-offset> (<num-bytes> <dest-addr>)",13
+  DC.B 0
+
+cmd_rc_help:
+  DC.B  "RC (Show 020+ control registers)",13
+  DC.B  "  RC",13
+  DC.B 0
+
+cmd_rcolor_help:
+  DC.B  "RCOLOR (Reset colors)",13
+  DC.B  "  RCOLOR",13
+  DC.B 0
+
+cmd_rcolour_help:
+  DC.B  "RCOLOUR (Alias for RCOLOR)",13
+  DC.B  "  RCOLOUR",13
+  DC.B 0
+
+cmd_rel_help:
+  DC.B  "REL (Alias for RELABEL)",13
+  DC.B 0
+
+cmd_relabel_help:
+  DC.B  "RELABEL (Change disk label)",13
+  DC.B  "  RELABEL <diskname>",13
+  DC.B 0
+
+cmd_ren_help:
+  DC.B  "REN (Alias for RENAME)",13
+  DC.B  "  REN (<path>)<old-file>,<new-file>",13
+  DC.B 0
+
+cmd_rename_help:
+  DC.B  "RENAME (Rename a file)",13
+  DC.B  "  RENAME (<path>)<old-file>,<new-file>",13
+  DC.B 0
+
+cmd_res_help:
+  DC.B  "RES (Alias for RESOURCES)",13
+  DC.B  "  RESOURCES",13
+  DC.B 0
+
+cmd_reset_help:
+  DC.B  "RESET (Exit AR and reset Amiga)",13
+  DC.B  "  RESET",13
+  DC.B 0
+
+cmd_resources_help:
+  DC.B  "RESOURCES (Show execbase resource-list)",13
+  DC.B  "  RESOURCES",13
+  DC.B 0
+
+cmd_rf_help:
+  DC.B  "RF (Show FPU registers)",13
+  DC.B  "  RF",13
+  DC.B 0
+
+cmd_rm_help:
+  DC.B  "RM (Show MMU registers)",13
+  DC.B  "  RM",13
+  DC.B 0
+
+cmd_rnc_help:
+  DC.B  "RNC (Show rnc serial track)",13
+  DC.B  "  RNC",13
+  DC.B 0
+
+cmd_robd_help:
+  DC.B  "ROBD (Enable/disable Rob Northen decryptor)",13
+  DC.B  "  ROBD",13
+  DC.B 0
+
+cmd_romavoid_help:
+  DC.B  "ROMAVOID (Enable/disable triggering from ROM)",13
+  DC.B  "  ROMAVOID",13
+  DC.B 0
+
+cmd_rp_help:
+  DC.B  "RP (Read pdos tracks from active drive)",13
+  DC.B  "  RP <start-track> (<num-tracks> <dest-addr>)",13
+  DC.B 0
+
+cmd_rpb_help:
+  DC.B  "RPB (Read pdos bytes from active drive)",13
+  DC.B  "  RPB <start-offset> (<num-bytes> <dest-addr>)",13
+  DC.B 0
+
+cmd_rps_help:
+  DC.B  "RPS (Read pdos sectors from active drive)",13
+  DC.B  "  RPS <start-sector> (<num-sectors> <dest-addr>)",13
+  DC.B 0
+
+cmd_rr_help:
+  DC.B  "RR (Read raw mfm tracks from active drive)",13
+  DC.B  "  RR <start-track>",13
+  DC.B 0
+
+cmd_rs_help:
+  DC.B  "RS (Read sectors from active drive)",13
+  DC.B  "  RS <start-sector> (<num-sectors> <dest-addr>)",13
+  DC.B 0
+
+cmd_rt_help:
+  DC.B  "RT (Read tracks from active drive)",13
+  DC.B  "  RT <start-track> (<num-tracks> <dest-addr>)",13
+  DC.B 0
+
+cmd_sa_help:
+  DC.B  "SA (Save current program to disk)",13
+  DC.B  "  SA (<path>)<name>,<crate>)",13
+  DC.B 0
+
+cmd_safedisk_help:
+  DC.B  "SAFEDISK",13
+  DC.B  "  SAFEDISK (a/b/s/n/u/v/q)",13
+  DC.B 0
+
+cmd_scan_help:
+  DC.B  "SCAN (Scan memory for samples)",13
+  DC.B  "  SCAN",13
+  DC.B 0
+
+cmd_schar_help:
+  DC.B  "SCHAR (Alias for SMALLCHAR)",13
+  DC.B  "  SCHAR",13
+  DC.B 0
+
+cmd_sdisk_help:
+  DC.B  "SDISK (Alias for SAFEDISK)",13
+  DC.B  "  SDISK (a/b/s/n/u/v/q)",13
+  DC.B 0
+
+cmd_setapi_help:
+  DC.B  "SETAPI (Set api handler)",13
+  DC.B  "  SETAPI",13
+  DC.B 0
+
+cmd_setcop_help:
+  DC.B  "SETCOP (Specify copper for exit)",13
+  DC.B  "  SETCOP <copper-addr>",13
+  DC.B 0
+
+cmd_setexcept_help:
+  DC.B  "SETEXCEPT (Set exception handler)",13
+  DC.B  "  SETEXCEPT",13
+  DC.B 0
+
+cmd_setmap_help:
+  DC.B  "SETMAP (Keymap editor)",13
+  DC.B  "  SETMAP",13
+  DC.B 0
+
+cmd_sexc_help:
+  DC.B  "SEXC (Alias for SETEXCEPT)",13
+  DC.B  "  SEXC",13
+  DC.B 0
+
+cmd_sloader_help:
+  DC.B  "SLOADER (Save loader to active drive)",13
+  DC.B  "  SLOADER",13
+  DC.B 0
+
+cmd_sm_help:
+  DC.B  "SM (Save memoryblock to disk)",13
+  DC.B  "  SM (<path>)<name>,<start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_smallchar_help:
+  DC.B  "SMALLCHAR (Activate very small printer chars)",13
+  DC.B  "  SMALLCHAR",13
+  DC.B 0
+
+cmd_smdata_help:
+  DC.B  "SMDATA (Save memoryblock to disk as data)",13
+  DC.B  "  SMDATA (<path>)<file>,<start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_smdc_help:
+  DC.B  "SMDC (Save memoryblock to disk as dc.b)",13
+  DC.B  "  SMDC (<path>)<file>,<start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_sp_help:
+  DC.B  "SP (Save current picture to disk)",13
+  DC.B  "  SP (<path>)<file>(,<nr> <height>)",13
+  DC.B 0
+
+cmd_spm_help:
+  DC.B  "SPM (Save picture of memory-peeker)",13
+  DC.B  "  SPM (<path>)<name>",13
+  DC.B 0
+
+cmd_spr_help:
+  DC.B  "SPR (Show/edit sprites)",13
+  DC.B  "  SPR <nr|addr> (<nr|addr>)",13
+  DC.B 0
+
+cmd_sq_help:
+  DC.B  "SQ (Save all to ramdisk)",13
+  DC.B  "  SQ",13
+  DC.B 0
+
+cmd_sqmem_help:
+  DC.B  "SQMEM (En/disable savequick in fastmemory)",13
+  DC.B  "  SQMEM (<0/start>)",13
+  DC.B 0
+
+cmd_sqr_help:
+  DC.B  "SQR (Save all to ramdisk and restart)",13
+  DC.B  "  SQR",13
+  DC.B 0
+
+cmd_sr_help:
+  DC.B  "SR (Save current program and start)",13
+  DC.B  "  SR (<path>)<name>,<crate>)",13
+  DC.B 0
+
+cmd_srip_help:
+  DC.B  "SRIP (Alias for TRACKER)",13
+  DC.B  "  SRIP (<start-addr>)",13
+  DC.B 0
+
+cmd_sst_help:
+  DC.B  "SST  (Alias for SSTICK)",13
+  DC.B  "  SST (<path>)<file>",13
+  DC.B 0
+
+cmd_sstick_help:
+  DC.B  "SSTICK (Save joystick-handler data)",13
+  DC.B  "  SSTICK (<path>)<file>",13
+  DC.B 0
+
+cmd_st_help:
+  DC.B  "ST (Trace current program (also subs))",13
+  DC.B  "  ST <steps>",13
+  DC.B 0
+
+cmd_t_help:
+  DC.B  "T (Show addresses/continue trainer)",13
+  DC.B  "  T <lives>",13
+  DC.B 0
+
+cmd_tasks_help:
+  DC.B  "TASKS (Show execbase task-lists)",13
+  DC.B  "  TASKS",13
+  DC.B 0
+
+cmd_td_help:
+  DC.B  "TD (Display deep trainer addresses)",13
+  DC.B  "  TD",13
+  DC.B 0
+
+cmd_tdc_help:
+  DC.B  "TDC (Deep trainer change count)",13
+  DC.B  "  TDC",13
+  DC.B 0
+
+cmd_tdd_help:
+  DC.B  "TDD (Deep trainer delete addresses)",13
+  DC.B  "  TDD <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_tdi_help:
+  DC.B  "TDI (Display probable trainer addresses)",13
+  DC.B  "  TDI",13
+  DC.B 0
+
+cmd_tds_help:
+  DC.B  "TDS (Deep trainer start count)",13
+  DC.B  "  TDS",13
+  DC.B 0
+
+cmd_tdx_help:
+  DC.B  "TDX (Exit old deep trainer)",13
+  DC.B  "  TDX",13
+  DC.B 0
+
+cmd_tf_help:
+  DC.B  "TF (Search for decrementing opcodes)",13
+  DC.B  "  TF <address>",13
+  DC.B 0
+
+cmd_tfd_help:
+  DC.B  "TFD (Search and remove decrement opcodes)",13
+  DC.B  "  TFD <address>",13
+  DC.B 0
+
+cmd_tm_help:
+  DC.B  "TM (Show remarks about curr. program)",13
+  DC.B  "  TM",13
+  DC.B 0
+
+cmd_tmd_help:
+  DC.B  "TMD (Delete remark about program)",13
+  DC.B  "  TMD <address>",13
+  DC.B 0
+
+cmd_tms_help:
+  DC.B  "TMS (Set remark about curr. program addr.)",13
+  DC.B  "  TMS <address>",13
+  DC.B 0
+
+cmd_tr_help:
+  DC.B  "TR (Trace current program (not subs))",13
+  DC.B  "  TR <steps>",13
+  DC.B 0
+
+cmd_tracker_help:
+  DC.B  "TRACKER (Rips soundtracker-modules in memory)",13
+  DC.B  "  TRACKER (<start-addr>)",13
+  DC.B 0
+
+cmd_trans_help:
+  DC.B  "TRANS (Copy memoryblock)",13
+  DC.B  "  TRANS <start-addr> <end-addr> <dest-addr>",13
+  DC.B 0
+
+cmd_ts_help:
+  DC.B  "TS (Start trainer/trainermode)",13
+  DC.B  "  TS <start-lives> <start-address>",13
+  DC.B 0
+
+cmd_tx_help:
+  DC.B  "TX (Exit trainermode)",13
+  DC.B  "  TX",13
+  DC.B 0
+
+cmd_type_help:
+  DC.B  "TYPE (Type file on screen)",13
+  DC.B  "  TYPE (<path>)<file>",13
+  DC.B 0
+
+cmd_unpack_help:
+  DC.B  "UNPACK (Unpack packed mem)",13
+  DC.B  "  UNPACK <dest-addr> <end-of-packed-addr>",13
+  DC.B 0
+
+cmd_v_help:
+  DC.B  "V (Alias for COMP)",13
+  DC.B  "  V <start-addr> <end-addr> <dest-addr>",13
+  DC.B 0
+
+cmd_version_help:
+  DC.B  "VERSION (Show version info)",13
+  DC.B  "  VERSION",13
+  DC.B 0
+
+cmd_virus_help:
+  DC.B  "VIRUS (Search for virus in memory)",13
+  DC.B  "  VIRUS",13
+  DC.B 0
+
+cmd_w_help:
+  DC.B  "W (Show/edit CIA data)",13
+  DC.B  "  W <register>",13
+  DC.B 0
+
+cmd_wp_help:
+  DC.B  "WP (Write pdos tracks to active drive)",13
+  DC.B  "  WP <start-track> <num-tracks> <src-addr> <pdos-key>",13
+  DC.B 0
+
+cmd_wr_help:
+  DC.B  "WR (Write raw mfm data to active drive)",13
+  DC.B  "  WR <start-track> <num-tracks> <src-addr> <word-length>",13
+  DC.B 0
+
+cmd_ws_help:
+  DC.B  "WS (Write string to memory)",13
+  DC.B  "  WS <string>, <start-addr>",13
+  DC.B 0
+
+cmd_wt_help:
+  DC.B  "WT (Write tracks to active drive)",13
+  DC.B  "  WT <start-track> <num-tracks> <src-addr>",13
+  DC.B 0
+
+cmd_x_help:
+  DC.B  "X (Restart current program)",13
+  DC.B  "  X",13
+  DC.B 0
+
+cmd_y_help:
+  DC.B  "Y (Show/edit memory as binary)",13
+  DC.B  "  Y <addr>",13
+  DC.B 0
+
+cmd_ys_help:
+  DC.B  "YS (Show/set datawidth for the Y command)",13
+  DC.B  "  YS <bytes>",13
+  DC.B 0
+
+cmd_yy_help:
+  DC.B  "YY (Show/edit memory as binary - 8 lines)",13
+  DC.B  "  YY <addr>",13
+  DC.B 0
+
+cmd_yyy_help:
+  DC.B  "YYY (Show/edit memory as binary - 16 lines)",13
+  DC.B  "  YYY <addr>",13
+
+  even
 CMD_X:
   TST.B TBufferAllocated
   BEQ.S LAB_A12A58
@@ -5804,11 +7275,12 @@ LAB_A12CCE:
   MOVEQ #4,D0
   BSR.W PrintSpaces
   DBF D1,LAB_A12CCE
-  MOVE.W  RegSnoopBltcon0,D0
+  MOVE.L RegSnoopAddr,A0
+  MOVE.W  bltcon0(A0),D0
   BSR.W SUB_A1732C
   MOVEQ #4,D0
   BSR.W PrintSpaces
-  MOVE.W  RegSnoopBltcon1,D0
+  MOVE.W  bltcon1(A0),D0
   BSR.W SUB_A1732C
   MOVEQ #4,D0
   BSR.W PrintSpaces
@@ -5856,7 +7328,8 @@ LAB_A12D7A:
   LEA AudioHeaderText(PC),A0
   BSR.W PrintText
   MOVEQ #3,D3
-  LEA RegSnoopAud0Lc,A1
+  MOVE.L RegSnoopAddr,A1
+  LEA aud0lch(A1),A1
 LAB_A12D9C:
   MOVE.L  (A1)+,D0
   BSR.W Print6DigitHex
@@ -7421,7 +8894,7 @@ SUB_A135C0:
   CMPA.L  #$00dff01e,A1
   BCS.S LAB_A135DE
   SUBA.L  #$00dff000,A1
-  ADDA.L  #RegSnoop,A1
+  ADDA.L  RegSnoopAddr,A1
 LAB_A135DE:
   RTS
 SUB_A135E0:
@@ -7431,7 +8904,7 @@ SUB_A135E0:
   CMPA.L  #$00dff01e,A1
   BHI.S LAB_A135FE
   SUBA.L  #$00dff000,A1
-  ADDA.L  #RegSnoop,A1
+  ADDA.L  RegSnoopAddr,A1
 LAB_A135FE:
   RTS
 GetSavedHardwareRegValues:
@@ -7920,12 +9393,12 @@ LAB_A13BEC:
   BSR.W SUB_A188AE
   TST.W D0
   BEQ.S LAB_A13C0E
-  
+
   if arsoft=1
   CMP.L #ColdCapture,D0
   BEQ.S LAB_A13C0E  ;ignore ourself
   endc
-  
+
   LEA ResidentProgramText(PC),A0
   BSR.W PrintText
   BSR.W PrintAddressHex
@@ -8025,7 +9498,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.7.0.22012025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.24012025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -8152,7 +9625,7 @@ memSafeUpdateByte:
   CMP.L #arramstart,A0
   BCC.S .notrom
   RTS
-.notrom  
+.notrom
   MOVEM.L D1/A0,-(A7)
   CMPA.L  #EXT_1000,A0
   BCS.S LAB_A1465C
@@ -8212,7 +9685,8 @@ CMD_C:
 LAB_A146AE:
   CMPI.L  #2,D0
   BNE.S LAB_A146C0
-  MOVE.L  RegSnoopCop2Lc,D0
+  MOVE.L RegSnoopAddr,A1
+  MOVE.L  cop2lch(A1),D0
   BRA.W LAB_A146C0
 LAB_A146C0:
   BCLR  #0,D0
@@ -9957,9 +11431,9 @@ LAB_A16408:
   MOVEQ #$41,D2
   BSR.S SUB_A16442
 LAB_A16414:
-  BSR.W moveCursorLeft
+  JSR moveCursorLeft
   BSR.W PrintSpace
-  BSR.W moveCursorLeft
+  JSR moveCursorLeft
   BRA.S LAB_A1643C
 LAB_A16422:
   CMPI.W  #$0010,D0
@@ -10197,7 +11671,7 @@ SUB_A166EC:
   MOVEM.L D0-D4/A0-A1,-(A7)
   MOVE.L  #$000007d0,D4
   SF  LAB_A480AA
-  LEA RegSnoop,A1
+  MOVE.L RegSnoopAddr,A1
   MOVE.L  SaveCop1Lch,CopyCop1lc
   MOVE.L  cop2lch(A1),CopyCop2lc
   MOVE.L  SaveDiwStart,CopyDiwStart
@@ -10223,15 +11697,16 @@ LAB_A1675A:
   BEQ.S .noaga1
   MOVE.L D0,A0
   MOVE.L AgaPaletteCopy,D0
-  BEQ.S .noaga1  
+  BEQ.S .noaga1
   MOVE.L D0,A1
   MOVE.W #256-1,D0
 .c
   MOVE.L (A0)+,(A1)+
   DBF D0,.c
 
-.noaga1 
-  LEA RegSnoopBpl1Pt,A0
+.noaga1
+  MOVE.L RegSnoopAddr,A0
+  LEA bpl1pth(A0),A0
   MOVEQ #7,D0
   LEA CopyBpl1Pth,A1
 LAB_A16778:
@@ -10239,7 +11714,8 @@ LAB_A16778:
   DBF D0,LAB_A16778
   MOVE.L  SaveBpl1Pth,CopyBpl1Pth
   LEA CopySpr0Pt,A1
-  LEA RegSnoopSpr0Pos,A0
+  MOVE.L RegSnoopAddr,A0
+  LEA spr0pos(A0),A0
   MOVEQ #7,D0
 LAB_A16796:
   MOVE.L  (A0)+,(A1)+
@@ -10307,7 +11783,7 @@ SUB_A16826:
   endc
   MOVE.L  A0,CopyCop1lc
 
-  LEA RegSnoop,A1
+  MOVE.L RegSnoopAddr,A1
   MOVE.L  $84(A1),CopyCop2lc
   MOVE.L  #$00002000,D4
   SF  LAB_A480AA
@@ -10551,7 +12027,7 @@ LAB_A16AD6:
 PrintChar:
   MOVEM.L D0-D3/A0-A2,-(A7)
   LEA EXT_1000,A0
-  LEA fontData(PC),A1
+  LEA fontData,A1
   MOVEQ #0,D1
   MOVE.B  D0,D1
   MOVE.L  cursorX,D0
@@ -10648,12 +12124,12 @@ LAB_A16C2A:
   BRA.S LAB_A16C38
 LAB_A16C2E:
   SWAP  D0
-  BSR.W PrintCharToScreenAndPrinter
+  JSR PrintCharToScreenAndPrinter
   MOVE.W  D2,D1
   BRA.S LAB_A16C3E
 LAB_A16C38:
   SWAP  D0
-  BSR.W PrintCharToScreenAndPrinter
+  JSR PrintCharToScreenAndPrinter
 LAB_A16C3E:
   MOVEQ #0,D2
   MOVE.W  D0,D2
@@ -10673,16 +12149,16 @@ LAB_A16C60:
   MOVE.B  D3,0(A0,D2.W)
   ADDI.W  #$0050,D2
   DBF D0,LAB_A16C54
-  BSR.W moveCursorRight
+  JSR moveCursorRight
 LAB_A16C70:
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D3/A0-A2
   RTS
 PrintF9:
   TST.B ShiftKey
   BNE.W LAB_A17078
   ADD.B #1,keymap
-  CMP.B #2,keymap
+  CMP.B #3,keymap
   BNE.S nores
   MOVE.B #$FF,keymap
 nores:
@@ -10693,6 +12169,9 @@ nores:
   LEA UsaKeymapText(PC),A0
   CMP.B #1,keymap
   BEQ.S LAB_A16C94
+  LEA ITKeymapText(PC),A0
+  CMP.B #2,keymap
+  BEQ.S LAB_A16C94
   LEA UKKeymapText(PC),A0
 LAB_A16C94:
   BSR.W PrintText
@@ -10702,18 +12181,22 @@ GermanKeymapText:
   DC.B  $D,"Keymap is now german",$D,0
 
 UsaKeymapText:
-  DC.B  $D,"Keymap is now usa",$D,0,0
+  DC.B  $D,"Keymap is now usa",$D,0
 
 UKKeymapText:
-  DC.B  $D,"Keymap is now uk",$D,0,0
+  DC.B  $D,"Keymap is now uk",$D,0
 
+ITKeymapText:
+  DC.B  $D,"Keymap is now italian",$D,0
+
+  even
 PrintF1:
   TST.B ShiftKey
   BNE.S LAB_A16CD4
   BSR.W Cls
   BRA LAB_A16C70
 LAB_A16CD4:
-  BSR.W CursorHome
+  JSR CursorHome
   BRA LAB_A16C70
 PrintF2:
   TST.B ShiftKey
@@ -10758,10 +12241,10 @@ PrintF3:
 PrintF4:
   JMP RepeatLastCmd
 PrintBackSpace:
-  BSR.W SUB_A11168
+  JSR SUB_A11168
   BRA.W LAB_A16C70
 PrintDelete:
-  BSR.W SUB_A111CA
+  JSR SUB_A111CA
   BRA.W LAB_A16C70
 PrintCursorLeft:
   TST.B ShiftKey
@@ -10785,7 +12268,7 @@ LAB_A16DAA:
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A16C70
 LAB_A16DB2:
-  BSR.W moveCursorLeft
+  JSR moveCursorLeft
   BRA.W LAB_A16C70
 PrintCursorRight:
   TST.B ShiftKey
@@ -10819,7 +12302,7 @@ LAB_A16E2A:
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A16C70
 LAB_A16E32:
-  BSR.W moveCursorRight
+  JSR moveCursorRight
   BRA.W LAB_A16C70
 PrintCursorDown:
   TST.B ShiftKey
@@ -10847,7 +12330,7 @@ LAB_A16E50:
   ADDQ.L  #8,D0
   ADDQ.L  #8,D0
   MOVEA.L D0,A1
-  JSR SUB_A1127A(PC)
+  JSR SUB_A1127A
   CLR.W cursorX
   JSR ShowMemory(PC)
   BRA.W LAB_A16F22
@@ -10859,7 +12342,7 @@ LAB_A16EA2:
   MOVE.L  A0,DefaultAddress
   MOVE.L  A0,D0
   MOVEA.L D0,A1
-  JSR SUB_A1127A(PC)
+  JSR SUB_A1127A
   CLR.W cursorX
   JSR SUB_A12F08(PC)
   BRA.S LAB_A16F22
@@ -10868,7 +12351,7 @@ LAB_A16EC8:
   BNE.S LAB_A16EE6
   MOVEA.L D0,A0
   LEA $40(A0),A0
-  JSR SUB_A1127A(PC)
+  JSR SUB_A1127A
   CLR.W cursorX
   JSR ShowMemAsAscii
   BRA.S LAB_A16F22
@@ -10876,7 +12359,7 @@ LAB_A16EE6:
   CMPI.W  #$002c,D1
   BNE.S LAB_A16EFE
   ADDQ.L  #4,D0
-  JSR SUB_A1127A(PC)
+  JSR SUB_A1127A
   CLR.W cursorX
   JSR ShowCopperList(PC)
   BRA.S LAB_A16F22
@@ -10884,14 +12367,14 @@ LAB_A16EFE:
   CMPI.W  #$003b,D1
   BNE.S LAB_A16F16
   ADDQ.W  #2,D0
-  JSR SUB_A1127A(PC)
+  JSR SUB_A1127A
   CLR.W cursorX
   JSR ShowCustomRegValues(PC)
   BRA.S LAB_A16F22
 LAB_A16F16:
   MOVEM.L (A7)+,D0-D1/D7/A0-A1
 LAB_A16F1A:
-  BSR.W moveCursorDown
+  JSR moveCursorDown
   BRA.W LAB_A16C70
 LAB_A16F22:
   MOVEM.L (A7)+,D0-D1/D7/A0-A1
@@ -10917,7 +12400,7 @@ LAB_A16F3C:
   SUBQ.L  #8,D0
   SUBQ.L  #8,D0
   MOVEA.L D0,A1
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   JSR ShowMemory(PC)
   BRA.W LAB_A1704E
@@ -10936,7 +12419,7 @@ LAB_A16F92:
 LAB_A16FA2:
   MOVE.L  DefaultAddress,D0
   BSET  #$1F,D0
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   MOVE.W  LAB_A47FB6,D1
   CMPI.W  #$003c,D1
@@ -10951,7 +12434,7 @@ LAB_A16FA2:
 LAB_A16FD6:
   LEA LAB_A12FC8(PC),A0
   JSR PrintText(PC)
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   CLR.W cursorY
 LAB_A16FEE:
@@ -10962,7 +12445,7 @@ LAB_A16FF4:
   BNE.S LAB_A17012
   MOVEA.L D0,A0
   LEA -64(A0),A0
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   JSR ShowMemAsAscii
   BRA.S LAB_A1704E
@@ -10970,7 +12453,7 @@ LAB_A17012:
   CMPI.W  #$002c,D1
   BNE.S LAB_A1702A
   SUBQ.L  #4,D0
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   JSR ShowCopperList(PC)
   BRA.S LAB_A1704E
@@ -10978,14 +12461,14 @@ LAB_A1702A:
   CMPI.W  #$003b,D1
   BNE.S LAB_A17042
   SUBQ.W  #2,D0
-  JSR SUB_A11244(PC)
+  JSR SUB_A11244
   CLR.W cursorX
   JSR ShowCustomRegValues(PC)
   BRA.S LAB_A1704E
 LAB_A17042:
   MOVEM.L (A7)+,D0-D1/D7/A0-A1
 LAB_A17046:
-  BSR.W moveCursorUp
+  JSR moveCursorUp
   BRA.W LAB_A16C70
 LAB_A1704E:
   MOVEM.L (A7)+,D0-D1/D7/A0-A1
@@ -10999,7 +12482,7 @@ PrintLF:
   MOVE.L  (A7)+,D0
 LAB_A1706A:
   CLR.W cursorX
-  BSR.W moveCursorDown
+  JSR moveCursorDown
   BRA.W LAB_A16C70
 LAB_A17078:
   MOVE.L TextPage1Addr,A0
@@ -11143,7 +12626,7 @@ LAB_A17268:
   CLR.L (A0)+
   CLR.L (A0)+
   DBF D0,LAB_A17268
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0/A0
   RTS
 SUB_A1727A:
@@ -11231,7 +12714,7 @@ AskYN:
   JSR PrintSpace
   MOVE.W  #$0082,D0
   BSR.W PrintChar
-  BSR.W PrintInputChar
+  JSR PrintInputChar
   MOVEQ #0,D0
   BSR.S readCmdChar
   MOVE.W  D0,D1
@@ -11335,14 +12818,14 @@ LAB_A17484:
   SUBQ.W  #1,D2
   BNE.S LAB_A17484
   MOVE.L  A3,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   LEA OffsetText(PC),A0
   BSR.W PrintText
   MOVEQ #0,D0
   MOVE.W  LAB_A480CA,D0
   SUB.B D5,D0
   NEG.B D0
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   BSR.W PrintCrIfNotBlankLine
 LAB_A174B6:
   TST.B (A6)
@@ -11450,7 +12933,7 @@ LAB_A175A0:
   BNE.S LAB_A175BA
   DBF D0,LAB_A1753E
   MOVE.L  A1,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   TST.B copyLockSearch
   BEQ.S .1
 
@@ -11562,7 +13045,7 @@ LAB_A1769E:
   JSR PrintChar(PC)
   CLR.L D0
   BSR.W SUB_A1A3FA
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   JSR PrintSpace(PC)
   MOVE.W  #$0082,D0
   BSR.W PrintChar
@@ -11651,10 +13134,10 @@ SUB_A1779A:
   MOVE.W  #$00a7,D0
   BSR.W PrintChar
   MOVE.L  A1,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   BSR.W PrintSpace
   MOVE.L  A2,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   BSR.W PrintSpace
   MOVEA.L A1,A0
   BSR.W memSafeReadLong
@@ -11742,7 +13225,7 @@ SUB_A178B0:
   MOVE.W  #$0026,D0
   BSR.W PrintChar
   MOVE.L  A1,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   BSR.W PrintSpace
   MOVEA.L A1,A0
   BSR.W memSafeReadLong
@@ -11819,7 +13302,7 @@ LAB_A17998:
   MOVE.W  binaryBitWidth,D0
   LSL.W #3,D0
   BSR.W ConvertToBCD
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   BSR.W PrintSpace
   LEA BitsText(PC),A0
   BSR.W PrintText
@@ -11847,7 +13330,7 @@ repeaty:
   MOVE.W  #$007c,D0
   BSR.W PrintChar
   MOVE.L  D2,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   BSR.W PrintSpace
   MOVE.W  #$0025,D0
   BSR.W PrintChar
@@ -11973,7 +13456,7 @@ repeatn:
   MOVE.W  #$002e,D0
   BSR.W PrintChar
   MOVE.L  A1,D0
-  BSR.W PrintAddressHex
+  JSR PrintAddressHex
   BSR.W PrintSpace
   MOVEQ #$3F,D1
 LAB_A17B6A:
@@ -12316,14 +13799,14 @@ LAB_4081DE:
 
 dovpos0
   TST.B DisableVposWrite
-  BNE.S .1 
+  BNE.S .1
   MOVE.L  #0,EXT_DFF02A
 .1
   RTS
 
 restoreVpos
   TST.B DisableVposWrite
-  BNE.S .1 
+  BNE.S .1
   MOVE.L  SAVE_VPOS,EXT_DFF02A
 .1
   RTS
@@ -12414,7 +13897,8 @@ ArEntry1:
   MOVE.L  (A7)+,D0
   MOVE.L  #BRON_TAG,bronFlag
   BSR.W GetDrivesConnected
-  MOVE.W  #$0020,RegSnoopColor00
+  MOVE.L RegSnoopAddr,A0
+  MOVE.W  #$0020,color00(A0)
   CLR.L memWatchSlotsUsed1
   CLR.W memWatchSlotsUsed2
   CLR.B deepMemWatch
@@ -12469,10 +13953,10 @@ FirstInit:
   MOVE.L #ChipRamSave2-1024,AgaPaletteCopy
 .1:
   CLR.W arramstart
-  
+
   if dbg=1
   ifne dbgramdisk
-  MOVE.L #dbgramdisk,newRamdiskAddr  
+  MOVE.L #dbgramdisk,newRamdiskAddr
   LEA EXT_7000.W,A0
   BSET #4,DrivesConnectedLo
   MOVE.B #4,currDriveNo
@@ -12480,16 +13964,25 @@ FirstInit:
   MOVE.B #0,currDriveNo
   endc
   endc
-  
-  
+
+  MOVE.L #RegSnoop,RegSnoopAddr
+
   if arhardware=1
   ifne dbgramdisk
-  MOVE.L #dbgramdisk,newRamdiskAddr  
+  MOVE.L #dbgramdisk,newRamdiskAddr
   else
   JSR CheckARRam
   CMP.L #1024,D0
   BLT.S .3
   MOVE.L #arramstart+$10000,newRamdiskAddr
+
+  ;new AR hardware with extra ram moves regsnoop area
+  LEA EXT_4FF000,A0
+  MOVE.L A0,RegSnoopAddr
+  MOVE.W #$100-1,D0
+.clr
+  CLR.W (A0)+
+  DBF D0,.clr
   endc
 
   LEA EXT_7000.W,A0
@@ -12781,11 +14274,11 @@ CMD_RCOLOR:
   MOVE.W  #$0fff,ArFgCol
   JSR PrintReady
   RTS
-CMD_DEBUG
-  MOVE.W #-1,FreezeMode
-  MOVE.W #$4e75,$40000
-  JSR $40000
- RTS
+;CMD_DEBUG
+;  MOVE.W #-1,FreezeMode
+;  MOVE.W #$4e75,$40000
+;  JSR $40000
+; RTS
 
 CMD_FLASH
   JSR GetFilename
@@ -12842,7 +14335,7 @@ CMD_FLASH
   LEA invalidcrc(PC),A0
   JSR PrintText(PC)
 
-.romok2 
+.romok2
   LEA flashwarn(PC),A0
   JSR AskYN
   TST.W D0
@@ -12858,11 +14351,11 @@ CMD_FLASH
   MOVE.W (A0)+,(A1)+
   CMP.L #flashend,A0
   BNE.S .copy
- 
+
   JSR mt_sin
   ;JSR flashcode
   RTS
-  
+
 .loaderr:
   MOVE.B  (A7)+,currDriveNo
   JSR PrintDiskOpResult
@@ -12883,11 +14376,11 @@ flashcode
   MOVE.W dmaconr(a6),D7
   OR.L #$80008000,D7
   MOVE.L D7,tempD0
-  
+
   MOVE.W #$7fff,intena(a6)
   MOVE.W #$7fff,dmacon(a6)
 
-  ;enter product identification mode (chip1)  
+  ;enter product identification mode (chip1)
   MOVE.B #$AA,SECSTRT_0+($5555*2)
   MOVE.B #$55,SECSTRT_0+($2AAA*2)
   MOVE.B #$90,SECSTRT_0+($5555*2)
@@ -12898,8 +14391,8 @@ flashcode
   MOVE.B SECSTRT_0+$400,D0
   LSL.W #8,D0
   MOVE.B SECSTRT_0+$400+2,D0
-  
-  ;exit product identification mode (chip1)  
+
+  ;exit product identification mode (chip1)
   MOVE.B #$AA,SECSTRT_0+($5555*2)
   MOVE.B #$55,SECSTRT_0+($2AAA*2)
   MOVE.B #$F0,SECSTRT_0+($5555*2)
@@ -12924,7 +14417,7 @@ flashcode
   MOVE.B SECSTRT_0+$400+1,D0
   LSL.W #8,D0
   MOVE.B SECSTRT_0+$400+2+1,D0
-  
+
   ;exit product identification mode (chip2)
   MOVE.B #$AA,SECSTRT_0+1+($5555*2)
   MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
@@ -12964,10 +14457,10 @@ flashcode
   MOVE.W dmaconr(a6),D1
   OR.L #$80008000,D1
   MOVE.L D1,tempD0
-  
+
   MOVE.W #$7fff,intena(a6)
   MOVE.W #$7fff,dmacon(a6)
- 
+
   lea $60000,a0
   move.w  #bpl1pth,(A0)+
   move.w  #0,(A0)+
@@ -12975,11 +14468,11 @@ flashcode
   move.w  #EXT_1000,(A0)+
   move.w  #$ffff,(A0)+
   move.w  #$fffe,(A0)+
-  
+
   move.l  #$60000,cop1lch(a6)
   clr.w copjmp1(a6)
   move.w #$8380,dmacon(a6)
- 
+
   MOVE.W #1,D3  ;two passes (one for each chip)
 
 .write3
@@ -13018,17 +14511,17 @@ flashcode
   LEA 2(A2),A2
   LEA 2(A0),A0
   DBF D1,.write
-  
+
   ;wait for sector flash to complete
-.wait  
+.wait
   MOVE.B -2(A0),D0
   MOVE.B -2(A0),D1
   CMP.B D1,D0
   BNE.S .wait
-  
+
   LEA EXT_1000+97*80-8,A3
   BSR DoProgress
-  
+
   DBF D2,.write2
   DBF D3,.write3
 
@@ -13042,7 +14535,7 @@ flashcode
   MOVE.L D4,D2
   AND.L #$3F,D2
   BNE.S .1
-  
+
   CLR.W D3
   MOVE.L D4,D2
   LSR.L #6,D2
@@ -13054,10 +14547,10 @@ flashcode
   MOVEQ #0,D7
 .ok
   SUB.L #1,D4
-  
+
   CMP.L #arramstart,A0
   BNE.S .2
-  
+
   TST.L D7
   BEQ.W badflash
 
@@ -13078,14 +14571,14 @@ DoProgress
   LSR.W #3,D1
   SUB.L D1,A3
   AND.W #7,D0
-  BSET D0,(A3) 
-  BSET D0,80(A3) 
-  BSET D0,160(A3) 
-  BSET D0,240(A3) 
-  BSET D0,320(A3) 
-  BSET D0,400(A3) 
-  BSET D0,480(A3) 
-  BSET D0,560(A3) 
+  BSET D0,(A3)
+  BSET D0,80(A3)
+  BSET D0,160(A3)
+  BSET D0,240(A3)
+  BSET D0,320(A3)
+  BSET D0,400(A3)
+  BSET D0,480(A3)
+  BSET D0,560(A3)
   RTS
 
 
@@ -15489,10 +16982,11 @@ LAB_A1A2A6:
   MOVE.W  D0,D3
   BRA.S LAB_A1A27A
 SUB_A1A2B0:
-  MOVEM.L D0/A0-A2,-(A7)
+  MOVEM.L D0/A0-A3,-(A7)
   LEA EXT_100.W,A0
   LEA EXT_200.W,A1
   LEA mt_sin,A2
+  MOVE.L RegSnoopAddr,A3
   MOVE.L  (A0)+,(A2)+
   MOVE.L  (A1)+,(A2)+
   MOVEQ #7,D0
@@ -15506,29 +17000,29 @@ LAB_A1A2C8:
   MOVE.L  #$80000000,(A0)+
   MOVE.L  #1,(A1)+
   DBF D0,LAB_A1A2C8
-  MOVE.L  RegSnoopColor17,(A2)+
+  MOVE.L  color17(A3),(A2)+
   MOVE.L  EXT_0,(A2)+
-  MOVE.W  RegSnoopBplCon2,(A2)+
+  MOVE.W  bplcon2(a3),(A2)+
   MOVE.L  #$5555aaaa,EXT_104.W
   MOVE.L  #$aaaa5555,-(A1)
   CLR.L EXT_0.W
-  MOVE.W  RegSnoopBplCon2,D0
+  MOVE.W  bplcon2(A3),D0
   ANDI.W  #$003f,D0
   ORI.W #$0024,D0
   MOVE.W  D0,CopyBplCon2
 
-  MOVE.W RegSnoopBplCon3,D0
+  MOVE.W bplcon3(A3),D0
   MOVE.W  D0,CopyBplCon3
 
-  MOVE.W RegSnoopBplCon4,D0
+  MOVE.W bplcon4(A3),D0
   MOVE.W  D0,CopyBplCon4
 
-  MOVE.W RegSnoop+beamcon0,D0
+  MOVE.W beamcon0(A3),D0
   MOVE.W  D0,CopyBeamCon0
-  MOVE.W RegSnoop+fmode,D0
+  MOVE.W fmode(A3),D0
   MOVE.W  D0,CopyFmode
 
-  MOVEM.L (A7)+,D0/A0-A2
+  MOVEM.L (A7)+,D0/A0-A3
   RTS
 SUB_A1A32A:
   MOVEM.L D0/A0-A2,-(A7)
@@ -19234,7 +20728,7 @@ RamAllocFailTable:
   ;DC.B $D,"ChipRam-Allocation Failure!!",$D,0,0
   even
   endc
-  
+
 calcArChecksum:
   BSR.W calcChecksum
   MOVE.L  D0,checksum
@@ -20073,21 +21567,28 @@ LAB_A1D7AC:
   BEQ.S LAB_A1D7B8
   BSR.S SUB_A1D7C4
 LAB_A1D7B8:
-  MOVE.L  RegSnoopCop2Lc,SaveCop2LcCopy
+  MOVE.L A0,-(A7)
+  MOVE.L RegSnoopAddr,A0
+  MOVE.L  cop2lch(A0),SaveCop2LcCopy
+  MOVE.L (A7)+,A0
   RTS
 SUB_A1D7C4:
   MOVE.W  #$0088,D0
   MOVE.W  #$0080,D1
   MOVE.L  LAB_A483A2,D7
   BSR.S SUB_A1D7FE
-  MOVE.L  A0,RegSnoopCop1Lc
+  MOVE.L A1,-(A7)
+  MOVE.L RegSnoopAddr,A1
+  MOVE.L  A0,cop1lch(A1)
   MOVE.L  A0,LAB_A483A2
   MOVE.W  #$008a,D0
   MOVE.W  #$0084,D1
   MOVE.L  LAB_A483A6,D7
   BSR.S SUB_A1D7FE
-  MOVE.L  A0,RegSnoopCop2Lc
+  MOVE.L RegSnoopAddr,A1
+  MOVE.L  A0,cop2lch(A1)
   MOVE.L  A0,LAB_A483A6
+  MOVE.L (A7)+,A1
   RTS
 SUB_A1D7FE:
   LEA EXT_DFF000,A5
@@ -20097,7 +21598,7 @@ SUB_A1D7FE:
   MOVEA.L D7,A0
   BSR.S SUB_A1D850
   BNE.S LAB_A1D848
-  LEA RegSnoop,A0
+  MOVE.L RegSnoopAddr,A0
   MOVEA.L 0(A0,D1.W),A0
   EXG D0,A0
   BCLR  #0,D0
@@ -20295,8 +21796,9 @@ LAB_A1DA46:
 LAB_A1DA60:
   MOVE.L  (A1)+,(A0)+
   DBF D0,LAB_A1DA60
-  MOVE.L  RegSnoopColor17,(A0)+
-  MOVE.W  RegSnoopColor19,(A0)+
+  MOVE.L RegSnoopAddr,A1
+  MOVE.L  color17(A1),(A0)+
+  MOVE.W  color19(A1),(A0)+
   MOVE.L  cursorX,(A0)+
   MOVE.L  #$07770000,EXT_DFF1A2
   MOVE.W  #$0fca,EXT_DFF1A6
@@ -23713,7 +25215,8 @@ LAB_413ED0:
   SUBQ.W  #1,D0
   MOVE.W  D0,D1
   LSL.W #4,D1
-  LEA RegSnoopAud0Lc,A0
+  MOVE.L RegSnoopAddr,A0
+  LEA aud0lch(A0),A0
   LEA 0(A0,D1.W),A0
   MOVE.L  (A0),D0
   MOVE.L  D0,LAB_A480CA
@@ -25049,18 +26552,31 @@ LAB_A1FF74:
   BRA.S LAB_A1FF4C
 
 findRamdiskSectors
-  MOVEM.L D1-D2/A2,-(A7)
+  MOVEM.L D1-D3/A2,-(A7)
   LEA mfmSectorAddresses,A2
   MOVE.L D0,D1
   MULU #$1600,D1
   ADD.L newRamdiskAddr,D1
-  
-  MOVEQ #$B,D2
+
+  MOVE.L RegSnoopAddr,D3
+  CMP.L newRamdiskAddr,D3
+  BLT.S .0
+
+  CMP.L D3,D1
+  BLE.S .0
+  ADD.L #$200,D1
+.0
+
+  MOVEQ #11-1,D2
 .1
+  CMP.L D3,D1
+  BNE.S .2
+  ADD.L #$200,D1
+.2
   MOVE.L D1,(A2)+
   ADD.L #512,D1
   DBF D2,.1
-  MOVEM.L (A7)+,D1-D2/A2
+  MOVEM.L (A7)+,D1-D3/A2
   RTS
 
 
@@ -25074,7 +26590,6 @@ findPdosMfmSectors:
   DBF D1,.1
 
   LEA mfmSectorAddresses,A2
-
   MOVEQ #$B,D1
 .2
   MOVE.W #$200,D0
@@ -25366,7 +26881,7 @@ SUB_A20132:
   BEQ mfm1
   TST.B mfmRead
   BNE mfm1
-  
+
   TST.B pdosRead
   BNE makePdosTrack
 
@@ -25389,7 +26904,7 @@ LAB_A2014A:
   MOVEA.L A2,A1
   ADDQ.W  #1,D1
   DBF D0,LAB_A2014A
-  
+
   MOVEM.L (A7)+,D0-D1/A0-A2
   BSR.W SUB_A20170
 mfm1:
@@ -25398,18 +26913,18 @@ mfm1:
 makePdosTrack
   MOVEM.L D0-D7/A0-A3,-(A7)
   ;1448
-  
+
   ;4891
   ;8 bytes track id
   ;1024 bytes data
   ;2 bytes gap size
   ;a0=862c
-  
+
   LEA 1036*12+2+$400(A0),A1
 
   LEA 514*12(A0),A0 ;last sector
   MOVEQ #12-1,D3
-.encodesector  
+.encodesector
 
   ;encode sector
   LEA -1036(A1),A1
@@ -25422,10 +26937,10 @@ makePdosTrack
   MOVE.W (A0)+,D0
   CLR.L (A1)+
   CLR.L (A1)+
-  
+
   MOVE.L D3,-(SP)
   MOVE.W #512/4-1,D2
-  
+
   MOVE.L pdosKey,D3
 .sectorenc
   MOVEM.L D2/D4,-(SP)
@@ -25449,7 +26964,7 @@ makePdosTrack
   MOVE.W D2,D0
   SWAP D0
   MOVE.L pdosKey,D2
-  BSET	#$1F,D2
+  BSET  #$1F,D2
 
   EOR.L D2,D0
 
@@ -25465,32 +26980,32 @@ makePdosTrack
   BSR SUB_A20118
   LEA 2-1036(A1),A1
   MOVE.L A2,A0
- 
+
   DBF D3,.encodesector
-  
+
   LEA 1036*12(A1),A1
   MOVE.L #$aaaaaaaa,(A1)
   BSR SUB_A20118
-  
+
   MOVEM.L (A7)+,D0-D7/A0-A3
   MOVE.W #$1448,$400(A0)
   BSR.S SUB_A20170
   RTS
 
 CalcPdosCrc
-  MOVEM.L	D1/D2/A2,-(SP)
-	MOVEQ	#0,D0
-	MOVE.W	#$FF,D1
-chkloop	MOVE.L	(A0)+,D2
-	EOR.L	D2,D0
-	DBRA	D1,chkloop
-	AND.L	#$55555555,D0
-	MOVE.L	D0,D1
-	SWAP	D1
-	ADD.W	D1,D1
-	OR.W	D1,D0
-	MOVEM.L	(SP)+,D1/D2/A2
-	RTS
+  MOVEM.L D1/D2/A2,-(SP)
+  MOVEQ #0,D0
+  MOVE.W  #$FF,D1
+chkloop MOVE.L  (A0)+,D2
+  EOR.L D2,D0
+  DBRA  D1,chkloop
+  AND.L #$55555555,D0
+  MOVE.L  D0,D1
+  SWAP  D1
+  ADD.W D1,D1
+  OR.W  D1,D0
+  MOVEM.L (SP)+,D1/D2/A2
+  RTS
 
 SUB_A20170:
   MOVEM.L D0/A0,-(A7)
@@ -25528,7 +27043,7 @@ writeTrack:
   CLR.L D0
   CMP.B #4,currDriveNo
   BEQ LAB_A20288
-  
+
   BSR.S checkDiskBlockDone
   BSR.W SUB_A2071A
   BMI.W LAB_A20288
@@ -25752,7 +27267,7 @@ LAB_A207B2:
   BNE.S .notramdisk
   JSR findRamdiskSectors
   BRA.W .1
-.notramdisk  
+.notramdisk
   TST.B pdosRead
   BNE.S .pdos
   TST.B mfmRead
@@ -25797,7 +27312,7 @@ SUB_A207FC:
   MOVE.B  LAB_A4824A,currDriveNo
   MOVE.L  D1,-(A7)
   MOVEQ #5,D1
-  
+
   BSR.W SUB_A20132    ;build mfm track data
 LAB_A2081A:
   BSR.W writeTrack
@@ -26284,7 +27799,7 @@ LAB_A20E36:
   CMP.B #4,currDriveNo
   BNE.S LAB_A20E58
   LEA ArRamDiskText(PC),A2
-  
+
 LAB_A20E58:
   MOVE.W  #$0370,D0
   BSR.W loadSector
@@ -27948,7 +29463,7 @@ SUB_A22080:
   BEQ.S .1
   CMP.B #"r",(A2)
   BEQ.S .1
-  
+
   MOVEQ #0,D1
   CMPI.B  #$33,(A2)       ;3
   BHI.S LAB_A220AE
@@ -27965,7 +29480,7 @@ LAB_A220AE:
 .noramdisk
   MOVEQ #-35,D0     ;ramdisk not active
   BRA.W LAB_A22158
-  
+
 LAB_A220B4:
   MOVE.B  D1,currDriveNo
   MOVE.L  #$00000370,currentDirBlock
@@ -29589,7 +31104,7 @@ LAB_A237A0:
 
 installWTF:
   JMP PrintWTF
-  
+
 InstallYNText:
   DC.B  "Ready to install disk in drive df",0
 
@@ -31053,35 +32568,35 @@ CMD_CRC16:
   MOVE.W #$16,D0
   JSR Print2DigitHex
   JSR PrintRangeInfo
- 
+
   MOVEQ #0,D0
 
   ;#define ucrc16(ch,crc) Eor(zm.crc16tbl[Eor(Shr(crc,8) AND $ff,ch)],Shl(crc,8)) AND $ffff
   ;a = Shr(crc,8) AND $ff
   ;b = Eor(a,ch)
   ;crc = Eor(zm.crc16tbl[a],Shl(crc,8))
- 
+
   LEA crc16tbl,A3
 .crc16
   MOVE.B (A1)+,D1
-  
+
   MOVE.W D0,D2
   LSR.W #8,D2
-  
+
   EOR.B D1,D2
-  
+
   ADD.W D2,D2
   MOVE.W (A3,D2),D2
   LSL.W #8,D0
   EOR.W D2,D0
-  
+
   CMP.L A1,A2
   BNE.S .crc16
-  
+
   JSR Print4DigitHex
   JSR PrintCR
   JSR PrintCR
- 
+
   JMP PrintReady
 
 CMD_CRC32:
@@ -31104,28 +32619,28 @@ CMD_CRC32:
   JSR Print2DigitHex
   JSR PrintRangeInfo
   MOVEQ #-1,D0
-  
+
   ;a = (Eor(crc,ch)) AND 255
   ;crc = Eor(zm.crc32tbl[a],Shr(crc,8) AND $ffffff)
   LEA crc32tbl,A3
 .crc16
   MOVE.B (A1)+,D1
-  
+
   MOVEQ #0,D2
-  MOVE.B D0,D2  
+  MOVE.B D0,D2
   EOR.B D1,D2
-  
+
   ADD.W D2,D2
   ADD.W D2,D2
   MOVE.L (A3,D2),D2
-  
+
   LSR.L #8,D0
   EOR.L D2,D0
-  
+
   CMP.L A1,A2
   BNE.S .crc16
   NOT.L D0
-  
+
   JSR Print8DigitHex
   JSR PrintCR
   JSR PrintCR
@@ -31168,9 +32683,9 @@ CMD_ARRAM:
   LEA ramfoundText(PC),A0
   JSR PrintText
   JMP PrintReady
-  
+
 ramfoundText:
-  DC.B "K of action replay memory found",0 
+  DC.B "K of action replay memory found",0
   even
   endc
 
@@ -31178,10 +32693,10 @@ CheckARRam:
   MOVE.W #40,D7
 
   LEA arramstart,A0
- 
+
   MOVE.W 16384(A0),D0
   MOVE.W (A0),D1
-  
+
   CLR.W 16384(A0)
   MOVE.W #$1234,(A0)
 
@@ -31194,12 +32709,12 @@ CheckARRam:
 .3
   ADD.L #$10000,A1
   ADD.W #64,D7
-  
+
   MOVE.W (A1),D2
   MOVE.W #$2468,(A1)
   CMP.W #$2468,(A1)
   BNE.S .2
-  
+
   CMP.W #$1234,(A0)
   BNE.S .2
 
@@ -31214,7 +32729,7 @@ CheckARRam:
   MOVE.W D1,(a0)
 
   MOVEQ #0,D0
-  MOVE.W D7,D0 
+  MOVE.W D7,D0
   RTS
 
 
@@ -31526,7 +33041,7 @@ LAB_A24B1A:
   SUBQ.L  #1,D2
   MOVE.L  D1,D3
   ADD.L D2,D3
-  
+
   CLR.L trackStartSkip
   MOVE.L #-1,trackMaxByteCount
   TST.B sectorRead
@@ -31535,7 +33050,7 @@ LAB_A24B1A:
   TST.B pdosRead
   BEQ.S .1
   MOVE.L #12*$10000+1919,D0
-.1  
+.1
   CMP.W  D0,D3
   BHI.W LAB_A21070
 
@@ -31556,7 +33071,7 @@ LAB_A24B1A:
   LSL.L #4,D0
   LSL.L #5,D0
   MOVE.L D0,trackMaxByteCount
-  
+
   MOVE.L D1,D0
   DIVU D3,D0
   MOVE.W D0,D1
@@ -31566,9 +33081,9 @@ LAB_A24B1A:
   SUB.W #1,D0
   DIVU D3,D0
   MOVE.W D0,D2
-  
+
   BRA.S .tr3
-  
+
 .tr
   TST.B byteRead
   BEQ.S .tr2
@@ -31576,7 +33091,7 @@ LAB_A24B1A:
   TST.B pdosRead
   BEQ.S .s1
   MOVE.L #1920*512-1,D0
-.s1  
+.s1
   CMP.L  D0,D3
   BHI.W LAB_A21070
 
@@ -31604,7 +33119,7 @@ LAB_A24B1A:
   MOVE.W D2,D0
   ADDQ.L #1,D0
   MOVE.L D0,trackMaxByteCount
-  
+
   MOVE.L D1,D0
   DIVU D3,D0
   MOVE.W D0,D1
@@ -31614,7 +33129,7 @@ LAB_A24B1A:
   SUB.W #1,D0
   DIVU D3,D0
   MOVE.W D0,D2
-  
+
   BRA.S .tr3
 .tr2
   CMPI.W  #$009f,D3
@@ -31655,7 +33170,7 @@ apiReadTracks2
 
   TST.B pdosRead
   BEQ.S .notpdos
- 
+
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S .notpdos
@@ -31777,7 +33292,7 @@ LAB_A24C46:
   BEQ.S .1
   DIVU  #$1800,D0
   BRA.S .2
-  
+
 .1
   DIVU  #$1600,D0
 .2
@@ -32101,7 +33616,7 @@ mfm:
   MOVE.W (A1)+,(A2)+
   DBF D0,.copy
 
-done 
+done
   MOVE.B  D1,LAB_A48249
   MOVE.B  currDriveNo,LAB_A4824A
 LAB_A24F30:
@@ -32131,7 +33646,7 @@ LAB_A24F7A:
   BNE.S LAB_A24F88
   ;TST.B pdosRead
   ;BNE.S LAB_A24F88
-  
+
   EXG A1,A3
   BSR.S SUB_A24FD6    ;verify data
   EXG A1,A3
@@ -32177,7 +33692,7 @@ SUB_A24FD6:
   TST.B pdosRead
   BEQ.S LAB_A25010
   MOVEQ #12-1,D0
-  
+
 LAB_A25010:
   MOVEA.L (A2)+,A3
   MOVE.W  #$01ff,D1
@@ -33762,11 +35277,11 @@ CMD_MFM:
   TST.W D6
   BEQ mfmWtf
   SWAP D6
-  
+
   SUBQ #1,D2
   ADD.W D1,D1
-  
-.processTrack  
+
+.processTrack
   MOVEM.L D1/D2,-(SP)
 
   LEA (A0,D1),A2  ;track end
@@ -33775,7 +35290,7 @@ CMD_MFM:
   MOVE.W D5,tempD1
   SUBQ #1,D5
 
-.findsync  
+.findsync
 
   CMP.W (A0)+,D3  ;find sector sync
   BEQ.S .sectorsync
@@ -33792,7 +35307,7 @@ CMD_MFM:
   BEQ.S .nosec
   MOVEM.L D1/D2,-(A7)
   MOVEQ #0,D1
-  MOVE.B (A0,D7),D1 
+  MOVE.B (A0,D7),D1
   MOVE.B 4(A0,D7),D2
   AND.B #$55,D1
   AND.B #$55,D2
@@ -33813,14 +35328,14 @@ CMD_MFM:
   MOVE.L D0,-(SP)
   MOVE.W D6,D0
   SUB.W #1,D0
-  
+
   MOVEM.L D1-D3,-(A7)
   MOVEQ #0,D3
 .mfmdecode
   ;decode sector
   MOVE.B (A3)+,D1
   MOVE.B (A4)+,D2
-  
+
   ADD.W #1,D3
   SWAP D6
   CMP.W D3,D6
@@ -33843,7 +35358,7 @@ CMD_MFM:
   DBF D0,.clrdata
 
   MOVE.W tempD0,D1    ;destination sector offset
-  ADD.W D6,D1 
+  ADD.W D6,D1
   NEG.W D1
   LEA (A1,D1),A1
 
@@ -33851,7 +35366,7 @@ CMD_MFM:
   MOVE.L (SP)+,D0
   MOVE.W tempD1,D5
   BRA.S .nexttrack
-  
+
 .2
   AND.B #$55,D1
   AND.B #$55,D2
@@ -33863,7 +35378,7 @@ CMD_MFM:
   CMP.L #-1,D7
   BEQ.S .seqsec1
   MOVE.W tempD0,D1    ;destination sector offset
-  ADD.W D6,D1 
+  ADD.W D6,D1
   NEG.W D1
   LEA (A1,D1),A1
 .seqsec1
@@ -33874,7 +35389,7 @@ CMD_MFM:
   ADDQ #1,D0
 
   MOVE.L A3,A0
- 
+
   DBF D5,.findsync
 
 .nexttrack
@@ -33887,11 +35402,11 @@ CMD_MFM:
   MOVE.W tempD1,D5
   CMP.W D0,D5
   BEQ.S .1
- 
+
   ;print sector count warning
   nop
 .1
-  
+
   MOVEM.L (SP)+,D1/D2
   MOVE.L A2,A0
   DBF D2,.processTrack
@@ -38226,7 +39741,7 @@ CMD_EA:
 
   MOVE.L AgaPaletteSave,D1
   BEQ .6
-  MOVE.L D1,A1  
+  MOVE.L D1,A1
 
   ST.B scrollLock
   MOVE.W #255,D1
@@ -38285,7 +39800,7 @@ CMD_EA:
   RTS
 NoAgaText2:
   DC.B "No AGA palette saved",0
-  
+
 NoAgaText:
   DC.B "No AGA detected",0
   even
@@ -38331,6 +39846,58 @@ CMD_CLRAPI:
 ApiHandlerRemText:
   DC.B  "Api Exception handler removed!",$D,0
   even
+
+CMD_KEYMAP:
+  JSR readCmdCharSkipSpaces
+  TST.B endOfCmdString
+  BNE.S .keymapWTF
+  JSR UpperCaseChar
+  MOVE.B D0,D1
+
+  JSR readCmdChar
+  TST.B endOfCmdString
+  BNE.S .keymapWTF
+
+  JSR UpperCaseChar
+  LSL.W #8,D1
+  MOVE.B D0,D1
+
+  CMP.W #"DE",D1
+  BEQ.S .keymapDE
+
+  CMP.W #"UK",D1
+  BEQ.S .keymapUK
+
+  CMP.W #"US",D1
+  BEQ.S .keymapUS
+
+  CMP.W #"IT",D1
+  BEQ.S .keymapIT
+
+.keymapWTF:
+  JMP PrintWTF
+
+.keymapDE
+  LEA GermanKeymapText,A0
+  MOVE.B #0,keymap
+  BRA.S .keymapPrint
+
+.keymapUS
+  LEA UsaKeymapText,A0
+  MOVE.B #1,keymap
+  BRA.S .keymapPrint
+
+.keymapUK
+  LEA UKKeymapText,A0
+  MOVE.B #-1,keymap
+  BRA.S .keymapPrint
+
+.keymapIT
+  LEA ITKeymapText,A0
+  MOVE.B #2,keymap
+
+.keymapPrint
+  JMP PrintText
 
 CMD_ED:
   TST.B TBufferAllocated
@@ -38872,267 +40439,280 @@ ShortcutsText:
   DC.B  "tracker    <--> srip",$D
   DC.B  "nostick    <--> nst",$D
   DC.B  "relabel    <--> rel",$D
+  DC.B  "rcolour    <--> rcolor",$D
   DC.B  "rename     <--> ren",$D
+  DC.B  "colour     <--> color",$D
   DC.B  "delete     <--> del",$D
   DC.B  "lstick     <--> lst",$D
   DC.B  "sstick     <--> sst",$D
   DC.B  "setmap     <--> key",$D
+  DC.B  "keymap     <--> km",$D
   DC.B  "trans      <--> i",$D
   DC.B  "comp       <--> v",$D
   DC.B 0
 
 HelpText:
   DC.B  $D
-	DC.B  "COMMANDS + SYNTAX (space for next page):",$D
-	DC.B  "========================================",$D
-	DC.B  $D
-	DC.B  "Commands for system information:",$D
-	DC.B  "--------------------------------",$D
-	DC.B  "interrupts: Show execbase interrupt-lists        - interrupts",$D
-	DC.B  "exceptions: Show exception- and interruptvectors - exceptions",$D
-	DC.B  "  execbase: Show whole execbase structure         - execbase",$D
-	DC.B  "     avail: Show free memory                     - avail",$D
-	DC.B  "      info: Show important systemparameters      - info (picnr)",$D
-	DC.B  " libraries: Show execbase library-list           - libraries",$D
-	DC.B  " resources: Show execbase resource-list          - resources",$D
-	DC.B  "  chipregs: Show name + offset of chipregisters  - chipregs",$D
-	DC.B  "     dchip: Explain function of chipregister     - dchip registername",$D
-	DC.B  "   devices: Show execbase device-list            - devices",$D
-	DC.B  "     tasks: show execbase task-lists             - tasks",$D
-	DC.B  "     ports: Show execbase port-list              - ports",$D
+  DC.B  "COMMANDS + SYNTAX (space for next page):",$D
+  DC.B  "========================================",$D
+  DC.B  $D
+  DC.B  "Commands for system information:",$D
+  DC.B  "--------------------------------",$D
+  DC.B  "interrupts: Show execbase interrupt-lists        - interrupts",$D
+  DC.B  "exceptions: Show exception- and interruptvectors - exceptions",$D
+  DC.B  "  execbase: Show whole execbase structure         - execbase",$D
+  DC.B  "     avail: Show free memory                     - avail",$D
+  DC.B  "      info: Show important systemparameters      - info (picnr)",$D
+  DC.B  " libraries: Show execbase library-list           - libraries",$D
+  DC.B  " resources: Show execbase resource-list          - resources",$D
+  DC.B  "  chipregs: Show name + offset of chipregisters  - chipregs",$D
+  DC.B  "     dchip: Explain function of chipregister     - dchip registername",$D
+  DC.B  "   devices: Show execbase device-list            - devices",$D
+  DC.B  "     tasks: Show execbase task-lists             - tasks",$D
+  DC.B  "     ports: Show execbase port-list              - ports",$D
   DC.B  $D
   DC.B  "Disk and diskcoding commands:",$D
-	DC.B  "-----------------------------",$D
-	DC.B  "  bootcode: Show/set bootblock codenumber        - bootcode (codenumber)",$D
-	DC.B  "  bootprot: Code bootblock of active drive       - bootprot (codenumber)",$D
-	DC.B  "      code: Show/set disk codenumbers            - code (drive codenumber)",$D
-	DC.B  "     dcopy: Backup amigados disks                - dcopy source dest",$D
-	DC.B  "     burst: Turbo-Burstnibbler                   - burst (drive)",$D
-	DC.B  "  codecopy: Diskcopy + decode source + code dest - codecopy source dest",$D
-	DC.B  "  safedisk: Patch/show state of trackdisk.device - safedisk (a/b/s/n/u/v/q)",$D
-	DC.B  "        cd: Show/change current module-path      - cd (path)",$D
-	DC.B  "       dir: Show disk-directory                  - dir (path)",$D
-	DC.B  "      dira: Show whole disk-directory            - dira (path)",$D
-	DC.B  "      copy: Make copy of a File                  - copy (path)source,dest",$D
-	DC.B  "   makedir: Create directory                     - makedir path",$D
-	DC.B  "    delete: Delete file                          - delete (path)filename",$D
-	DC.B  "    format: Format disk in active drive (FFS)    - format (name)(,ffs)",$D
-	DC.B  "   formatq: Format disk quick (FFS)              - formatq (name)(,ffs)",$D
-	DC.B  "   formatv: Format disk and verify format (FFS)  - formatv (name)(,ffs)",$D
-	DC.B  "   install: Install disk in active drive         - install (bootblocknr.)",$D
-	DC.B  " diskcheck: Checks disk for errors               - diskcheck (drive)",$D
-	DC.B  "  diskwipe: Clears a disk very fast              - diskwipe (drive)",$D
-	DC.B  "      type: Type file on screen                  - type (path)filename",$D
-	DC.B  "    rename: Rename file                          - rename (path)oldname,newname",$D
-	DC.B  "   relabel: Change/set diskname                  - relabel diskname",$A
+  DC.B  "-----------------------------",$D
+  DC.B  "  bootcode: Show/set bootblock codenumber        - bootcode (codenumber)",$D
+  DC.B  "  bootprot: Code bootblock of active drive       - bootprot (codenumber)",$D
+  DC.B  "      code: Show/set disk codenumbers            - code (drive codenumber)",$D
+  DC.B  "     dcopy: Backup amigados disks                - dcopy source dest",$D
+  DC.B  "     burst: Turbo-Burstnibbler                   - burst (drive)",$D
+  DC.B  "  codecopy: Diskcopy + decode source + code dest - codecopy source dest",$D
+  DC.B  "  safedisk: Patch/show state of trackdisk.device - safedisk (a/b/s/n/u/v/q)",$D
+  DC.B  "        cd: Show/change current module-path      - cd (path)",$D
+  DC.B  "       dir: Show disk-directory                  - dir (path)",$D
+  DC.B  "      dira: Show whole disk-directory            - dira (path)",$D
+  DC.B  "      copy: Make copy of a File                  - copy (path)source,dest",$D
+  DC.B  "   makedir: Create directory                     - makedir path",$D
+  DC.B  "    delete: Delete file                          - delete (path)filename",$D
+  DC.B  "    format: Format disk in active drive (FFS)    - format (name)(,ffs)",$D
+  DC.B  "   formatq: Format disk quick (FFS)              - formatq (name)(,ffs)",$D
+  DC.B  "   formatv: Format disk and verify format (FFS)  - formatv (name)(,ffs)",$D
+  DC.B  "   install: Install disk in active drive         - install (bootblocknr.)",$D
+  DC.B  " diskcheck: Checks disk for errors               - diskcheck (drive)",$D
+  DC.B  "  diskwipe: Clears a disk very fast              - diskwipe (drive)",$D
+  DC.B  "      type: Type file on screen                  - type (path)filename",$D
+  DC.B  "    rename: Rename file                          - rename (path)oldname,newname",$D
+  DC.B  "   relabel: Change/set diskname                  - relabel diskname",$A
   DC.B  $D
   DC.B  "Freezer and ripper commands:",$D
-	DC.B  "----------------------------",$D
-	DC.B  "        sa: Save current program to disk         - sa (path)name(,crate)",$D
-	DC.B  "        sr: Save current program and start       - sr (path)name(,crate)",$D
-	DC.B  "        la: Load freezefile from disk            - la (path)name",$D
-	DC.B  "        lr: Load freezefile from disk and start  - lr (path)name",$D
-	DC.B  "   sloader: Save loader to active drive          - sloader",$D
-	DC.B  "        lq: Load all from ramdisk                - lq",$D
-	DC.B  "       lqr: Load all from ramdisk and restart    - lqr",$D
-	DC.B  "        sq: Save all to ramdisk                  - sq",$D
-	DC.B  "       sqr: Save all to ramdisk and restart      - sqr",$D
-	DC.B  "       exq: Exchange prg with ramdisk prg        - exq",$D
-	DC.B  "      exqr: Exchange prg with ramdisk prg + run  - exqr",$D
-	DC.B  "     sqmem: En/disable savequick in fastmemory   - sqmem (0/start)",$D
-	DC.B  "        sp: Save current picture to disk         - sp (path)name(,nr hight)",$D
-	DC.B  "         p: Show current picture/mempeeker       - p (picnr)",$D
-	DC.B  "       spm: Save picture of memory-peeker        - spm (path)name",$A
+  DC.B  "----------------------------",$D
+  DC.B  "        sa: Save current program to disk         - sa (path)name(,crate)",$D
+  DC.B  "        sr: Save current program and start       - sr (path)name(,crate)",$D
+  DC.B  "        la: Load freezefile from disk            - la (path)name",$D
+  DC.B  "        lr: Load freezefile from disk and start  - lr (path)name",$D
+  DC.B  "   sloader: Save loader to active drive          - sloader",$D
+  DC.B  "        lq: Load all from ramdisk                - lq",$D
+  DC.B  "       lqr: Load all from ramdisk and restart    - lqr",$D
+  DC.B  "        sq: Save all to ramdisk                  - sq",$D
+  DC.B  "       sqr: Save all to ramdisk and restart      - sqr",$D
+  DC.B  "       exq: Exchange prg with ramdisk prg        - exq",$D
+  DC.B  "      exqr: Exchange prg with ramdisk prg + run  - exqr",$D
+  DC.B  "     sqmem: En/disable savequick in fastmemory   - sqmem (0/start)",$D
+  DC.B  "   tracker: Rips soundtracker-modules in memory  - tracker (start)",$D
+  DC.B  "      scan: Scan memory for samples              - scan",$D
+  DC.B  "        sp: Save current picture to disk         - sp (path)name(,nr hight)",$D
+  DC.B  "         p: Show current picture/mempeeker       - p (picnr)",$D
+  DC.B  "       spm: Save picture of memory-peeker        - spm (path)name",$A
   DC.B  $D
   DC.B  "Diskmonitor commands:",$D
-	DC.B  "---------------------",$D
-	DC.B  "        rt: Read tracks from active drive        - rt strack (num dest)",$D
-	DC.B  "        rs: Read sectors from active drive       - rs start-sector (num dest)",$D
-	DC.B  "        rb: Read bytes from active drive         - rb start-offset (num dest)",$D
+  DC.B  "---------------------",$D
+  DC.B  "        rt: Read tracks from active drive        - rt strack (num dest)",$D
+  DC.B  "        rs: Read sectors from active drive       - rs start-sector (num dest)",$D
+  DC.B  "        rb: Read bytes from active drive         - rb start-offset (num dest)",$D
   DC.B  "        rp: Read pdos tracks from active drive   - rp strack (num dest key)",$D
   DC.B  "       rps: Read pdos sectors from active drive  - rps start-sector (num dest)",$D
   DC.B  "       rpb: Read pdos bytes from active drive    - rpb start-offset (num dest)",$D
   DC.B  "        rr: Read raw mfm tracks from active dr   - rr st sync words (num dest)",$D
-	DC.B  "        wt: Write tracks to active drive         - wt strack num source",$D
-	DC.B  "        wp: Write pdos tracks to active drive    - wp strack num src key",$D
-	DC.B  "        wr: Write raw mfm data to active drive   - wr strack num src words",$D
-	DC.B  "       mfm: Decode mfm data                      - mfm src tlen tcnt dest",$D
-  DC.B  "                                                    	sync soff scnt slen",$D
-	DC.B  "                                                    	sint (snumoff)",$D
+  DC.B  "        wt: Write tracks to active drive         - wt strack num source",$D
+  DC.B  "        wp: Write pdos tracks to active drive    - wp strack num src key",$D
+  DC.B  "        wr: Write raw mfm data to active drive   - wr strack num src words",$D
+  DC.B  "       mfm: Decode mfm data                      - mfm src tlen tcnt dest",$D
+  DC.B  "                                                     sync soff scnt slen",$D
+  DC.B  "                                                     sint (snumoff)",$D
   DC.B  "       rnc: Show rnc serial track                - rnc",$D
-	DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
+  DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
   DC.B  "   clrdmon: Restore disk-mon buffer              - clrdmon",$D
-	DC.B  "   bootchk: Set correct bootblockchecksum        - bootchk sectoraddr.",$D
-	DC.B  "   datachk: Set correct datachecksum             - datachk sectoraddr.",$D
-	DC.B  "    bamchk: Set correct bitmapchecksum           - bamchk sectoraddr.",$A
+  DC.B  "   bootchk: Set correct bootblockchecksum        - bootchk sectoraddr.",$D
+  DC.B  "   datachk: Set correct datachecksum             - datachk sectoraddr.",$D
+  DC.B  "    bamchk: Set correct bitmapchecksum           - bamchk sectoraddr.",$A
   DC.B  $D
   DC.B  "Trainer commands:",$D
-	DC.B  "-----------------",$D
-	DC.B  "        ts: Start trainer/trainermode            - ts startlives startaddress",$D
-	DC.B  "         t: Show addresses/continue trainer      - t (actlives)",$D
-	DC.B  "        tx: Exit trainermode                     - tx",$D
-	DC.B  "        tf: Search for decrementing opcodes      - tf address",$D
-	DC.B  "       tfd: Search and remove decrement opcodes  - tfd address",$D
-	DC.B  "        pc: Show current picture + energy count  - pc (picnr)",$D
-	DC.B  "       tds: Deep trainer start count             - tds",$D
-	DC.B  "       tdc: Deep trainer change count            - tdc",$D
-	DC.B  "       tdd: Deep trainer delete addresses        - tdd start end",$D
-	DC.B  "        td: Display deep trainer addresses       - td",$D
-	DC.B  "       tdi: Display probable trainer addresses   - tdi",$D
-	DC.B  "       tdx: Exit old deep trainer                - tdx",$A
+  DC.B  "-----------------",$D
+  DC.B  "        ts: Start trainer/trainermode            - ts startlives startaddress",$D
+  DC.B  "         t: Show addresses/continue trainer      - t (actlives)",$D
+  DC.B  "        tx: Exit trainermode                     - tx",$D
+  DC.B  "        tf: Search for decrementing opcodes      - tf address",$D
+  DC.B  "       tfd: Search and remove decrement opcodes  - tfd address",$D
+  DC.B  "        pc: Show current picture + energy count  - pc (picnr)",$D
+  DC.B  "       tds: Deep trainer start count             - tds",$D
+  DC.B  "       tdc: Deep trainer change count            - tdc",$D
+  DC.B  "       tdd: Deep trainer delete addresses        - tdd start end",$D
+  DC.B  "        td: Display deep trainer addresses       - td",$D
+  DC.B  "       tdi: Display probable trainer addresses   - tdi",$D
+  DC.B  "       tdx: Exit old deep trainer                - tdx",$A
   DC.B  $D
   DC.B  "Misc. commands",$D
-	DC.B  "--------------",$D
-	DC.B  "   ramtest: Checks memoryblock for harderrors    - ramtest start end",$D
-	DC.B  "      pack: Packs memory                         - pack start end dest crrate",$D
-	DC.B  "    unpack: Unpacks with pack-command packed mem - unpack dest endofpacked",$D
-	DC.B  "     color: Set/show module-editor colors        - color (back pen)",$D
-	DC.B  "    rcolor: Reset module-editor colors           - rcolor",$D
-	DC.B  "        tm: Show remarks about curr. program     - tm",$D
-	DC.B  "       tms: Set remark about curr. programaddr.  - tms addr",$D
-	DC.B  "       tmd: Delete remark about program          - tmd addr",$D
-	DC.B  "       spr: Show/edit sprites                    - spr nr|addr (nr|addr)",$D
-	DC.B  "   version: Show cartridge-version               - version",$D
-	DC.B  " megastick: Joystick-handler (1 = only player 1) - megastick (1)",$D
-	DC.B  "   nostick: Remove joystick-handler              - nostick",$D
-	DC.B  "  clrstick: Clear all joystick-handler codes     - clrstick",$D
-	DC.B  "    lstick: Load joystick-handler data           - lstick (path)name",$D
-	DC.B  "    sstick: Save joystick-handler data           - sstick (path)name",$D
-	DC.B  "     reset: Exit AR and reset Amiga              - reset",$D
-	DC.B  "       pal: Switch to ECS PAL mode               - pal",$D
-	DC.B  "      ntsc: Switch to ECS NTSC mode              - ntsc",$D
-	DC.B  "    setmap: Keymap editor                        - setmap",$D
-	DC.B  "    setcop: Copper specify for Exit of AR-PRO    - setcop (address)",$D
-	DC.B  "     ascii: Show ASCII-Table                     - ascii",$D
-	DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
-	DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
-	DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
-	DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
-	DC.B  "     arram: display the amount of memory on cart - arram",$D
-	DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
-	DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
-	DC.B  "       led: toggle led status                    - led",$D
-	DC.B  "     imode: Entering AR-PRO mode                 - imode X",$D
-	DC.B  "            where X can be 0 upto 3",$D
+  DC.B  "--------------",$D
+  DC.B  "   ramtest: Checks memoryblock for harderrors    - ramtest start end",$D
+  DC.B  "      pack: Packs memory                         - pack start end dest crrate",$D
+  DC.B  "    unpack: Unpacks with pack-command packed mem - unpack dest endofpacked",$D
+  DC.B  "     color: Set/show module-editor colors        - color (back pen)",$D
+  DC.B  "    rcolor: Reset module-editor colors           - rcolor",$D
+  DC.B  "        tm: Show remarks about curr. program     - tm",$D
+  DC.B  "       tms: Set remark about curr. programaddr.  - tms addr",$D
+  DC.B  "       tmd: Delete remark about program          - tmd addr",$D
+  DC.B  "       spr: Show/edit sprites                    - spr nr|addr (nr|addr)",$D
+  DC.B  "   version: Show cartridge-version               - version",$D
+  DC.B  " megastick: Joystick-handler (1 = only player 1) - megastick (1)",$D
+  DC.B  "   nostick: Remove joystick-handler              - nostick",$D
+  DC.B  "  clrstick: Clear all joystick-handler codes     - clrstick",$D
+  DC.B  "    lstick: Load joystick-handler data           - lstick (path)name",$D
+  DC.B  "    sstick: Save joystick-handler data           - sstick (path)name",$D
+  DC.B  "     reset: Exit AR and reset Amiga              - reset",$D
+  DC.B  "       pal: Switch to ECS PAL mode               - pal",$D
+  DC.B  "      ntsc: Switch to ECS NTSC mode              - ntsc",$D
+  DC.B  "    setmap: Keymap editor                        - setmap",$D
+  DC.B  "    keymap: Switch keymap                        - keymap code",$D
+  DC.B  "    setcop: Copper specify for Exit of AR-PRO    - setcop (address)",$D
+  DC.B  "     ascii: Show ASCII-Table                     - ascii",$D
+  DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
+  DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
+  DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
+  DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
+  DC.B  "     arram: display the amount of memory on cart - arram",$D
+  DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
+  DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
+  DC.B  "       led: toggle led status                    - led",$D
+  DC.B  "     imode: Entering AR-PRO mode                 - imode 0|1|2|3",$D
   DC.B  "      kill: Removes action replay from memory    - kill",$D
-	DC.B  "    allexc: Enable/Disable exception activation  - allexc",$D
-	DC.B  "    deepmw: Enable/Disable deep memwatcher       - deepmw",$D
-	DC.B  "  romavoid: Change kickstart placement adr       - romavoid",$D
-	DC.B  "     cache: Change cache status (020/030 only)   - cache XXXX",$D
-	DC.B  "            where X is either 0 or 1",$A
+  DC.B  "    allexc: Enable/Disable exception activation  - allexc",$D
+  DC.B  "    deepmw: Enable/Disable deep memwatcher       - deepmw",$D
+  DC.B  "  romavoid: Enable/Disable triggering from ROM   - romavoid",$D
+  DC.B  "kickromadr: Change kickstart placement adr       - kickromadr",$D
+  DC.B  "     cache: Change cache status (020/030 only)   - cache 0|1",$A
   DC.B  $D
   DC.B  "Printer commands:",$D
-	DC.B  "-----------------",$D
-	DC.B  " smallchar: Activate very small printer chars    - smallchar",$D
-	DC.B  "normalchar: Normal printerchars                  - normalchar",$D
-	DC.B  "       prt: Print string                         - prt string",$D
-	DC.B  $D
-	DC.B  "Virus commands:",$D
-	DC.B  "---------------",$D
-	DC.B  "    virus: Search virus in memory                - virus",$D
-	DC.B  "killvirus: Search and remove virus in memory     - killvirus",$A
+  DC.B  "-----------------",$D
+  DC.B  " smallchar: Activate very small printer chars    - smallchar",$D
+  DC.B  "normalchar: Normal printerchars                  - normalchar",$D
+  DC.B  "       prt: Print string                         - prt string",$D
+  DC.B  $D
+  DC.B  "Virus commands:",$D
+  DC.B  "---------------",$D
+  DC.B  "    virus: Search virus in memory                - virus",$D
+  DC.B  "killvirus: Search and remove virus in memory     - killvirus",$A
   DC.B  $D
   DC.B  "Monitor command:",$D
-	DC.B  "----------------",$D
-	DC.B  " setexcept: Set exception handler (no more guru) - setexcept",$D
-	DC.B  "    setapi: Set api handler (see api document)   - setapi",$D
-	DC.B  "    clrapi: Remove api handler (see api document)- clrapi",$D
-	DC.B  "      comp: Compare memoryblocks                 - comp start end dest",$D
-	DC.B  "        lm: Load file to memory                  - lm (path)name,dest",$D
-	DC.B  "        sm: Save memoryblock to disk             - sm (path)name,start end",$D
-	DC.B  "      smdc: Save memoryblock to disk as dc.b     - sm (path)name,start end",$D
-	DC.B  "    smdata: Save memoryblock to disk as data     - sm (path)name,start end",$D
-	DC.B  "         a: Start mc68000 assembler              - a address",$D
-	DC.B  "         b: Show current breakpoints             - b address",$D
-	DC.B  "        bs: Set breakpoint                       - bs address",$D
-	DC.B  "        bd: Delete breakpoint                    - bd address",$D
-	DC.B  "       bda: Delete all breakpoints               - bda",$D
-	DC.B  "        mw: Display memwatchpoints               - mw",$D
-	DC.B  "        ms: Set memwatchpoint                    - ms address",$D
-	DC.B  "        md: Delete memwatchpoint                 - md address",$D
-	DC.B  "       mda: Delete all memwatchpoints            - mda",$D
-	DC.B  "        tr: Trace current program (not subs)     - tr (steps)",$D
-	DC.B  "        st: Trace current program (also subs)    - st (steps)",$D
-	DC.B  "         x: Restart current program              - x",$D
-	DC.B  "         c: Copperassembler/disassembler         - c 1|2|address",$D
-	DC.B  "         d: MC68000 disassembler                 - d (0|address)",$D
-	DC.B  "         e: Show/edit chipregisters              - e (offset)",$D
-	DC.B  "        ea: Show complete aga pallete            - ea",$D
-	DC.B  "         f: Search for string (casesensitive)    - f string(,start end)",$D
-	DC.B  "        fa: Search for adr addressing opcode     - fa address (start end)",$D
-	DC.B  "       faq: Fastsearch for adr addressing opcode - faq adr (start end)",$D
-	DC.B  "        fr: Search for relative-string           - fr string(,start end)",$D
+  DC.B  "----------------",$D
+  DC.B  " setexcept: Set exception handler (no more guru) - setexcept",$D
+  DC.B  "    setapi: Set api handler (see api document)   - setapi",$D
+  DC.B  "    clrapi: Remove api handler (see api document)- clrapi",$D
+  DC.B  "      comp: Compare memoryblocks                 - comp start end dest",$D
+  DC.B  "        lm: Load file to memory                  - lm (path)name,dest",$D
+  DC.B  "        sm: Save memoryblock to disk             - sm (path)name,start end",$D
+  DC.B  "      smdc: Save memoryblock to disk as dc.b     - smdc (path)name,start end",$D
+  DC.B  "    smdata: Save memoryblock to disk as data     - smdata (path)name,start end",$D
+  DC.B  "         a: Start mc68000 assembler              - a address",$D
+  DC.B  "         b: Show current breakpoints             - b address",$D
+  DC.B  "        bs: Set breakpoint                       - bs address",$D
+  DC.B  "        bd: Delete breakpoint                    - bd address",$D
+  DC.B  "       bda: Delete all breakpoints               - bda",$D
+  DC.B  "        mw: Display memwatchpoints               - mw",$D
+  DC.B  "        ms: Set memwatchpoint                    - ms address",$D
+  DC.B  "        md: Delete memwatchpoint                 - md address",$D
+  DC.B  "       mda: Delete all memwatchpoints            - mda",$D
+  DC.B  "        tr: Trace current program (not subs)     - tr (steps)",$D
+  DC.B  "        st: Trace current program (also subs)    - st (steps)",$D
+  DC.B  "         x: Restart current program              - x",$D
+  DC.B  "         c: Copperassembler/disassembler         - c 1|2|address",$D
+  DC.B  "         d: MC68000 disassembler                 - d (0|address)",$D
+  DC.B  "        dd: MC68000 disassembler (8 lines)       - dd (0|address)",$D
+  DC.B  "       ddd: MC68000 disassembler (16 lines)      - ddd (0|address)",$D
+  DC.B  "         e: Show/edit chipregisters              - e (offset)",$D
+  DC.B  "        ea: Show complete aga pallete            - ea",$D
+  DC.B  "         f: Search for string (casesensitive)    - f string(,start end)",$D
+  DC.B  "        fa: Search for adr addressing opcode     - fa address (start end)",$D
+  DC.B  "       faq: Fastsearch for adr addressing opcode - faq adr (start end)",$D
+  DC.B  "        fr: Search for relative-string           - fr string(,start end)",$D
   DC.B  "        fc: Search for copylock code             - fc (start end)",$D
   DC.B  "        ci: Show copylock info                   - ci <addr>",$D
   DC.B  "        fs: Search string (not casesensitive)    - fs string(,start end)",$D
-	DC.B  "         g: Restart program at address           - g (address)",$D
-	DC.B  "     trans: Copy memoryblock                     - trans start end dest",$D
-	DC.B  "        ws: Write string to memory               - ws string, address",$D
-	DC.B  "         m: Show/edit memory as bytes            - m address",$D
-	DC.B  "   memcode: Codes memory (eor.b)                 - memcode start end code",$D
-	DC.B  "       add: Adds value to memory-range           - add start end value",$D
-	DC.B  "         n: Show/edit memory as ascii            - n address",$D
-	DC.B  "        no: Show/set ascii-dump offset           - no (offset)",$D
-	DC.B  "        nq: Display memory quick as ascii        - nq address",$D
-	DC.B  "         o: Fill memoryblock with string         - o string, start end",$D
+  DC.B  "         g: Restart program at address           - g (address)",$D
+  DC.B  "     trans: Copy memoryblock                     - trans start end dest",$D
+  DC.B  "        ws: Write string to memory               - ws string, address",$D
+  DC.B  "         m: Show/edit memory as bytes            - m address",$D
+  DC.B  "        mm: Show/edit memory as bytes (8 lines)  - mm address",$D
+  DC.B  "       mmm: Show/edit memory as bytes (16 lines) - mmm address",$D
+  DC.B  "   memcode: Codes memory (eor.b)                 - memcode start end code",$D
+  DC.B  "       add: Adds value to memory-range           - add start end value",$D
+  DC.B  "         n: Show/edit memory as ascii            - n address",$D
+  DC.B  "        nn: Show/edit memory as ascii (8 lines)  - nn address",$D
+  DC.B  "       nnn: Show/edit memory as ascii (16 lines) - nnn address",$D
+  DC.B  "        no: Show/set ascii-dump offset           - no (offset)",$D
+  DC.B  "        nq: Display memory quick as ascii        - nq address",$D
+  DC.B  "         o: Fill memoryblock with string         - o string, start end",$D
   DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
   DC.B  "         r: Show/edit processor registers        - r (reg value)",$D
-  DC.B  "         rc: Show 020+ control registers         - rf",$D
+  DC.B  "         rc: Show 020+ control registers         - rc",$D
   DC.B  "         rf: Show fpu registers                  - rf",$D
   DC.B  "         rm: Show mmu registers                  - rm",$D
   DC.B  "         w: Show/edit cia's                      - w (register)",$D
-	DC.B  "         y: Show/edit memory as binary           - y address",$D
-	DC.B  "        ys: Show/set datawidth for the y command - ys (bytes)",$D
-	DC.B  "         ?: Calculator                           - ? (+|-|*|/ value)",$A
+  DC.B  "         y: Show/edit memory as binary           - y address",$D
+  DC.B  "        yy: Show/edit memory as binary (8 lines) - yy address",$D
+  DC.B  "       yyy: Show/edit memory as binary (16 lines)- yyy address",$D
+  DC.B  "        ys: Show/set datawidth for the y command - ys (bytes)",$D
+  DC.B  "         ?: Calculator                           - ? (+|-|*|/ value)",$A
   DC.B  $D
   DC.B  "Number formats:",$D
-	DC.B  "---------------",$D
-	DC.B  "hexadecimal:  $12ab or 12ab",$D
-	DC.B  $D
+  DC.B  "---------------",$D
+  DC.B  "hexadecimal:  $12ab or 12ab",$D
+  DC.B  $D
   DC.B  "decimal:      -!15 , !880",$D
-	DC.B  $D
-	DC.B  "binary:       %001110101 , -%101",$D
-	DC.B  $D
+  DC.B  $D
+  DC.B  "binary:       %001110101 , -%101",$D
+  DC.B  $D
   DC.B  "register:     \d0,..,\d7,\a0,..,\a7,\pc,\sp(=usp) \b(=Dmon-Buffer)",$D
-	DC.B  $D
-	DC.B  "diskmonitor (if using rt and wt commands with diskbuffer):",$D
-	DC.B  " a) t = track (!0 - !159), s = sector (!0 - !10), o = offset (!0 - !511)",$D
-	DC.B  " b) s = sector (!0 - !1760) , o = offset (!0 - !511)",$D
-	DC.B  $D
-	DC.B  " Example to read/display rootblock:",$D
-	DC.B  "     rt !75 !10",$D
-	DC.B  "     m t!80 or m t!80s0 or m t$50s0o0 or m t50s0o0 or m s!880 or m s370",$A
+  DC.B  $D
+  DC.B  "diskmonitor (if using rt and wt commands with diskbuffer):",$D
+  DC.B  " a) t = track (!0 - !159), s = sector (!0 - !10), o = offset (!0 - !511)",$D
+  DC.B  " b) s = sector (!0 - !1760) , o = offset (!0 - !511)",$D
+  DC.B  $D
+  DC.B  " Example to read/display rootblock:",$D
+  DC.B  "     rt !75 !10",$D
+  DC.B  "     m t!80 or m t!80s0 or m t$50s0o0 or m t50s0o0 or m s!880 or m s370",$A
   DC.B  $D
   DC.B  "Editor-tools:",$D
-	DC.B  "-------------",$D
-	DC.B  "HELP   : This short help",$D
-	DC.B  $D
-	DC.B  "SH HELP: Show shortcuts for some commands",$D
-	DC.B  "SHIFT  : No Scroll/pause",$D
-	DC.B  $D
+  DC.B  "-------------",$D
+  DC.B  "HELP   : This short help",$D
+  DC.B  $D
+  DC.B  "SH HELP: Show shortcuts for some commands",$D
+  DC.B  "SHIFT  : No Scroll/pause",$D
+  DC.B  $D
   DC.B  "TAB    : Insert space(s)",$D
-	DC.B  "ESC    : Escape any command (not t/ts !)",$D
-	DC.B  "F1     : Clr + cursor home",$D
-	DC.B  "SH F1  : Cursor home",$D
-	DC.B  "F2     : Restore screen from second screen",$D
-	DC.B  "SH F2  : Save screen to second screen",$D
-	DC.B  "F3     : Preferences+system control",$D
-	DC.B  "F4     : Repeat last command",$D
-	DC.B  "F5     : Print screen",$D
-	DC.B  "F6     : Switch printer dump on/off",$D
-	DC.B  "F7     : Switch overwrite/insert mode",$D
-	DC.B  "F8     : Show instructions for the mempeeker",$D
-	DC.B  "F9     : Switch uk, german & usa keyboard",$D
-	DC.B  "SH F9  : Compare screen pages",$D
-	DC.B  "F10    : Switch screen",$D
-	DC.B  "SH F10 : Switch between 15Mhz/31Mhz",$D
-	DC.B  $D
-	DC.B  "POWER-LED is off = ready to execute commands!",$D
-	DC.B  "Press left mousebutton to abort printer output",$D
-	DC.B  "Use cursorkeys in combination with shift too",$D
-	DC.B  "============================================",$D
-	DC.B  $D
-	DC.B  0
+  DC.B  "ESC    : Escape any command (not t/ts !)",$D
+  DC.B  "F1     : Clr + cursor home",$D
+  DC.B  "SH F1  : Cursor home",$D
+  DC.B  "F2     : Restore screen from second screen",$D
+  DC.B  "SH F2  : Save screen to second screen",$D
+  DC.B  "F3     : Preferences+system control",$D
+  DC.B  "F4     : Repeat last command",$D
+  DC.B  "F5     : Print screen",$D
+  DC.B  "F6     : Switch printer dump on/off",$D
+  DC.B  "F7     : Switch overwrite/insert mode",$D
+  DC.B  "F8     : Show instructions for the mempeeker",$D
+  DC.B  "F9     : Switch uk, german & usa keyboard",$D
+  DC.B  "SH F9  : Compare screen pages",$D
+  DC.B  "F10    : Switch screen",$D
+  DC.B  "SH F10 : Switch between 15Mhz/31Mhz",$D
+  DC.B  $D
+  DC.B  "POWER-LED is off = ready to execute commands!",$D
+  DC.B  "Press left mousebutton to abort printer output",$D
+  DC.B  "Use cursorkeys in combination with shift too",$D
+  DC.B  "============================================",$D
+  DC.B  $D
+  DC.B  0
 
 MemPeekerText:
   DC.B  $D
@@ -39769,7 +41349,7 @@ ActivateTrace:
   move.l #$4a3900bf,(a0)+
   move.l #$e00160f8,(a0)+
   endc
-  
+
   if arhardware=0
   MOVE.W #$4eb9,(a0)+
   MOVE.L #DoArTrace,(a0)+
@@ -39779,7 +41359,7 @@ ActivateTrace:
   JSR getVBR
   MOVE.L  #EXT_150,TRACE(a0)
   move.l (a7)+,a0
-  
+
   BSET  #7,SaveOldSr
   ST  TraceActive
   SF  LAB_A483DE
@@ -42627,7 +44207,19 @@ LAB_A31070:
   JSR calcArChecksum
   MOVEM.L (A7)+,D0-D3/A0-A2
   JMP PrintReady
+
+
 CMD_KICKROMADR:
+ if arsoft=0
+ LEA nokickromadrtext(PC),A0
+ JSR PrintText
+ JMP PrintReady
+
+nokickromadrtext:
+ DC.B "KICKROMADR is not available in hardware",$D,0
+ even
+ else
+
   MOVEM.L D0-D3/A0-A2,-(A7)
   LEA AvoidRomF8Text,A0
   MOVEA.L #$00f80000,A1
@@ -42636,20 +44228,27 @@ CMD_KICKROMADR:
   BEQ.S LAB_A310B6
   MOVEA.L #$00200000,A1
   MOVEA.L #$00280000,A2
-  LEA AcoitRom20Text,A0
+  LEA AvoidRom20Text,A0
 LAB_A310B6:
-  MOVE.L  A1,LAB_A1021A
-  MOVE.L  A1,LAB_A103C6
-  MOVE.L  A2,LAB_A10224
-  MOVE.L  A2,LAB_A103D0
+
+  MOVE.L  A1,LAB_A1021A+2
+  MOVE.L  A1,LAB_A10260+2
+  MOVE.L  A1,LAB_A103C6+2
+  MOVE.L  A2,LAB_A10224+2
+  MOVE.L  A2,LAB_A1026A+2
+  MOVE.L  A2,LAB_A103D0+2
+
   JSR PrintText
   JSR calcArChecksum
   MOVEM.L (A7)+,D0-D3/A0-A2
   JMP PrintReady
-LAB_A310FC:
-  DS.B  1
-RomAvoidFlag:
-  DS.B  1
+
+AvoidRomF8Text:
+  DC.B  $D,"Kickstart ROM AVOID $F80000<>$1000000",$D,0
+
+AvoidRom20Text:
+  DC.B  $D,"Kickstart ROM AVOID $200000<>$280000",$D,0
+  endc
 
 RobDNotActiveText:
   DC.B  $D,"Rob Northen Decrypter Deactivated.",$D,0
@@ -42662,12 +44261,6 @@ AvoidRomDisabledText:
 
 AvoidRomEnabledText:
   DC.B  $D,"Kickstart ROM calls avoid, enabled.",$D,0
-
-AvoidRomF8Text:
-  DC.B  $D,"Kickstart ROM AVOID $F80000<>$1000000",$D,0
-
-AcoitRom20Text:
-  DC.B  $D,"Kickstart ROM AVOID $200000<>$280000",$D,0
 
 cacheStatusText:
   DC.B  $D,"Cache Status Report.",$D,0
@@ -42696,6 +44289,7 @@ DeepMemwatchEnabledText:
 DeepMemwatchDisabledText:
   DC.B  $D,"DEEP Memwatcher now disabled.",$D,0,0
 
+  even
 SUB_A312D2:
   CMPA.L  #$00000420,A0
   BEQ.W LAB_A31698
@@ -43528,7 +45122,7 @@ Level6IntHandler:
 .1
   MOVE.L  AUTO_INT6.W,-(A7)
   RTS
-  
+
 NMI_SoftEntry:
   JSR Freeze
   RTE
@@ -43766,7 +45360,9 @@ checksum:
   ;DC.L $e93aa3a2 ;v0.5.0
   ;DC.L $ea3aa3a2 ;v0.6.0
   ;DC.L $5a46e2fc ;v0.6.1
-  DC.L $8d559577  ;v0.7.0
+  ;DC.L $8d559577  ;v0.7.0
+
+  DC.L $7a9a61a0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -44549,6 +46145,8 @@ fileExtensionBlock:
   DS.L  1
 LAB_A484D6:
   DS.L  1
+RegSnoopAddr:
+  DS.L  1
 BurstNibblerFastStartPrefsFlag:
   DS.B  1
 kickstartVersion:
@@ -44612,6 +46210,11 @@ apiCall
   DS.B 1
 DisableVposWrite
   DS.B 1
+LAB_A310FC:
+  DS.B  1
+RomAvoidFlag:
+  DS.B  1
+
 
   if arsoft=1
   even
@@ -44644,43 +46247,34 @@ stringWorkspace:
   else
     even
   endc
-RegSnoop:
-  DS.L  $10
-RegSnoopBltcon0:
-  DS.W  1
-RegSnoopBltcon1:
-  DS.L  $F
-RegSnoopDskSync:
-  DC.W  $4489
-RegSnoopCop1Lc:
-  DS.L  1
-RegSnoopCop2Lc:
-  DS.L  7
-RegSnoopAud0Lc:
-  DS.L  $10
-RegSnoopBpl1Pt:
-  DS.L  9
-RegSnoopBplCon2:
-  DS.W  1
-RegSnoopBplCon3:
-  DS.W  1
-RegSnoopBpl1Mod:
-  DS.W  1
-RegSnoopBpl2Mod:
-  DS.W  1
-RegSnoopBplCon4:
-  DS.L  5
-RegSnoopSpr0Pos:
-  DS.L  $18
-RegSnoopColor00:
-  DC.L  $00000fff,$0eee0ddd,$0ccc0bbb,$0aaa0999
-  DC.L  $08880777,$06660555,$04440333,$02220111
-RegSnoopColor17:
-  DS.L  1
-RegSnoopColor19:
-  DS.L  $16
-  DS.W  1
-  DS.W  1
+;  RSSET *
+  ;RSSET $4ff000
+;RegSnoop:  RS.L  $10
+;RegSnoopBltcon0:  RS.W  1
+;RegSnoopBltcon1:  RS.L  $F
+;RegSnoopDskSync:  RS.W  1
+;RegSnoopCop1Lc:  RS.L  1
+;RegSnoopCop2Lc:  RS.L  7
+;RegSnoopAud0Lc:  RS.L  $10
+;RegSnoopBpl1Pt:  RS.L  9
+;RegSnoopBplCon2:  RS.W  1
+;RegSnoopBplCon3:  RS.W  1
+;RegSnoopBpl1Mod:  RS.W  1
+;RegSnoopBpl2Mod:  RS.W  1
+;RegSnoopBplCon4:  RS.L  5
+;RegSnoopColor00:  RS.L 8
+;  ;DC.L  $00000fff,$0eee0ddd,$0ccc0bbb,$0aaa0999
+;  ;DC.L  $08880777,$06660555,$04440333,$02220111
+;RegSnoopColor17:  RS.L  1
+;RegSnoopColor19:  RS.L  $16
+;  RS.W  1
+;  RS.W  1
+
+  ;reserve regsnoop area
+RegSnoop
+  DS.W $100
+
+
 SaveDmaCon:
   DS.B  1
 SaveDmaCon1:
