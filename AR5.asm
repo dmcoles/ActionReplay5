@@ -5010,6 +5010,16 @@ commandTable:
   DC.L  CMD_CLRAPI
   DC.L cmd_clrapi_help
 
+  DC.B  "FCRC16",0
+  even
+  DC.L  CMD_FCRC16
+  DC.L cmd_filecrc16_help
+
+  DC.B  "FCRC32",0
+  even
+  DC.L  CMD_FCRC32
+  DC.L cmd_filecrc32_help
+
   DC.B  "FORMAT",0
   even
   DC.L  CMD_FORMAT
@@ -5277,6 +5287,11 @@ commandTable:
   even
   DC.L  CMD_NTSC
   DC.L cmd_ntsc_help
+
+  DC.B  "DUMP",0
+  even
+  DC.L  CMD_DUMP
+  DC.L cmd_dump_help
 
   DC.B  "COPY",0
   even
@@ -6252,6 +6267,11 @@ cmd_dwipe_help:
   DC.B  "  DWIPE <drive>",13
   DC.B 0
 
+cmd_dump_help:
+  DC.B  "DUMP (Hex dump of a file)",13
+  DC.B  "  DUMP <drive>",13
+  DC.B 0
+
 cmd_e_help:
   DC.B  "E (Show/edit chip registers)",13
   DC.B  "  E (<offset>)",13
@@ -6315,6 +6335,16 @@ cmd_faq_help:
 cmd_fc_help:
   DC.B  "FC (Search for Rob Northen Copylock)",13
   DC.B  "  FC (<start-addr <end-addr>)",13
+  DC.B 0
+
+cmd_filecrc16_help:
+  DC.B  "FCRC16 (Calculate CRC16 of a file)",13
+  DC.B  "  FCRC16 (<path>)<file>",13
+  DC.B 0
+
+cmd_filecrc32_help:
+  DC.B  "FCRC32 (Calculate CRC32 of a file)",13
+  DC.B  "  FCRC32 (<path>)<file>",13
   DC.B 0
 
 cmd_flash_help:
@@ -9491,7 +9521,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.28012025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.29012025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -13950,9 +13980,9 @@ FirstInit:
   ;relies on CheckPalMode having saved D1 to tempD1
   ;kickstart sets DMACON to $7FFF very early on
   CMP.W #$7fff,tempD1+2
-  BNE.S .old
+  BEQ.S .old
 
-  LEA arramstart+$B0000,A0
+  LEA arramstart+$BF000,A0
   MOVE.L A0,RegSnoopAddr
   MOVE.W #$100-1,D0
 .clr
@@ -14270,7 +14300,7 @@ CMD_FLASH
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
   MOVE.B  currDriveNo,-(A7)
-  JSR LoadFile
+  JSR OpenFile
   BMI .loaderr
   MOVE.L  A0,-(A7)
   LEA LoadingFromText,A0
@@ -14284,7 +14314,7 @@ CMD_FLASH
   JSR PrintCrIfNotBlankLine
   MOVEA.L (A7)+,A0
   MOVE.L  fileSize,D0
-  JSR SUB_A21BEA
+  JSR readFileData
 
   MOVE.B  (A7)+,currDriveNo
   JSR restoreMfmBuffer
@@ -29359,7 +29389,7 @@ apiLoadFile2:
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
   MOVE.B  currDriveNo,-(A7)
-  BSR.W LoadFile
+  BSR.W OpenFile
   BMI.S LAB_A21BC6
   MOVE.L  A0,-(A7)
   LEA LoadingFromText(PC),A0
@@ -29373,7 +29403,7 @@ apiLoadFile2:
   JSR PrintCrIfNotBlankLine
   MOVEA.L (A7)+,A0
   MOVE.L  fileSize,D0
-  BSR.S SUB_A21BEA
+  BSR.S readFileData
 LAB_A21BC6:
   MOVE.B  (A7)+,currDriveNo
   BSR.W PrintDiskOpResult
@@ -29386,7 +29416,7 @@ LoadingFromText:
 LoadingToText:
   DC.B  " to ",0,0
 
-SUB_A21BEA:
+readFileData:
   MOVEM.L D1-D2/A1,-(A7)
   MOVE.L  D0,D1
   CMPA.L  #EXT_A400,A2
@@ -29710,7 +29740,7 @@ LAB_A21F80:
 LAB_A21F88:
   EXG A0,A2
   BRA.S LAB_A21F80
-LoadFile:
+OpenFile:
   MOVEM.L D1-D2/A1-A2,-(A7)
   MOVE.W  D0,D1
   MOVEA.L A1,A2
@@ -30527,7 +30557,7 @@ LAB_A22B04:
   MOVE.L  D1,D0
   MOVE.W  D0,D4
   LEA stringWorkspace,A1
-  BSR.W LoadFile
+  BSR.W OpenFile
   BMI.W LAB_A22CDC
   MOVE.W  #$0100,dmacon+hardware
   MOVE.W  #$4000,intena+hardware
@@ -30756,7 +30786,7 @@ LAB_A22EFA:
   MOVE.W  D4,D0
   ADDQ.W  #2,D0
   JSR backupMfmBuffer(PC)
-  JSR LoadFile(PC)
+  JSR OpenFile(PC)
   BPL.S LAB_A22F32
   EXG D0,D1
   JSR restoreMfmBuffer(PC)
@@ -32970,8 +33000,6 @@ CMD_CRC32:
   JSR PrintRangeInfo
   MOVEQ #-1,D0
 
-  ;a = (Eor(crc,ch)) AND 255
-  ;crc = Eor(zm.crc32tbl[a],Shr(crc,8) AND $ffffff)
   LEA crc32tbl,A3
 .crc16
   MOVE.B (A1)+,D1
@@ -33022,6 +33050,166 @@ RangeFromText:
 RangeToText:
   DC.B  " to: ",0
 
+  even
+CMD_FCRC16:
+  BSR.W GetFilename
+  TST.W D0
+  BEQ.W LAB_A21070
+
+  MOVE.L D0,-(A7)
+  LEA CalculatingCRC,A0
+  JSR PrintText
+  MOVE.W #$16,D0
+  JSR Print2DigitHex
+  MOVE.B #":",D0
+  JSR PrintChar
+  JSR PrintCR
+  MOVE.L (A7)+,D0
+
+  LEA EXT_7000.W,A0
+  JSR backupMfmBuffer
+  LEA stringWorkspace,A1
+  MOVE.B  currDriveNo,-(A7)
+  BSR.W OpenFile
+  BMI.S filecrc16done
+  MOVE.L  fileSize,D5
+  BEQ.S filecrc16done
+  MOVEQ #0,D6
+  MOVEQ #0,D7
+crc16nextbyte:
+  LEA EXT_7000.W,A0
+  TST.L D6
+  BNE.S .2
+  LEA LAB_A482A0,A2
+  MOVE.L D5,D0
+  CMP.L #40,D0
+  BLT .1
+  MOVE.L #40,D0 
+.1
+  MOVE.L  D0,D6 
+  BSR.W readFileData
+  BMI.S filecrc16done
+  LEA LAB_A482A0,A4
+.2
+  SUBQ.L  #1,D5
+  SUBQ.L  #1,D6
+
+  LEA crc16tbl,A3
+  MOVE.B  (A4)+,D1
+
+  MOVE.W D7,D2
+  LSR.W #8,D2
+
+  EOR.B D1,D2
+
+  ADD.W D2,D2
+  MOVE.W (A3,D2),D2
+  LSL.W #8,D7
+  EOR.W D2,D7
+
+  MOVEQ #-8,D0
+  TST.B EscapePressed
+  BNE.S filecrc16done
+  TST.L D5
+  BNE.S crc16nextbyte
+
+  MOVE.W D7,D0
+
+  JSR Print4DigitHex
+  JSR PrintCR
+  JSR PrintCR
+
+  MOVEQ #0,D0
+filecrc16done:
+  
+  MOVE.W  D0,D1
+  LEA EXT_7000.W,A0
+  JSR restoreMfmBuffer
+  MOVE.W  D1,D0
+  BSR.W PrintDiskOpResult
+  MOVE.B  (A7)+,currDriveNo
+  RTS
+
+CMD_FCRC32:
+  BSR.W GetFilename
+  TST.W D0
+  BEQ.W LAB_A21070
+
+  MOVE.L D0,-(A7)
+  LEA CalculatingCRC,A0
+  JSR PrintText
+  MOVE.W #$32,D0
+  JSR Print2DigitHex
+  MOVE.B #":",D0
+  JSR PrintChar
+  JSR PrintCR
+  MOVE.L (A7)+,D0
+
+  LEA EXT_7000.W,A0
+  JSR backupMfmBuffer
+  LEA stringWorkspace,A1
+  MOVE.B  currDriveNo,-(A7)
+  BSR.W OpenFile
+  BMI.S filecrc32done
+  MOVE.L  fileSize,D5
+  BEQ.S filecrc32done
+  MOVEQ #-1,D7
+  MOVEQ #0,D6
+crc32nextbyte:
+  LEA EXT_7000.W,A0
+  TST.L D6
+  BNE.S .2
+  LEA LAB_A482A0,A2
+  MOVE.L D5,D0
+  CMP.L #40,D0
+  BLT .1
+  MOVE.L #40,D0 
+.1  
+  MOVE.L  D0,D6
+  BSR.W readFileData
+  BMI.S filecrc32done
+  LEA LAB_A482A0,A4
+.2
+  SUBQ.L  #1,D5
+  SUBQ.L  #1,D6
+
+  LEA crc32tbl,A3
+
+  MOVE.B  (A4)+,D1
+  MOVEQ #0,D2
+  MOVE.B D7,D2
+  EOR.B D1,D2
+
+  ADD.W D2,D2
+  ADD.W D2,D2
+  MOVE.L (A3,D2),D2
+
+  LSR.L #8,D7
+  EOR.L D2,D7
+
+  MOVEQ #-8,D0
+  TST.B EscapePressed
+  BNE.S filecrc32done
+  TST.L D5
+  BNE.S crc32nextbyte
+
+  NOT.L D7
+  MOVE.L D7,D0
+
+  JSR Print8DigitHex
+  JSR PrintCR
+  JSR PrintCR
+
+  MOVEQ #0,D0
+filecrc32done:
+  
+  MOVE.W  D0,D1
+  LEA EXT_7000.W,A0
+  JSR restoreMfmBuffer
+  MOVE.W  D1,D0
+  BSR.W PrintDiskOpResult
+  MOVE.B  (A7)+,currDriveNo
+  RTS
 
   if arhardware=1
 CMD_ARRAM:
@@ -33901,10 +34089,10 @@ LAB_A24EC4:
   RTS
 .1
   LEA EXT_7000.W,A0
-  BSR.W backupMfmBuffer
+  JSR backupMfmBuffer
   BSR.S SUB_A24EF0
   MOVE.L  D0,-(A7)
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   MOVE.L  (A7)+,D0
   BRA.W PrintDiskOpResult
 
@@ -34566,17 +34754,17 @@ CMD_TYPE:
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
-  BSR.W LoadFile
-  BMI.S LAB_A258A2
+  BSR.W OpenFile
+  BMI.S filecrcdone
   MOVE.L  fileSize,D5
-  BEQ.S LAB_A258A2
+  BEQ.S filecrcdone
 LAB_A25830:
   LEA EXT_7000.W,A0
   LEA LAB_A47FB6,A2
   MOVEQ #1,D0
-  BSR.W SUB_A21BEA
-  BMI.S LAB_A258A2
-  SUBQ.W  #1,D5
+  BSR.W readFileData
+  BMI.S filecrcdone
+  SUBQ.L  #1,D5
   ST  scrollLock
   LEA LAB_A47FB6,A4
   MOVE.B  (A4)+,D0
@@ -34601,11 +34789,11 @@ LAB_A25882:
 LAB_A25892:
   MOVEQ #-8,D0
   TST.B EscapePressed
-  BNE.S LAB_A258A2
+  BNE.S filecrcdone
   TST.L D5
   BNE.S LAB_A25830
   MOVEQ #0,D0
-LAB_A258A2:
+filecrcdone:
   MOVE.W  D0,D1
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
@@ -34862,7 +35050,7 @@ LAB_A25BA4:
   BPL.S LAB_A25BB6
   MOVE.W  D1,D0
 LAB_A25BB6:
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   JSR restoreMfmBuffer
   RTS
 SUB_A25BC0:
@@ -35493,13 +35681,13 @@ LAB_A2638A:
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
-  BSR.W LoadFile
+  BSR.W OpenFile
   BMI.S LAB_A263DE
   CMPI.L  #$00000036,fileSize
   BNE.S LAB_A263D2
   MOVEQ #$36,D0
   LEA LAB_A483E0,A2
-  BSR.W SUB_A21BEA
+  BSR.W readFileData
   BMI.S LAB_A263DE
   LEA JoyCodesLoadText(PC),A0
 LAB_A263C2:
@@ -37956,6 +38144,92 @@ LAB_A283AA:
   BNE.S LAB_A283AA
   MOVE.W  (A7)+,D1
   RTS
+
+CMD_DUMP
+  JSR GetFilename
+  TST.W D0
+  BEQ.W dumpWTF
+
+  ST.B scrollLock
+  LEA EXT_7000.W,A0
+  JSR backupMfmBuffer
+  LEA stringWorkspace,A1
+  MOVE.B  currDriveNo,-(A7)
+  JSR OpenFile
+  BMI filedumpdone
+  MOVE.L  fileSize,D5
+  BEQ filedumpdone
+  MOVEQ #0,D6
+  MOVEQ #0,D7
+dumpnextbyte:
+
+  LEA EXT_7000.W,A0
+  TST.L D6
+  BNE.S .2
+  LEA LAB_A482A0,A2
+  MOVE.L D5,D0
+  CMP.L #16,D0
+  BLT .1
+  MOVE.L #16,D0 
+.1
+  MOVE.L  D0,D6 
+  JSR readFileData
+  BMI filedumpdone
+
+  LEA LAB_A482A0,A4
+  JSR PrintCR
+  TST.B EscapePressed
+  BNE .3
+
+  MOVE.L  D7,D0
+  JSR Print6DigitHex
+  ADD.L #16,D7
+
+.2
+  SUBQ.L  #1,D5
+  SUBQ.L  #1,D6
+ 
+  TST.L D6
+  BLE .3
+  JSR PrintSpace
+  MOVE.B (A4)+,D0
+  JSR Print2DigitHex
+  MOVEQ #0,D0
+  MOVE.W cursorX,D0
+  MOVE.W D0,-(A7)
+  SUB.W #9,D0
+  DIVU #3,D0
+  ADD.W #52,D0
+  MOVE.W D0,cursorX
+  MOVE.B -1(A4),D0
+  JSR InvalidAsciiToDot
+  JSR PrintChar
+  MOVE.W (A7)+,cursorX
+  
+.3
+  MOVEQ #-8,D0
+  TST.B EscapePressed
+  BNE.S filedumpdone
+  TST.L D5
+  BNE dumpnextbyte
+
+  JSR PrintCR
+
+  MOVEQ #0,D0
+filedumpdone:
+  SF.B scrollLock
+ 
+  MOVE.W  D0,D1
+  LEA EXT_7000.W,A0
+  JSR restoreMfmBuffer
+  MOVE.W  D1,D0
+  JSR PrintDiskOpResult
+  MOVE.B  (A7)+,currDriveNo
+  RTS
+
+dumpWTF:
+  JMP PrintWTF
+
 SUB_A283B8:
   MOVE.L  A0,-(A7)
   MOVE.B  (A0)+,cursorXLo
@@ -38386,7 +38660,7 @@ LAB_A28DAE:
   MOVEQ #0,D0
   MOVE.W  D1,D0
   LEA stringWorkspace,A1
-  JSR LoadFile
+  JSR OpenFile
   BPL.S LAB_A28DE4
 LAB_A28DD4:
   JSR restoreMfmBuffer
@@ -40222,7 +40496,7 @@ LAB_420C92:
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
   MOVE.B  currDriveNo,-(A7)
-  JSR LoadFile
+  JSR OpenFile
   BMI.W LAB_420D9E
   MOVE.L  DiskMonBufferSize,D0
   CMP.L fileSize,D0
@@ -40234,7 +40508,7 @@ LAB_420CE2:
   MOVEA.L DiskMonBuffer,A2
   LEA EXT_7000.W,A0
   MOVE.L  fileSize,D0
-  JSR SUB_A21BEA
+  JSR readFileData
   MOVE.L  DiskMonBuffer,LAB_A480CA
   MOVE.L  fileSize,D0
   ADD.L D0,LAB_A480CA
@@ -40485,7 +40759,7 @@ LoadPrefs:
   TST.W D0
   BEQ.W LAB_4210BC
   LEA stringWorkspace,A1
-  JSR LoadFile
+  JSR OpenFile
   BMI.W LAB_4210BC
   LEA EXT_1000,A2
   MOVE.L  fileSize,D0
@@ -40641,7 +40915,7 @@ LAB_A2A23A:
   DBF D2,LAB_A2A23A
   MOVE.W  D6,D0
   LEA stringWorkspace,A1
-  JSR LoadFile
+  JSR OpenFile
   BMI.W LAB_A2A31C
   MOVE.L  fileSize,D0
   CMP.L DiskMonBufferSize,D0
@@ -40800,7 +41074,10 @@ HelpText:
   DC.B  "   install: Install disk in active drive         - install (bootblocknr.)",$D
   DC.B  " diskcheck: Checks disk for errors               - diskcheck (drive)",$D
   DC.B  "  diskwipe: Clears a disk very fast              - diskwipe (drive)",$D
+  DC.B  "    fcrc16: Calculate crc16 of a file            - fcrc16 (path)filename",$D
+  DC.B  "    fcrc32: Calculate crc32 of a file            - fcrc32 (path)filename",$D
   DC.B  "      type: Type file on screen                  - type (path)filename",$D
+  DC.B  "      dump: Show a file as hex                   - dump (path)filename",$D
   DC.B  "    rename: Rename file                          - rename (path)oldname,newname",$D
   DC.B  "   relabel: Change/set diskname                  - relabel diskname",$A
   DC.B  $D
@@ -44461,13 +44738,13 @@ LAB_A30F62:
   LEA stringWorkspace,A1
   MOVE.W  D1,D0
   MOVE.B  currDriveNo,-(A7)
-  JSR LoadFile
+  JSR OpenFile
   BMI.S LAB_A30FDE
   MOVE.L  D2,D0
-  JSR SUB_A21BEA
+  JSR readFileData
   BMI.S LAB_A30FDE
   MOVE.L  D3,D0
-  JSR SUB_A21BEA
+  JSR readFileData
 LAB_A30FDE:
   MOVE.B  (A7)+,currDriveNo
   JSR PrintDiskOpResult
@@ -45675,7 +45952,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $eb3cb54b ; v0.8.0
+  DC.L $428d230d ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data

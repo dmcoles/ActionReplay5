@@ -172,6 +172,9 @@ Action Replay 5 Complete Command List
   DOSIO (Copy Rob Northen DOSIO package to RAM)
     DOSIO <addr>
 
+  DUMP (Hex dump of a file)
+    DUMP <drive>
+
   DWIPE (Alias for DISKWIPE)
     DWIPE <drive>
 
@@ -213,6 +216,12 @@ Action Replay 5 Complete Command List
 
   FC (Search for Rob Northen Copylock)
     FC (<start-addr <end-addr>)
+
+  FCRC16 (Calculate CRC16 of a file)
+    FCRC16 (<path>)<file>
+
+  FCRC32 (Calculate CRC32 of a file)
+    FCRC32 (<path>)<file>
 
   FLASH (Update firmware)
     FLASH (<path>)<file>
