@@ -54,7 +54,7 @@ PROC waitSectorComplete(arbase,chip)
 ENDPROC
 
 PROC main()
-  DEF fh,romFile,chip,sector,i,arbase=0,checksum
+  DEF fh,romFile,chip,sector,i,arbase=0,checksum,src,dest
   DEF response[100]:STRING
   
   WriteF('Action Replay 5 Flash Tool v0.1 by REbEL/QTX\n\n')
@@ -111,7 +111,7 @@ PROC main()
     WriteF('Warning: The ROM checksum is not correct. It will be corrected when writing\n\n')
   ENDIF
   WriteF('\nFlashing is about to commence. Corruption may occur if power is lost during the process. ')
-  WriteF('Are you sure you wish to continue (y/n)?\n')
+  WriteF('Are you sure you wish to continue (y/n)? ')
   ReadStr(Input(),response)
   UpperStr(response)
   IF response[0]<>"Y"
@@ -125,19 +125,23 @@ PROC main()
   
   WriteF('\nFlashing: ')
   FOR chip:=0 TO 1
+    src:=romFile+chip
+    dest:=arbase+chip
     FOR sector:=0 TO (256*1024/2/128)-1
       IF sector AND 3 = 0 THEN WriteF('.')
       sendFlashWrite(arbase,chip)
       FOR i:=0 TO 127
-        PutChar(arbase+(sector*128)+chip,romFile+(sector*128)+chip)
+        IF dest>=(arbase+4) THEN PutChar(dest,Char(src)) 
+        dest+=2
+        src+=2
       ENDFOR
       waitSectorComplete(arbase,chip)
     ENDFOR
   ENDFOR
 
   WriteF('\n\nVerifying: ')
-    FOR i:=0 TO (256*1024-1)
-      IF (i AND 511=0) THEN WriteF('.')
+  FOR i:=0 TO (256*1024-1)
+    IF (i AND 511=0) THEN WriteF('.')
     IF Char(romFile+i)<>Char(arbase+i)
       WriteF('\n\nVerify failure. Operation failed!\n\n')
       Dispose(romFile)
