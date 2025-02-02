@@ -7220,7 +7220,7 @@ LAB_A12BCC:
   MOVEQ #3,D1
 LAB_A12BE0:
   MOVE.W  (A0)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   JSR PrintSpaces
   DBF D1,LAB_A12BE0
@@ -7241,7 +7241,7 @@ LAB_A12BE0:
   LEA CopyBpl1Pth,A0
 LAB_A12C18:
   MOVE.L  (A0)+,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   MOVEQ #$20,D0
   BSR.W PrintChar
   BSR.W PrintChar
@@ -7256,7 +7256,7 @@ LAB_A12C3A:
   LEA SaveColor,A0
 LAB_A12C4C:
   MOVE.W  (A0)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   JSR PrintSpace
   DBF D1,LAB_A12C4C
 LAB_A12C5C:
@@ -7266,7 +7266,7 @@ LAB_A12C5C:
   LEA CopySpr0Pt,A0
 LAB_A12C6C:
   MOVE.L  (A0)+,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   MOVEQ #$20,D0
   BSR.W PrintChar
   BSR.W PrintChar
@@ -7277,16 +7277,16 @@ LAB_A12C6C:
   MOVEQ #2,D1
 LAB_A12C90:
   MOVE.W  (A0)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   BSR.W PrintSpaces
   DBF D1,LAB_A12C90
   MOVE.W  SaveDmaCon,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #3,D0
   BSR.W PrintSpaces
   MOVE.W  SaveIntreq,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   BSR.W PrintCrIfNotBlankLine
   MOVEQ #1,D1
   LEA DisplayHeader2Text(PC),A0
@@ -7294,34 +7294,34 @@ LAB_A12C90:
   LEA CopyBplMod1,A0
 LAB_A12CCE:
   MOVE.W  (A0)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   BSR.W PrintSpaces
   DBF D1,LAB_A12CCE
   MOVE.L RegSnoopAddr,A0
   MOVE.W  bltcon0(A0),D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   BSR.W PrintSpaces
   MOVE.W  bltcon1(A0),D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   BSR.W PrintSpaces
   MOVE.W  SaveDskSync,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   BSR.W PrintCrIfNotBlankLine
   LEA LAB_A12E81(PC),A0
   BSR.W PrintText
   MOVE.W  Copyclxcon,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
   MOVE.W  SaveIntena,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
   MOVE.W  adkconr+hardware,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVEQ #4,D0
   BSR.W PrintSpaces
   MOVEQ #0,D2
@@ -7359,15 +7359,15 @@ LAB_A12D9C:
   LEA LAB_A12E7D(PC),A0
   BSR.W PrintText
   MOVE.W  (A1)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
   MOVE.W  (A1)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
   MOVE.W  (A1)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
   LEA 6(A1),A1
@@ -8427,7 +8427,7 @@ SUB_A131F6:
   MOVEQ #0,D2
 LAB_A1320C:
   MOVE.L  (A1)+,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR PrintSpace
   CMPI.W  #3,D2
   BNE.S LAB_A13226
@@ -8445,7 +8445,7 @@ LAB_A1323A:
   BNE.S LAB_A13244
   ADDQ.L  #6,D0
 LAB_A13244:
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR PrintSpace
   CMPI.W  #3,D2
   BNE.S LAB_A1325C
@@ -8458,16 +8458,16 @@ LAB_A1325C:
   LEA LAB_A13336(PC),A0
   JSR PrintText
   MOVE.L  (A1)+,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   LEA LAB_A1333C(PC),A0
   JSR PrintText
   MOVE.L  USP,A0
   MOVE.L  A0,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   LEA LAB_A13344(PC),A0
   JSR PrintText
   MOVE.W  (A1)+,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVE.W  D0,D2
   LEA LAB_A1334B(PC),A0
   JSR PrintText
@@ -8751,9 +8751,9 @@ srch:
   SF  copyLockSearch
   BRA.W PrintReady
 LAB_A133F0:
-  MOVEA.L LAB_A47F4A,A1
+  MOVEA.L lowestMem,A1
 LAB_A133F6:
-  MOVEA.L LAB_A47F4E,A2
+  MOVEA.L highestMem,A2
   MOVE.W  (A7)+,D0
   BSR.S PrintSearchInfo
   BSR.W SUB_A174E0
@@ -8792,10 +8792,10 @@ ShowCustomRegValues:
   MOVE.W  #$003b,D0
   BSR.W PrintChar
   MOVE.W  D1,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   JSR PrintSpace
   MOVE.W  (A1),D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   JSR PrintSpace
   MOVE.W  #$0025,D0
   BSR.W PrintChar
@@ -9342,7 +9342,7 @@ LAB_A13A90:
   DBF D0,LAB_A13A90
   MOVE.W  #2,binaryBitWidth
   CLR.W asciiDumpOffset
-  LEA LAB_A47F4E,A0
+  LEA highestMem,A0
   CLR.L -4(A0)
   MOVE.L  ChipMemEnd,(A0)
   TST.L SlowMemEnd
@@ -9455,7 +9455,7 @@ LAB_A13C1E:
   LEA BreakPointRaisedText(PC),A0
   BSR.W PrintText
   MOVE.L  SaveOldPc,D0
-  BSR.W SUB_A1A3FA
+  BSR.W Print8DigitHex
   BSR.W PrintCrIfNotBlankLine
   SF  restartFlag
 LAB_A13C7C:
@@ -9521,7 +9521,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.29012025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.02022025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -9741,7 +9741,7 @@ LAB_A146EE:
   LEA CopperMoveText(PC),A0
   BSR.W PrintText
   MOVE.W  D2,D0
-  BSR.W SUB_A1732C
+  BSR.W Print4DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -9822,7 +9822,7 @@ LAB_A14804:
   LEA DCLText(PC),A0
   JSR PrintText(PC)
   MOVE.L  D6,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   MOVE.W  #$000f,cursorX
   MOVEM.L (A7)+,D0-D2/D6/A0-A1
   RTS
@@ -11391,7 +11391,7 @@ LAB_A1635E:
   CMPI.W  #7,D0
   BNE.S LAB_A16378
   MOVE.L  2(A1),D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   LEA LAB_A164D6(PC),A0
   BSR.W PrintText
   BRA.W LAB_A1643C
@@ -11399,7 +11399,7 @@ LAB_A16378:
   CMPI.W  #8,D0
   BNE.S LAB_A1638A
   MOVE.L  2(A1),D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   BRA.W LAB_A1643C
 LAB_A1638A:
   CMPI.W  #9,D0
@@ -11433,7 +11433,7 @@ LAB_A163DE:
   CMPI.W  #$000f,D0
   BNE.S LAB_A163F4
   MOVE.L  6(A1),D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   TST.W 2(A1)
   BNE.S LAB_A1643C
   BRA.S LAB_A1643C
@@ -12702,12 +12702,6 @@ LAB_A17312:
   MOVE.L  (A7)+,cursorX
   MOVEM.L (A7)+,D0-D2/A0
   RTS
-SUB_A1732C:
-  MOVE.L  D1,-(A7)
-  MOVEQ #4,D1
-  BSR.W PrintValue
-  MOVE.L  (A7)+,D1
-  RTS
 readCmdChar:
   TST.W D7
   SEQ endOfCmdString
@@ -12792,8 +12786,8 @@ StringSearchRelative:
   CMPI.B  #1,D0
   BLS.W PrintWTF
   MOVE.W  D0,D1
-  MOVEA.L LAB_A47F4A,A2
-  MOVEA.L LAB_A47F4E,A3
+  MOVEA.L lowestMem,A2
+  MOVEA.L highestMem,A3
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A17446
@@ -13055,7 +13049,7 @@ LAB_A17676:
   LEA EqualsHexText(PC),A0
   BSR.W PrintText
   MOVE.L  D1,D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   LEA EqualsText(PC),A0
   BSR.W PrintText
   TST.L D1
@@ -13067,7 +13061,7 @@ LAB_A1769E:
   MOVE.W  #$0021,D0   ;!
   JSR PrintChar(PC)
   CLR.L D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   JSR Print2DigitHex
   JSR PrintSpace(PC)
   MOVE.W  #$0082,D0
@@ -15247,7 +15241,7 @@ LAB_A18A70:
 LAB_A18A7A:
   MOVE.L  D4,D0
   SUBQ.L  #1,D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   MOVEQ #2,D0
   BSR.W PrintSpaces
   BRA.S LAB_A18A6C
@@ -17482,11 +17476,6 @@ LAB_A1A3E8:
   DBF D0,LAB_A1A3E8
   MOVEM.L (A7)+,D0-D1/A0-A1
   RTS
-SUB_A1A3FA:
-  SWAP  D0
-  BSR.W SUB_A1732C
-  SWAP  D0
-  BRA.W SUB_A1732C
 CMD_TM:
   BSR.S ShowRemarks
   BRA.W PrintReady
@@ -17533,7 +17522,7 @@ LAB_A1A460:
   BSR.W PrintSpace
   BSR.W PrintSpace
   MOVE.L  6(A3),D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   MOVEQ #3,D0
   BSR.W PrintSpaces
   MOVE.B  $A(A3),D0
@@ -18011,7 +18000,7 @@ LAB_A1AC0A:
   JSR PrintText
   MOVE.L  A2,D0
   SUBQ.L  #2,D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   BSR.W PrintCrIfNotBlankLine
   TST.B LAB_A480CE
   BNE.S LAB_A1AC76
@@ -18318,7 +18307,7 @@ LAB_A1AF48:
   SF  LAB_A480CA
 LAB_A1AF54:
   TST.W (A0)+
-  BNE.S LAB_A1AFCE
+  BNE.W LAB_A1AFCE
 LAB_A1AF58:
   CMPA.L  A0,A3
   BHI.S LAB_A1AF54
@@ -18357,18 +18346,44 @@ LAB_A1AFB2:
   BRA.W PrintReady
 LAB_A1AFBA:
   ST  LAB_A480CA
+  CMP.B #$ff,(A0)
+  BEQ.S .1
   MOVE.L  A0,D0
-  BSR.W SUB_A1A3FA
+  JSR PrintAddressHex
   MOVEQ #2,D0
   BSR.W PrintSpaces
+
+.1
+  CMP.B #$ff,1(A0)
+  BEQ.S .2
+
+  MOVE.L A0,D0
+  ADDQ.L #1,D0
+  JSR PrintAddressHex
+  MOVEQ #2,D0
+  BSR.W PrintSpaces
+.2
   BRA.S LAB_A1AF9A
 LAB_A1AFCE:
   ST  LAB_A480CA
+
+  TST.B -2(A0)
+  BEQ.S .1
   MOVE.L  A0,D0
   SUBQ.L  #2,D0
-  BSR.W SUB_A1A3FA
+  JSR PrintAddressHex
   MOVEQ #2,D0
   BSR.W PrintSpaces
+
+.1
+  TST.B -1(A0)
+  BEQ.S .2
+  MOVE.L  A0,D0
+  SUBQ.L  #1,D0
+  JSR PrintAddressHex
+  MOVEQ #2,D0
+  BSR.W PrintSpaces
+.2
   BRA.W LAB_A1AF58
 
 RamTesterHeaderText:
@@ -18524,7 +18539,7 @@ printBigVal:
   MOVEM.L D0-D7,-(SP)
   MOVE.L D0,D1
   CLR.L D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   JSR Print2DigitHex
   JSR PrintSpace(PC)
   MOVE.L cursorX,-(A7)
@@ -18886,8 +18901,8 @@ FindAddrOpcodeQuick:
   TST.B ParamFound
   BEQ.W PrintWTF
   MOVE.L  D0,D1
-  MOVEA.L LAB_A47F4A,A1
-  MOVEA.L LAB_A47F4E,A2
+  MOVEA.L lowestMem,A1
+  MOVEA.L highestMem,A2
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A1B490
@@ -21119,12 +21134,12 @@ checkARChecksum:
   BEQ.S LAB_A1D280
   LEA CalcChkText(PC),A0
   JSR PrintText
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   LEA OriginalChkText(PC),A0
   JSR PrintText
   MOVEA.L checksum,A0
   MOVE.L  A0,D0
-  BSR.W SUB_A1A3FA
+  JSR Print8DigitHex
   LEA ArCorruptedText(PC),A0
   JSR PrintText
 LAB_A1D280:
@@ -22453,7 +22468,7 @@ LAB_A1DDF0:
   LEA CodeText(PC),A0
   JSR PrintText
   MOVE.L  (A2)+,D0
-  JSR SUB_A1A3FA(PC)
+  JSR Print8DigitHex
   JSR PrintSpace
   LEA NormalText(PC),A0
   TST.B (A1)+
@@ -23391,7 +23406,7 @@ LAB_A1EBEA:
 LAB_A1EBF8:
   MOVE.L  BootblockCoderValue,D0
   MOVE.L  #$0010000a,cursorX
-  JSR SUB_A1A3FA(PC)
+  JSR Print8DigitHex
   MOVEQ #8,D1
   LEA DiskCoderFlags,A1
   LEA DiskCoderValues,A2
@@ -23404,7 +23419,7 @@ LAB_A1EC20:
 LAB_A1EC2A:
   MOVE.L  (A2)+,D0
   MOVE.L  D2,cursorX
-  JSR SUB_A1A3FA(PC)
+  JSR Print8DigitHex
   ADDQ.W  #1,D1
   ADDQ.W  #2,D2
   CMPI.W  #$000b,D1
@@ -23693,7 +23708,7 @@ CMD_PACK:
   BSR.S packMemory
   MOVE.L  A2,D0
   SUB.L PackDest,D0
-  JSR SUB_A1A3FA(PC)
+  JSR Print8DigitHex
   JSR PrintReady
   RTS
 SUB_A1EFB0:
@@ -24812,7 +24827,7 @@ LAB_4131EC:
   JSR Print2DigitHex
   MOVE.W  #$0028,cursorX
   MOVE.W  mt_pattpos,D0
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   MOVE.W  #$0036,cursorX
   MOVE.B  mt_counter,D0
   JSR Print2DigitHex
@@ -24827,7 +24842,7 @@ LAB_413298:
   MOVEQ #9,D1
 LAB_41329A:
   MOVE.W  (A0)+,D0
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   MOVEQ #2,D0
   JSR PrintSpaces
   DBF D1,LAB_41329A
@@ -25408,23 +25423,23 @@ LAB_413B7C:
   LEA $16(A1),A0
   JSR memSafeReadWord
   ADD.W D0,D0
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   LEA LAB_413CA4(PC),A0
   JSR PrintText
   LEA $18(A1),A0
   JSR memSafeReadWord
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   LEA LAB_413CAA(PC),A0
   JSR PrintText
   LEA $1A(A1),A0
   JSR memSafeReadWord
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   LEA LAB_413CB3(PC),A0
   JSR PrintText
   LEA $1C(A1),A0
   JSR memSafeReadWord
   ADD.W D0,D0
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   JSR PrintCrIfNotBlankLine
   LEA $1E(A1),A1
   DBF D1,LAB_413B7C
@@ -25443,7 +25458,7 @@ LAB_413B7C:
   LEA LAB_413CE8(PC),A0
   JSR PrintText
   BSR.W SUB_4139CE
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR PrintCrIfNotBlankLine
   BRA.W LAB_412EA4
   JSR PrintWTF
@@ -25717,7 +25732,7 @@ SUB_414096:
   LEA txtSamplePeriod(PC),A0
   JSR PrintText
   MOVE.W  LAB_A480D2,D0
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   RTS
 LAB_4140BC:
   MOVEM.L D0-D1/A0,-(A7)
@@ -28313,11 +28328,11 @@ LAB_A20FDA:
   LEA OldCrcText(PC),A0
   JSR PrintText
   MOVE.L  D6,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   LEA NewCrcText(PC),A0
   JSR PrintText
   MOVE.L  D7,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR PrintCrIfNotBlankLine
 LAB_A21004:
   MOVEM.L (A7)+,D0/A0
@@ -31892,7 +31907,7 @@ LAB_A23CEC:
   BNE.S LAB_A23D28
   LEA RegOffsetText(PC),A0
   JSR PrintText
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   LEA RegNameText(PC),A0
   JSR PrintText
   MOVEA.L A1,A0
@@ -32196,13 +32211,13 @@ LAB_A243EE:
   CMPI.B  #2,D0
   BNE.S LAB_A2440A
   JSR memSafeReadWord
-  JSR SUB_A1732C
+  JSR Print4DigitHex
   MOVEQ #5,D0
   JSR PrintSpaces
   BRA.S LAB_A2441C
 LAB_A2440A:
   JSR memSafeReadLong
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR PrintSpace
 LAB_A2441C:
   MOVEA.L A5,A0
@@ -34694,7 +34709,7 @@ LAB_A256FE:
   TST.L BootblockCoderPrefsFlag
   BEQ.S LAB_A25718
   MOVE.L  BootblockCoderValue,D0
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
 LAB_A25718:
   JSR PrintReady
   RTS
@@ -41166,7 +41181,9 @@ HelpText:
   DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
   DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
   DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
+  if arhardware=1
   DC.B  "     arram: display the amount of memory on cart - arram",$D
+  endc
   DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
   DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
   DC.B  "       led: toggle led status                    - led",$D
@@ -44098,7 +44115,7 @@ LAB_A2E9F8:
   BEQ.S LAB_A2EA24
   TST.B EscapePressed
   BNE.S LAB_A2EA24
-  JSR SUB_A1A3FA
+  JSR Print8DigitHex
   JSR SUB_A2DF6E(PC)
   JSR SUB_A2E8D4(PC)
   JSR PrintCrIfNotBlankLine
@@ -45952,7 +45969,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $428d230d ; v0.8.0
+  DC.L $0932c6f0 ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -47013,9 +47030,9 @@ cmdSpacesSkipped:
 endOfCmdString:
   DS.B  1
   even
-LAB_A47F4A:
+lowestMem:
   DS.L  1
-LAB_A47F4E:
+highestMem:
   DS.L  1
 invalidMemAddr:
   DS.W  1
