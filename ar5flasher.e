@@ -74,6 +74,12 @@ PROC main()
     arbase:=$400000
   ELSEIF checkArMem($800000)
     arbase:=$800000
+  ELSE
+    IF checkArFlashId($400000)
+      arbase:=$400000
+    ELSEIF checkArFlashId($800000)
+      arbase:=$800000
+    ENDIF
   ENDIF
   
   IF arbase=0
@@ -129,12 +135,16 @@ PROC main()
     dest:=arbase+chip
     FOR sector:=0 TO (256*1024/2/128)-1
       IF sector AND 3 = 0 THEN WriteF('.')
+      Forbid()
+      Disable()
       sendFlashWrite(arbase,chip)
       FOR i:=0 TO 127
         IF dest>=(arbase+4) THEN PutChar(dest,Char(src)) 
         dest+=2
         src+=2
       ENDFOR
+      Enable()
+      Permit()
       waitSectorComplete(arbase,chip)
     ENDFOR
   ENDFOR
@@ -142,10 +152,12 @@ PROC main()
   WriteF('\n\nVerifying: ')
   FOR i:=0 TO (256*1024-1)
     IF (i AND 511=0) THEN WriteF('.')
-    IF Char(romFile+i)<>Char(arbase+i)
-      WriteF('\n\nVerify failure. Operation failed!\n\n')
-      Dispose(romFile)
-      RETURN
+    IF i>=4
+      IF Char(romFile+i)<>Char(arbase+i)
+        WriteF('\n\nVerify failure. Operation failed!\n\n')
+        Dispose(romFile)
+        RETURN
+      ENDIF
     ENDIF
   ENDFOR
   
