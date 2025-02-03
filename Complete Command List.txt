@@ -346,6 +346,9 @@ Action Replay 5 Complete Command List
   MMM  (Show/edit memory bytes - 16 lines)
     MMM <address>
 
+  MQ (Display memory quick as Hex/ASCII)
+    MQ <address>
+
   MS (Set memwatchpoint)
     MS <address>
 
