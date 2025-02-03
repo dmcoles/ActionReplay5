@@ -1,4 +1,4 @@
-
+y
 ;Action Replay 5
 dbg=0
 pistorm=0
@@ -591,18 +591,18 @@ LAB_A101E0:
   DBF D0,LAB_A101E0
   RTS
 ArExceptionHandler:
-  CMPI.L  #SECSTRT_0,6(A7)
+  CMPI.L  #SECSTRT_0,2(A7)
   BLT.S LAB_A10258
-  CMPI.L  #dataend,6(A7)
+  CMPI.L  #dataend,2(A7)
   BLT.W LAB_A10340
 LAB_A10258:
   TST.B RomAvoidFlag
   BEQ.S LAB_A10276
 LAB_A10260:
-  CMPI.L  #$00f80000,6(A7)
+  CMPI.L  #$00f80000,2(A7)
   BLO.S LAB_A10276
 LAB_A1026A:
-  CMPI.L  #$00fffff0,6(A7)
+  CMPI.L  #$00fffff0,2(A7)
   BLO.W LAB_A102FA
 LAB_A10276:
   TST.B imode
@@ -918,30 +918,26 @@ NMI_Entry:
   BGT.W nmi1
   CMPI.L  #$100,2(A7)
   BLS.W nmi1
-  jsr ExceptionEntry
-  rte
+  jmp ExceptionEntry
 nmi1:
   tst.b breakpointsActive
   beq.s nmi2
   CMPI.L  #$46,2(A7)
   bne.s nmi2
-  jsr ExceptionEntry2
-  rte
+  jmp ExceptionEntry2
 
 nmi2:
   tst.b MemwatchActive
   beq.s nmi3
   cmp.l #$136,2(a7)
   bne.s nmi3
-  jsr ExceptionEntry2
-  rte
+  jmp ExceptionEntry2
 nmi3:
   tst.b apiActive
   beq.s nmi4
   cmp.l #$106,2(a7)
   bne.s x
-  jsr ApiEntry
-  rte
+  jmp ApiEntry
 
 nmi4:
   cmp.l #$156,2(a7)
@@ -951,13 +947,9 @@ nmi4:
   ADD.W D0,D0
   ADD.W #6,D0
   lea (a7,d0.w),a7
-  jsr DoArTrace
-  rte
+  JMP DoArTrace
 nmi:
-  MOVE.L -4(A7),stackSave
-  JSR Freeze
-  MOVE.L stackSave,-4(A7)
-  RTE
+  JMP Freeze
 x:
   TST.B autofireP1ORP2
   BEQ.W LAB_400106
@@ -1021,10 +1013,7 @@ LAB_4001C0:
   endc
 
   if arhardware=0
-  MOVE.L -4(A7),stackSave
-  JSR Freeze
-  MOVE.L stackSave,-4(A7)
-  RTE
+  JMP Freeze
   endc
   if arhardware=1
 reset:
@@ -1841,18 +1830,18 @@ LAB_400EC4:
   endc
 
 Freeze:
-  CMPI.L  #SECSTRT_0,6(A7)
+  CMPI.L  #SECSTRT_0,2(A7)
   BLT.S LAB_A10212
-  CMPI.L  #dataend,6(A7)
+  CMPI.L  #dataend,2(A7)
   BLT.W LAB_A10240
 LAB_A10212:
   TST.B RomAvoidFlag
   BEQ.S LAB_A10230
 LAB_A1021A:
-  CMPI.L  #$00f80000,6(A7)
+  CMPI.L  #$00f80000,2(A7)
   BLO.S LAB_A10230
 LAB_A10224:
-  CMPI.L  #$00fffff0,6(A7)
+  CMPI.L  #$00fffff0,2(A7)
   BLO.W LAB_A10240
 LAB_A10230:
   if arsoft=1
@@ -1875,26 +1864,24 @@ RomEntry_2:
 
 ApiEntry:
   ST.B apiCall
-  JSR ExceptionEntry2
-  SF.B apiCall
-  RTS
+  JMP ExceptionEntry2
 
 ExceptionEntry:
   TST.W ignoreExceptions
   BNE.S LAB_A103E2
 ExceptionEntry2:
-  CMPI.L  #SECSTRT_0,6(A7)
+  CMPI.L  #SECSTRT_0,2(A7)
   BLT.S LAB_A103BE
-  CMPI.L  #dataend,6(A7)
+  CMPI.L  #dataend,2(A7)
   BLT.S LAB_A10400
 LAB_A103BE:
   TST.B RomAvoidFlag
   BEQ.S LAB_A103DC
 LAB_A103C6:
-  CMPI.L  #$00f80000,6(A7)
+  CMPI.L  #$00f80000,2(A7)
   BLT.S LAB_A103DC
 LAB_A103D0:
-  CMPI.L  #$00fffff0,6(A7)
+  CMPI.L  #$00fffff0,2(A7)
   BLT.W LAB_A103E2
 LAB_A103DC:
   CLR.B TraceActive
@@ -1918,7 +1905,7 @@ DoArTrace:
   TST.B LAB_A483DE
   BEQ.S LAB_A108BA
   MOVE.L  A0,-(A7)
-  MOVEA.L $A(A7),A0
+  MOVEA.L $6(A7),A0
   CMPA.L  LAB_A484C6,A0
   BNE.W LAB_A10934
   SF  LAB_A483DE
@@ -1931,7 +1918,7 @@ LAB_A108C8:
   TST.B TraceSkipSubs
   BEQ.S LAB_A10932
   MOVEM.L D0/A0,-(A7)
-  MOVEA.L $E(A7),A0
+  MOVEA.L $A(A7),A0
   MOVE.W  (A0),D0
   ANDI.W  #$ffc0,D0
   CMPI.W  #$4e80,D0
@@ -1972,13 +1959,13 @@ LAB_A1092E:
 LAB_A10932:
   MOVE.L  A0,-(A7)
 LAB_A10934:
-  MOVEA.L $A(A7),A0
+  MOVEA.L $6(A7),A0
   CMPI.W  #$4e73,(A0)
   BNE.S LAB_A10944
-  BSET  #7,$E(A7)
+  BSET  #7,$A(A7)
 LAB_A10944:
   MOVEA.L (A7)+,A0
-  BSET  #7,4(A7)
+  BSET  #7,(A7)
   RTS
 AREntry2:
   SF  LAB_A4824E
@@ -1990,9 +1977,10 @@ AREntry3:
   MOVE.W  #$019f,dmacon+hardware
 
   MOVEM.L D0-D7/A0-A7,SaveCpuRegs
-  MOVE.L  2(A7),SaveOldStk1
-  MOVE.L  6(A7),SaveOldPc
-  MOVE.W  4(A7),SaveOldSr
+  
+  ;MOVE.L  2(A7),SaveOldStk1
+  MOVE.L  2(A7),SaveOldPc
+  MOVE.W  0(A7),SaveOldSr
   MOVE  #$2000,SR
   LEA StackEnd,A7
 
@@ -2124,8 +2112,8 @@ LAB_A10A88:
   JSR setCACR
 
   MOVEM.L SaveCpuRegs,D0-D7/A0-A7
-  MOVE.W  SaveOldSr,4(A7)
-  MOVE.L  SaveOldPc,6(A7)
+  MOVE.W  SaveOldSr,0(A7)
+  MOVE.L  SaveOldPc,2(A7)
   BSET  #7,SaveIntreq
   BSET  #7,SaveIntena
   BSET  #7,SaveDmaCon
@@ -2177,10 +2165,9 @@ LAB_A10BF4:
   MOVE.L tempD0,A0
   endc
   MOVE.W  #$7fff,intreq+hardware
-  MOVE.W  SaveIntreq,intreq+hardware
-  
-  RTS
-
+  MOVE.W  SaveIntreq,intreq+hardware 
+  SF.B apiCall
+  RTE
 
 getVBR:
   MOVE.L ILLEG_OPC.W,-(A7)
@@ -2802,14 +2789,8 @@ InstallVblank:
   MOVE.L RegSnoopAddr,A6
   LEA EXT_1000,A0
   LEA ChipramSave1,A1
-  MOVE.W PageHeight,D0
-  ADD.W #1,D0
-  MULU #80*2,D0
-  SUB.W #1,D0
-  ;MOVE.W  #$0f9f,D0
 LAB_A11406:
   MOVE.L  (A0),D1
-  if arhardware=1
   tst.b full64k
   bne.s .1
 
@@ -2821,12 +2802,9 @@ LAB_A11406:
   MOVE.L  (A1),D2
   MOVE.L  D1,(A1)+
 .2
-  else
-  MOVE.L  (A1),D2
-  MOVE.L  D1,(A1)+
-  endc
   MOVE.L  D2,(A0)+
-  DBF D0,LAB_A11406
+  CMP.L memSaveEnd,A0
+  BNE.S LAB_A11406
 
   MOVE.L  $80(A6),SaveCop1Lch
   MOVE.L  $E0(A6),SaveBpl1Pth
@@ -3156,14 +3134,8 @@ RestoreDisplay1:
   MOVE.W  #$7fff,$9A(A5)
   LEA EXT_1000,A0
   LEA ChipramSave1,A1
-  MOVE.W PageHeight,D0
-  ADD.W #1,D0
-  MULU #80*2,D0
-  SUB.W #1,D0
-  ;MOVE.W  #$0f9f,D0
 LAB_A119F6:
   MOVE.L  (A0),D1
-  if arhardware=1
   tst.b full64k
   bne.s .1
   MOVEP.L 0(A1),D2
@@ -3174,12 +3146,9 @@ LAB_A119F6:
   MOVE.L  (A1),D2
   MOVE.L  D1,(A1)+
 .2
-  else
-  MOVE.L  (A1),D2
-  MOVE.L  D1,(A1)+
-  endc
   MOVE.L  D2,(A0)+
-  DBF D0,LAB_A119F6
+  CMP.L memSaveEnd,A0
+  BNE.S LAB_A119F6
   if rsnoop=1
   MOVE.L  SaveCop1Lch,cop1lch(A5)
   endc
@@ -9434,20 +9403,21 @@ LAB_A13C1E:
   CMPI.L  #$00000046,SaveOldPc
   BNE.S LAB_A13C7C
   LEA SaveCpuRegs,A0
-  MOVEA.L $3C(A0),A1
+  MOVEA.L $3C(A0),A1    ;get old A7
   MOVE.L  (A1),-(A7)
   MOVEQ #0,D0
   MOVE.W  vbrflag,D0
   ADD.W   D0,D0
   ADDQ.W  #6,D0
   ADD.L D0,$3C(A0)
-  MOVEA.L $3C(A0),A0
-  MOVE.L  (A7)+,(A0)+
-  MOVE.W  (A0)+,D0
+  MOVEA.L $3C(A0),A0 
+  BSR.W	memSafeReadWord
   MOVE.W  D0,SaveOldSr
-  MOVE.L  (A0),D0
+  ADDQ.L	#2,A0
+  BSR.W	memSafeReadLong
   SUBQ.L  #2,D0
   MOVE.L  D0,SaveOldPc
+  MOVE.L  (A7)+,(A1)
   ST  restartFlag
   BSR.W SUB_A188F0
   TST.W D0
@@ -9470,10 +9440,11 @@ LAB_A13C7C:
   ADDQ.W  #6,D0
   ADD.L D0,$3C(A0)
   MOVEA.L $3C(A0),A0
-  MOVE.L  (A7)+,(A0)+
-  MOVE.W  (A0)+,D0
+  BSR.W	memSafeReadWord
   MOVE.W  D0,SaveOldSr
-  MOVE.L  (A0),D0
+  ADDQ.L	#2,A0
+  BSR.W	memSafeReadLong
+  MOVE.L  (A7)+,(A1)
   MOVE.L  D0,SaveOldPc
   LEA EXT_13E,A1
   MOVEQ #4,D2
@@ -9521,7 +9492,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.02022025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.03022025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -9574,7 +9545,6 @@ memSafeReadByte:
   CMPA.L  #EXT_1000,A0
   BCS.W LAB_A145E2
   MOVE.L  A0,-(A7)
-  if arhardware=1
   tst.b full64k
   bne.s .1
 
@@ -9584,9 +9554,6 @@ memSafeReadByte:
 .1
   ADDA.L  #ChipramSave1-EXT_1000,A0
 .2
-  else
-  ADDA.L  #ChipramSave1-EXT_1000,A0
-  endc
 LAB_A14564:
   MOVEQ #0,D0
   MOVE.B  (A0),D0
@@ -9654,7 +9621,6 @@ memSafeUpdateByte:
   BCS.S LAB_A1465C
   CMPA.L  memSaveEnd,A0
   BCC.S LAB_A1462E
-  if arhardware=1
   tst.b full64k
   bne.s .1
   ADD.L A0,A0
@@ -9663,9 +9629,6 @@ memSafeUpdateByte:
 .1
   ADDA.L  #ChipramSave1-EXT_1000,A0
 .2
-  else
-  ADDA.L  #ChipramSave1-EXT_1000,A0
-  endc
 LAB_A1462E:
   TST.B LAB_A489FC
   BEQ.S LAB_A14654
@@ -12903,7 +12866,6 @@ LAB_A1753E:
   CMPA.L  #EXT_1000,A0
   BCS.S LAB_A17560
   MOVE.L  A0,-(A7)
-  if arhardware=1
   tst.b full64k
   bne.s .1
   ADD.L A0,A0
@@ -12912,9 +12874,6 @@ LAB_A1753E:
 .1
   ADDA.L  #ChipramSave1-EXT_1000,A0
 .2
-  else
-  ADDA.L  #ChipramSave1-EXT_1000,A0
-  endc
 LAB_A1755A:
   MOVE.B  (A0),D0
   MOVEA.L (A7)+,A0
@@ -15059,9 +15018,8 @@ LAB_A1884E:
   MOVE.L  #$4e4f4e73,(a3)+  ;trap 15 rte
 
   MOVE.L  a3,TRAP_15-TRAP_00(A0)
-  MOVE.W #$4eb9,(a3)+
-  MOVE.L #ExceptionEntry2,(a3)+ ;jsr ExceptionEntry2
-  MOVE.W #$4e73,(a3)+           ;rte
+  MOVE.W #$4ef9,(a3)+
+  MOVE.L #ExceptionEntry2,(a3)+ ;jmp ExceptionEntry2
   endc
 
   ST  breakpointsActive
@@ -17453,11 +17411,9 @@ SUB_A1A398:
   RTS
 SwapChipRam1:
   MOVEM.L D0-D1/A0-A1,-(A7)
-  MOVE.W  #$3e7f,D0
   LEA ChipramSave1,A0
   LEA EXT_1000,A1
 LAB_A1A3E8:
-  if arhardware=1
   tst.b full64k
   bne.s .1
   MOVE.B  (A0),D1
@@ -17468,12 +17424,9 @@ LAB_A1A3E8:
   MOVE.B  (A0),D1
   MOVE.B  (A1),(A0)+
 .2
-  else
-  MOVE.B  (A0),D1
-  MOVE.B  (A1),(A0)+
-  endc
   MOVE.B  D1,(A1)+
-  DBF D0,LAB_A1A3E8
+  CMP.L memSaveEnd,A1
+  BNE.S LAB_A1A3E8
   MOVEM.L (A7)+,D0-D1/A0-A1
   RTS
 CMD_TM:
@@ -20999,9 +20952,8 @@ LAB_A1CFB2:
   if arhardware=0
   MOVE.L a1,TRAP_14(A0)
 
-  MOVE.W #$4eb9,(a1)+
+  MOVE.W #$4ef9,(a1)+
   MOVE.L #ExceptionEntry,(a1)+
-  MOVE.W #$4e73,(a1)+
   endc
 
   MOVE.L  #$00000100,ADR_ERROR(A0)
@@ -21078,14 +21030,15 @@ LAB_A1D118:
   ADD.W vbrflag,D0
 
   MOVEA.L #SaveCpuA7,A0
-  MOVE.L (A0),A1
+  MOVE.L A0,A1
+  ;MOVE.L (A1),D2
   ADD.L D0,(A0)
   MOVEA.L (A0),A0
-  MOVE.L (A1),(A0)+
   JSR memSafeReadWord
   MOVE.W  D0,SaveOldSr
   ADDQ.W  #2,A0
   JSR memSafeReadLong
+  ;MOVE.L D2,(A1)
   MOVE.L  D0,SaveOldPc
   MOVE.L  D0,DefaultAddress
   LEA ExceptionTypesTable(PC),A0
@@ -26332,7 +26285,7 @@ LAB_A1FA00:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A1FA00
   MOVEM.L (A7)+,D0-D1/A0-A1
-  ST  LAB_A48249
+  ST  currTrackNo
   ST  LAB_A4824A
   SF  TrackBufferModified
   SF  LAB_A4824C
@@ -27439,7 +27392,7 @@ writeTrack:
   BEQ LAB_A20288
 
   BSR.S checkDiskBlockDone
-  BSR.W SUB_A2071A
+  BSR.W stepToTrack2
   BMI.W LAB_A20288
   MOVEQ #-8,D0
   TST.B EscapePressed
@@ -27458,7 +27411,7 @@ writeTrack:
 LAB_A2021E:
   BSR.W selectDrive
   MOVEQ #0,D0
-  MOVE.B  LAB_A48249,D0
+  MOVE.B  currTrackNo,D0
   BSR.W StepToTrack
   BSR.W selectDrive
   MOVE.B  ciabprb,D0
@@ -27466,7 +27419,7 @@ LAB_A2021E:
   MOVE.W  #$4000,$24(A5)
   MOVE.W  #$7f00,$9E(A5)
   MOVE.W  #$8100,$9E(A5)
-  CMPI.B  #$50,LAB_A48249
+  CMPI.B  #$50,currTrackNo
   BCS.S LAB_A20260
   MOVE.W  #$a100,$9E(A5)
 LAB_A20260:
@@ -27600,7 +27553,7 @@ DiskOpResultTable:
 
   even
 
-SUB_A2071A:
+stepToTrack2:
   BSR.W selectDrive
   BTST  #2,ciaapra
   BNE.S LAB_A20748
@@ -27630,12 +27583,12 @@ loadSector:
   MOVEQ #-8,D0
   TST.B EscapePressed
   BNE.S LAB_A207A2
-  BSR.S SUB_A2071A
+  BSR.S stepToTrack2
   BMI.S LAB_A207A2
   MOVE.B  currDriveNo,D0
   CMP.B LAB_A4824A,D0
   BNE.S LAB_A2078C
-  CMP.B LAB_A48249,D1
+  CMP.B currTrackNo,D1
   BEQ.S LAB_A20792
 LAB_A2078C:
   MOVE.L  D1,D0
@@ -27683,7 +27636,7 @@ LAB_A207B2:
   BSR.W findPdosMfmSectors
   BMI.S LAB_A207DE
 .1
-  MOVE.B  D2,LAB_A48249
+  MOVE.B  D2,currTrackNo
   MOVE.B  currDriveNo,LAB_A4824A
   SF  TrackBufferModified
   MOVEM.L (A7)+,D1-D2
@@ -27694,13 +27647,13 @@ LAB_A207DE:
   BEQ.S LAB_A207E8
   DBF D1,LAB_A207B2
 LAB_A207E8:
-  ST  LAB_A48249
+  ST  currTrackNo
   ST  LAB_A4824A
   MOVEM.L (A7)+,D1-D2
   TST.W D0
   RTS
 SUB_A207FC:
-  BSR.W SUB_A2071A
+  BSR.W stepToTrack2
   BMI.S LAB_A2084A
   MOVE.B  currDriveNo,-(A7)
   MOVE.B  LAB_A4824A,currDriveNo
@@ -27713,7 +27666,7 @@ LAB_A2081A:
   BMI.S LAB_A2083E
   MOVE.L  (A7)+,D1
   MOVE.B  (A7)+,currDriveNo
-  ST  LAB_A48249
+  ST  currTrackNo
   ST  LAB_A4824A
   SF  TrackBufferModified
   MOVEQ #0,D0
@@ -27726,7 +27679,7 @@ LAB_A2084A:
   TST.W D0
   RTS
 SUB_A2084E:
-  CMPI.B  #$ff,LAB_A48249
+  CMPI.B  #$ff,currTrackNo
   BEQ.S LAB_A2086C
   CMPI.B  #$ff,LAB_A4824A
   BEQ.S LAB_A2086C
@@ -28061,11 +28014,11 @@ LAB_A20C24:
   JSR PrintCrIfNotBlankLine
   JSR moveCursorUp
   MOVEM.L (A7)+,D1/A0
-  MOVE.B  D1,LAB_A48249
+  MOVE.B  D1,currTrackNo
   BSR.W writeTrack
   BMI.S LAB_A20CDE
   DBF D1,LAB_A20BF6
-  ST LAB_A48249
+  ST currTrackNo
   JSR PrintCrIfNotBlankLine
   MOVEA.L A0,A1
   TST.B VerifyFormat
@@ -28665,7 +28618,7 @@ LAB_A213F6:
   MOVEM.L (A7)+,D1-D3/A1
   TST.W D0
   RTS
-SUB_A213FE:
+writeFileBytes:
   TST.B FastFileSystemFlag1
   BNE.W LAB_A21560
   MOVEM.L D1-D3/A1,-(A7)
@@ -29466,7 +29419,7 @@ LAB_A21C48:
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D1,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
 LAB_A21C58:
   MOVEM.L (A7)+,D1-D2/A1
   TST.W D0
@@ -29526,7 +29479,7 @@ LAB_A21CF0:
   BMI.S LAB_A21D08
 LAB_A21D02:
   MOVE.L  D1,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
 LAB_A21D08:
   MOVEM.L (A7)+,D1-D2/A1
   TST.W D0
@@ -29576,7 +29529,7 @@ LAB_A21D7A:
 LAB_A21D82:
   EXG A0,A2
   BRA.S LAB_A21D7A
-SUB_A21D86:
+readFileBytes:
   TST.B FastFileSystemFlag1
   BNE.W LAB_A21EC4
   MOVEM.L D1-D3/A1,-(A7)
@@ -30295,7 +30248,7 @@ LAB_A2266E:
   TST.W D0
   BEQ.W LAB_A21070
   MOVE.L  D0,D1
-  JSR SUB_A2071A(PC)
+  JSR stepToTrack2(PC)
   BPL.S LAB_A2269A
 LAB_A2268C:
   JSR deselectAllDrives(PC)
@@ -30335,7 +30288,7 @@ LAB_A2270E:
   BSR.W SUB_A223DC
   SMI LAB_A480CE
   MOVE.L  ChipMemEnd,D0
-  SUBI.L  #$00003400,D0
+  SUBI.L  #$00003608,D0
   CMP.L LAB_A48354,D0
   BHI.S LAB_A22746
   BSR.W SUB_A2256E
@@ -30353,38 +30306,38 @@ LAB_A22746:
   LEA LAB_A480CA,A2
   MOVE.L  #$41525033,(A2) ;ARP3
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA LAB_A48354,A2
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA LAB_A48350,A2
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA LAB_A484CA,A2
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA ChipMemEnd,A2
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA SlowMemEnd,A2
   MOVEQ #4,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   LEA autoConfigMemStart,A2
   MOVEQ #8,D0
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
   BMI.S .fullcheck
   BSR.W SUB_A22952
   BMI.S .fullcheck
   LEA LAB_A4520A,A1
   BSR.W SUB_A22F5A
   MOVEA.L A1,A2
-  BSR.W SUB_A213FE
+  BSR.W writeFileBytes
 .fullcheck
   JSR HandleDiskFull
   BMI.S LAB_A227F0
@@ -30458,7 +30411,7 @@ LAB_A229B4:
   BLS.S LAB_A229D2
   MOVE.L  D7,D0
   SUB.L D0,D5
-  JSR SUB_A213FE(PC)
+  JSR writeFileBytes(PC)
   JSR HandleDiskFull
   BMI.S LAB_A229DA
   JSR SUB_A229E0
@@ -30468,7 +30421,7 @@ LAB_A229B4:
 LAB_A229D2:
   MOVE.L  D5,D0
   SUB.L D0,D7
-  JSR SUB_A213FE(PC)
+  JSR writeFileBytes(PC)
 LAB_A229DA:
   MOVEM.L (A7)+,D5/A1-A2
   RTS
@@ -30567,7 +30520,7 @@ LAB_A22B04:
   BEQ.W LAB_A21070
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A0
-  SUBA.L  #$00003400,A0
+  SUBA.L  #$00003608,A0
   BSR.W backupMfmBuffer
   MOVE.L  D1,D0
   MOVE.W  D0,D4
@@ -30579,39 +30532,39 @@ LAB_A22B04:
   JSR SwapChipRam1
   LEA LAB_A480CA,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   MOVEQ #-28,D0
-  CMPI.L  #$41525033,LAB_A480CA
+  CMPI.L  #$41525033,LAB_A480CA   ;ARP3
   BEQ.S LAB_A22B80
-  CMPI.L  #$41525046,LAB_A480CA
+  CMPI.L  #$41525046,LAB_A480CA   ;ARPF
   BNE.W LAB_A22CD6
   MOVEQ #-30,D0
   BRA.W LAB_A22CD6
 LAB_A22B80:
   LEA LAB_A48354,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   LEA LAB_A48350,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   LEA LAB_A484CA,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   LEA ChipMemEnd,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   LEA SlowMemEnd,A2
   MOVEQ #4,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   LEA autoConfigMemStart,A2
   MOVEQ #8,D0
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.W LAB_A22CD6
   MOVEQ #-31,D0
   MOVE.L  ChipMemEnd,D1
@@ -30657,7 +30610,7 @@ LAB_A22C88:
   ADDI.L  #$000c8000,D0
   BMI.S LAB_A22C88
 LAB_A22C90:
-  BSR.W SUB_A21D86
+  BSR.W readFileBytes
   BMI.S LAB_A22CD6
   LEA LAB_A4520A,A1
   BSR.W SUB_A22F96
@@ -30746,7 +30699,7 @@ LAB_A22E52:
   BLS.S LAB_A22E70
   MOVE.L  D7,D0
   SUB.L D0,D5
-  JSR SUB_A21D86(PC)
+  JSR readFileBytes(PC)
   BMI.S LAB_A22E78
   JSR SUB_A22E7E
   BMI.S LAB_A22E78
@@ -30755,7 +30708,7 @@ LAB_A22E52:
 LAB_A22E70:
   MOVE.L  D5,D0
   SUB.L D0,D7
-  JSR SUB_A21D86(PC)
+  JSR readFileBytes(PC)
 LAB_A22E78:
   MOVEM.L (A7)+,D5/A1-A2
   RTS
@@ -34175,7 +34128,7 @@ mfm:
   DBF D0,.copy
 
 done
-  MOVE.B  D1,LAB_A48249
+  MOVE.B  D1,currTrackNo
   MOVE.B  currDriveNo,LAB_A4824A
 LAB_A24F30:
   MOVEM.L D0/A0,-(A7)
@@ -36310,7 +36263,7 @@ LAB_A26934:
   SUBQ.W  #8,D0
   BTST  D0,DrivesConnectedLo
   BEQ.W LAB_A2678E
-  ST  LAB_A48249
+  ST  currTrackNo
   MOVE.B  D0,currDriveNo
   JSR SUB_A26A52
   BMI.W LAB_A2678E
@@ -36851,9 +36804,9 @@ LAB_A27018:
   PEA arCommandLoop
   MOVE.L  (A1),-(A7)
   CLR.L (A1)+
-  CMPI.L  #$00000120,SaveOldStk1
+  CMPI.L  #$00000120,SaveOldPc
   BNE.S LAB_A27080
-  MOVE.L  SaveOldStk1,LAB_A480CA
+  MOVE.L  SaveOldPc,LAB_A480CA
   MOVE.L  A0,SaveOldPc
   ST  LAB_A483CD
   MOVE.W  #$0100,dmacon+hardware
@@ -38693,7 +38646,7 @@ LAB_A28DE4:
 LAB_A28E00:
   MOVE.L  fileSize,D0
   LEA EXT_1000,A2
-  JSR SUB_A21D86
+  JSR readFileBytes
   BMI.S LAB_A28DD4
   JSR restoreMfmBuffer
   BMI.S LAB_A28DDA
@@ -38873,7 +38826,7 @@ LAB_A29062:
   LEA EXT_1000,A2
   MOVEQ #0,D0
   MOVE.W  LAB_A48442,D0
-  JSR SUB_A213FE
+  JSR writeFileBytes
   JSR HandleDiskFull
   BMI.S LAB_A29056
   JSR AddFileToDirBlock
@@ -40419,9 +40372,8 @@ CMD_SETAPI:
   if arhardware=0
   MOVE.L a1,TRAP_14(A0)
 
-  MOVE.W #$4eb9,(a1)+
+  MOVE.W #$4ef9,(a1)+
   MOVE.L #ApiEntry,(a1)+
-  MOVE.W #$4e73,(a1)+
   endc
 
   MOVE.L  #$00000100,TRAP_07(A0)
@@ -40780,7 +40732,7 @@ LoadPrefs:
   MOVE.L  fileSize,D0
   CMPI.W  #$0400,D0
   BHI.W LAB_4210BC
-  JSR SUB_A21D86
+  JSR readFileBytes
   BMI.W LAB_4210BC
   LEA EXT_1000,A1
   CMPI.L  #$70726566,(A1)+
@@ -40936,7 +40888,7 @@ LAB_A2A23A:
   CMP.L DiskMonBufferSize,D0
   BHI.W LAB_A2A340
   MOVEA.L DiskMonBuffer,A2
-  JSR SUB_A21D86
+  JSR readFileBytes
   BMI.W LAB_A2A31C
   EXG A6,A0
   SF  forceUpper
@@ -40985,7 +40937,7 @@ LAB_A2A2DE:
 LAB_A2A300:
   MOVEA.L DiskMonBuffer,A2
   MOVE.L  fileSize,D0
-  JSR SUB_A213FE
+  JSR writeFileBytes
   JSR HandleDiskFull
   BMI.S LAB_A2A2DE
   JSR AddFileToDirBlock
@@ -41956,9 +41908,8 @@ ActivateTrace:
   endc
 
   if arhardware=0
-  MOVE.W #$4eb9,(a0)+
+  MOVE.W #$4ef9,(a0)+
   MOVE.L #DoArTrace,(a0)+
-  MOVE.W #$4e73,(a0)+
   endc
 
   JSR getVBR
@@ -43798,7 +43749,9 @@ LAB_42C74A:
 LAB_42C750:
   JSR SwapChipRam1
   MOVEA.L ChipMemEnd,A7
+  if arhardware=1
   CLR.L FreezeMode
+  endc
   JMP BURST_NIB_DEST
 LAB_42C768:
   MOVEQ #1,D2
@@ -45729,10 +45682,7 @@ Level6IntHandler:
   RTS
 
 NMI_SoftEntry:
-  MOVE.L -4(A7),stackSave
-  JSR Freeze
-  MOVE.L stackSave,-4(A7)
-  RTE
+  JMP Freeze
 
 Trap0Handler:
   ;CMPI.L  #$00000040,TRAP_00.W
@@ -45969,7 +45919,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $0932c6f0 ; v0.8.0
+  DC.L $37b1bd83 ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -46405,7 +46355,7 @@ LAB_A48247:
   DS.B  1
 currDriveNo:
   DS.B  1
-LAB_A48249:
+currTrackNo:
   DS.B  1
 LAB_A4824A:
   DS.B  1
@@ -46801,8 +46751,8 @@ TextPage2Addr
 ;  DS.L  1
 ;debuginfo2
 ;  DS.W  1
-SaveOldStk1
-  DS.L 1
+;SaveOldStk1
+;  DS.L 1
 AgaPaletteSave
   DS.L 1
 AgaPaletteCopy
