@@ -1,4 +1,4 @@
-y
+
 ;Action Replay 5
 dbg=0
 pistorm=0
@@ -5617,6 +5617,11 @@ commandTable:
   DC.L  CMD_NO
   DC.L cmd_no_help
 
+  DC.B  "MQ",0
+  even
+  DC.L  CMD_MQ
+  DC.L cmd_mq_help
+
   DC.B  "NQ",0
   even
   DC.L  CMD_NQ
@@ -6514,6 +6519,11 @@ cmd_mfm_help:
 cmd_mm_help:
   DC.B  "MM (Show/edit memory bytes - 8 lines)",13
   DC.B  "  MM <address>",13
+  DC.B 0
+
+cmd_mq_help:
+  DC.B  "MQ (Display memory quick as Hex/ASCII)",13
+  DC.B  "  MQ <address>",13
   DC.B 0
 
 cmd_mmm_help:
@@ -8832,6 +8842,9 @@ CMD_YS:
   BRA.W setDisplayBitWidth
 CMD_TRANS:
   BSR.W MemTrans
+  BRA.W PrintReady
+CMD_MQ:
+  JSR ShowMemQuick2
   BRA.W PrintReady
 CMD_NQ:
   JSR ShowMemQuick
@@ -18154,6 +18167,56 @@ ReadyTasksText:
 
 WaitingTasksText:
   DC.B  "Waiting tasks:",$D,0
+
+ShowMemQuick2:
+  BSR.W ReadParameter
+  TST.B ParamFound
+  BEQ.W PrintWTF
+  MOVEA.L D0,A4
+
+  MOVEQ #0,D6
+.dumpnextbyte:
+  TST.L D6
+  BNE.S .2
+  MOVE.L #16,D6 
+
+  JSR PrintCR
+  TST.B EscapePressed
+  BNE .3
+
+  MOVE.L  A4,D0
+  JSR PrintAddressHex
+.2
+  SUBQ.L  #1,D6
+ 
+  JSR PrintSpace
+  MOVE.B (A4)+,D0
+  JSR Print2DigitHex
+  MOVEQ #0,D0
+  MOVE.W cursorX,D0
+  MOVE.W D0,-(A7)
+  SUB.W cpuAddrSize,D0
+  SUB.W #1,D0
+  DIVU #3,D0
+  ADD.W #57,D0
+  MOVE.W D0,cursorX
+  MOVE.B -1(A4),D0
+  JSR InvalidAsciiToDot
+  JSR PrintChar
+  MOVE.W (A7)+,cursorX
+  
+.3
+  MOVEQ #-8,D0
+  TST.B EscapePressed
+  BEQ.S .dumpnextbyte
+
+  BSR.W PrintCrIfNotBlankLine
+  MOVE.L  A4,D0
+  LEA QuickDunpText(PC),A0
+  JSR PrintText
+  JSR PrintAddressHex
+  BRA.W PrintCrIfNotBlankLine
+
 
 ShowMemQuick:
   BSR.W ReadParameter
@@ -38158,7 +38221,7 @@ dumpnextbyte:
   SUBQ.L  #1,D6
  
   TST.L D6
-  BLE .3
+  BLT .3
   JSR PrintSpace
   MOVE.B (A4)+,D0
   JSR Print2DigitHex
@@ -38167,7 +38230,7 @@ dumpnextbyte:
   MOVE.W D0,-(A7)
   SUB.W #9,D0
   DIVU #3,D0
-  ADD.W #52,D0
+  ADD.W #55,D0
   MOVE.W D0,cursorX
   MOVE.B -1(A4),D0
   JSR InvalidAsciiToDot
@@ -41205,6 +41268,7 @@ HelpText:
   DC.B  "        nn: Show/edit memory as ascii (8 lines)  - nn address",$D
   DC.B  "       nnn: Show/edit memory as ascii (16 lines) - nnn address",$D
   DC.B  "        no: Show/set ascii-dump offset           - no (offset)",$D
+  DC.B  "        mq: Display memory quick as hex/ascii    - mq address",$D
   DC.B  "        nq: Display memory quick as ascii        - nq address",$D
   DC.B  "         o: Fill memoryblock with string         - o string, start end",$D
   DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
