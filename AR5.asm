@@ -5091,10 +5091,10 @@ commandTable:
   DC.L cmd_flash_help
   endc
 
-;  DC.B  "DEBUG",0
-;  even
-;  DC.L  CMD_DEBUG
-;  DC.L 0
+  DC.B  "DEBUG",0
+  even
+  DC.L  CMD_DEBUG
+  DC.L 0
 
 
   DC.B  "COLOR",0
@@ -14239,6 +14239,7 @@ LAB_A18164:
   BEQ.W LAB_A17F60
   MOVE.L  D0,D3
   BRA.W LAB_A18114
+
 CMD_RCOLOR:
   LEA ColorsRestoredText(PC),A0
   JSR PrintText(PC)
@@ -14246,13 +14247,25 @@ CMD_RCOLOR:
   MOVE.W  #$0fff,ArFgCol
   JSR PrintReady
   RTS
-;CMD_DEBUG
-;  MOVE.W #-1,FreezeMode
-;  MOVE.W #$4e75,$40000
-;  JSR $40000
-; RTS
 
-CMD_FLASH
+CMD_DEBUG:
+  MOVEM.L SaveCpuRegs,D0-D7/A0-A7 
+  MOVE.L #$00FC2338,$80
+  TRAP #0
+  RTS
+
+CMD_FLASH:
+  JSR readCmdChar
+  CMPI.B  #"F",D0
+  BEQ.S .1
+  
+  TST.L newRamdiskAddr
+  BNE.S .1
+
+  LEA notSupportedText(PC),A0
+  JMP PrintText 
+
+.1
   JSR GetFilename
   MOVE.W  D0,D1
   MOVEQ #-14,D0
@@ -14579,6 +14592,9 @@ badflash
   BRA.S badflash
 flashend
 
+notSupportedText
+  DC.B "Flashing is not supported on this hardware",$D,0
+
 flashingtext
   DC.B  "FLASHING..",0
 
@@ -14595,7 +14611,6 @@ flashwarn:
   DC.B "Flashing is about to begin, the process will take 20-30 seconds.",$D
   DC.B "DO NOT POWER OFF DURING THIS TIME! On completion the screen will turn",$D
   DC.B "green for success or red for failure, after this you must reset.",$D,$D
-  DC.B "Note that if you attempt this on unmodified AR hardware it will cause a crash.",$D
   DC.B "Do you wish to continue (Y/N)?",$D,0
 
 noflashText
@@ -14881,6 +14896,16 @@ CMD_BS:
   BEQ.W PrintWTF
   BCLR  #0,D0
   MOVEA.L D0,A1
+  
+  MOVE.W (A1),D3
+  NOT.W (A1)
+  NOT.W D3
+  MOVE.W (A1),D4
+  NOT.W (A1)
+
+  CMP.W D3,D4
+  BNE.S cantBpHere
+  
   LEA BreakpointList,A3
   MOVEQ #4,D3
 LAB_A18662:
@@ -14896,6 +14921,10 @@ LAB_A18662:
 LAB_A18680:
   MOVE.L  D0,-4(A3)
   LEA BreakpointInsertedText(PC),A0
+  BSR.W PrintText
+  BRA.W PrintReady
+cantBpHere:
+  LEA cantBpHereText(PC),A0
   BSR.W PrintText
   BRA.W PrintReady
 CMD_BD:
@@ -14960,8 +14989,13 @@ BreakpointDelText:
 BreakpointInsertedText:
   DC.B  "Breakpoint inserted  ",$D,0
 
+cantBpHereText:
+  DC.B  "Cannot breakpoint at this address!  ",$D,0
+
 BreakpointsDeletedText:
   DC.B  "All breakpoints deleted!",$D,0
+
+  even
 
 SetupBreakpoints:
   LEA BreakpointList,A3
@@ -20520,7 +20554,15 @@ AsmCommandsTable:
 
   DC.B  "BGE"
   DC.B  $01
-  DC.L  $424c5401,$42475401,$424c4501
+
+  DC.B  "BLT"
+  DC.B  $01
+
+  DC.B  "BGT"
+  DC.B  $01
+
+  DC.B  "BLE"
+  DC.B  $01
 
   DC.B  "BRA"
   DC.B  $01
@@ -40742,42 +40784,6 @@ LAB_421024:
 prefsFilename:
   DC.B  "AAR.pref",0,0
 
-  DC.L  memoryControlPrefsValue
-  DC.W  $0002
-  DC.L  LAB_A483AA
-  DC.W  $000c
-  DC.L  AutoConfigPrefsFlag
-  DC.W  $0001
-  DC.L  NoresPrefsFlag
-  DC.W  $0001
-  DC.L  TestPrefsFlag
-  DC.W  $0001
-  DC.L  BlankerPrefsFlag
-  DC.W  $0003
-  DC.L  ArBgCol
-  DC.W  $0004
-  DC.L  LAB_A481E5
-  DC.W  $0002
-  DC.L  BootblockCoderPrefsFlag
-  DC.W  $0001
-  DC.L  BootblockCoderValue
-  DC.W  $0004
-  DC.L  DiskCoderFlags
-  DC.W  $0014
-  DC.L  DriveControlPrefsValue
-  DC.W  $0002
-  DC.L  VirusCheckerSettingsPrefs
-  DC.W  $0001
-  DC.L  keymap
-  DC.W  $0001
-  DC.L  ExtMemAddPrefsFlag
-  DC.W  $0001
-  DC.L  LAB_A483B6
-  DC.W  $0004
-  DC.L  BurstNibblerFastStartPrefsFlag
-  DC.L  $00010000
-  DS.W  1
-
 LoadPrefs:
   MOVEM.L D0-D3/A0-A3,-(A7)
   LEA EXT_7000.W,A0
@@ -40904,14 +40910,41 @@ LAB_4211D8:
   MOVEM.L (A7)+,D0-D3/A0-A3
   RTS
 LAB_4211F4:
-  DC.L  $0044f596,$00020044,$f714000c,$0044f700
-  DC.L  $00010044,$f7020001,$0044f73a,$00010044
-  DC.L  $f73e0003,$0044f570,$00040044,$f54f0002
-  DC.L  $0044f6fa,$00010044,$f7060004,$0044f5f0
-  DC.L  $00140044,$f5900002,$0044f550,$00010044
-  DC.L  $f5540001,$0044f743,$00010044,$f7200004
-  DC.L  $0044f844,$00010000
-  DS.W  1
+  DC.L  memoryControlPrefsValue
+  DC.W  $0002
+  DC.L  LAB_A483AA
+  DC.W  $000c
+  DC.L  AutoConfigPrefsFlag
+  DC.W  $0001
+  DC.L  NoresPrefsFlag
+  DC.W  $0001
+  DC.L  TestPrefsFlag
+  DC.W  $0001
+  DC.L  BlankerPrefsFlag
+  DC.W  $0003
+  DC.L  ArBgCol
+  DC.W  $0004
+  DC.L  LAB_A481E5
+  DC.W  $0002
+  DC.L  BootblockCoderPrefsFlag
+  DC.W  $0001
+  DC.L  BootblockCoderValue
+  DC.W  $0004
+  DC.L  DiskCoderFlags
+  DC.W  $0014
+  DC.L  DriveControlPrefsValue
+  DC.W  $0002
+  DC.L  VirusCheckerSettingsPrefs
+  DC.W  $0001
+  DC.L  keymap
+  DC.W  $0001
+  DC.L  ExtMemAddPrefsFlag
+  DC.W  $0001
+  DC.L  LAB_A483B6
+  DC.W  $0004
+  DC.L  BurstNibblerFastStartPrefsFlag
+  DC.W  $0001
+  DC.L  $0000
 
 CMD_COPY:
   MOVE.B  currDriveNo,-(A7)
