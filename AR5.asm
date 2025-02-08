@@ -478,8 +478,6 @@ LAB_A100C6:
 
 noreset:
 
-; remove
-  ;MOVE.W  #$ffff,ignoreExceptions
   BSR.W InstallExceptionHandlers
   JSR calcArChecksum
   ST  LAB_A10019
@@ -1977,7 +1975,7 @@ AREntry3:
   MOVE.W  #$019f,dmacon+hardware
 
   MOVEM.L D0-D7/A0-A7,SaveCpuRegs
-  
+
   ;MOVE.L  2(A7),SaveOldStk1
   MOVE.L  2(A7),SaveOldPc
   MOVE.W  0(A7),SaveOldSr
@@ -2674,7 +2672,6 @@ LAB_A112D8:
   MOVE.W PageHeight,D0
   MULU #80/8,D0
   SUB.W #1,D0
-  ;MOVE.W  #$00ef,D0
 LAB_A112E6:
   MOVE.L  (A1)+,(A0)+
   MOVE.L  (A1)+,(A0)+
@@ -2689,7 +2686,6 @@ LAB_A112F6:
   MOVE.W PageHeight,D0
   MULU #80*8/32,D0
   SUB.W #1,D0
-  ;MOVE.W  #$01df,D0
 LAB_A1130A:
   MOVE.L  (A1)+,(A0)+
   MOVE.L  (A1)+,(A0)+
@@ -2732,11 +2728,9 @@ ScrollDown:
   MOVE.W PageHeight,D0
   MULU #80,D0
   ADD.L D0,A0
-  ;LEA $780(A0),A0
   LEA $50(A0),A1
   MOVE.W PageHeight,D0
   MULU #80/8,D0
-  ;MOVE.W  #$00ef,D0
 LAB_A11382:
   MOVE.L  -(A0),-(A1)
   MOVE.L  -(A0),-(A1)
@@ -2750,13 +2744,11 @@ LAB_A11392:
   MOVE.W PageHeight,D0
   MULU #80*8,D0
   ADD.L D0,A0
-  ;LEA $3C00(A0),A0
   LEA $280(A0),A1
 
   MOVE.W PageHeight,D0
   MULU #80*8/32,D0
   SUB.W #1,D0
-  ;MOVE.W  #$01df,D0
 LAB_A113AA:
   MOVE.L  -(A0),-(A1)
   MOVE.L  -(A0),-(A1)
@@ -12210,7 +12202,6 @@ LAB_A16CF8:
   ADD.W #1,D0
   MULU #80/4,D0
   SUB.W #1,D0
-  ;MOVE.W  #$01f3,D0
 LAB_A16CFC:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A16CFC
@@ -12227,7 +12218,6 @@ LAB_A16D26:
   ADD.W #1,D0
   MULU #80/4,D0
   SUB.W #1,D0
-  ;MOVE.W  #$01f3,D0
 LAB_A16D2A:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A16D2A
@@ -12317,7 +12307,6 @@ LAB_A16E50:
   MOVE.W PageHeight,D1
   MULU #80,D1
   ADD.L D1,A0
-  ;LEA $780(A0),A0
   MOVEQ #0,D1
   MOVE.B  (A0)+,D1
   MOVEQ #$46,D7
@@ -12495,7 +12484,6 @@ LAB_A17090:
   ADD.W #1,D0
   MULU #80,D0
   SUB.W #1,D0
-  ;MOVE.W  #$07cf,D0
 LAB_A1709A:
   CMPM.B  (A0)+,(A1)+
   BNE.S LAB_A170A4
@@ -12611,7 +12599,6 @@ Cls:
   ADD.W #1,D0
   MULU #80/4,D0
   SUB.W #1,D0
-  ;MOVE.W  #$01f3,D0
 LAB_A17254:
   MOVE.L  #$20202020,(A0)+
   DBF D0,LAB_A17254
@@ -12620,7 +12607,6 @@ LAB_A17254:
   ADD.W #1,D0
   MULU #80,D0
   SUB.W #1,D0
-  ;MOVE.W  #$07cf,D0
 LAB_A17268:
   CLR.L (A0)+
   CLR.L (A0)+
@@ -12666,7 +12652,6 @@ redrawTextPage:
   ADD.W #1,D1
  MULU #80,D1
  SUB.W #2,D1
-  ;MOVE.W  #$07ce,D1
 LAB_A1730C:
   MOVE.B  (A0)+,D0
   BNE.S LAB_A17312
@@ -14540,7 +14525,6 @@ flashcode
   BEQ.W badflash
 
 goodflash
-  ;MOVE.W #$7fff,dmacon+hardware
   MOVE.W #$7fff,intena+hardware
   MOVE.W #$0f0,color00+hardware
   BRA.S goodflash
@@ -14586,7 +14570,6 @@ noflash
   RTS
 
 badflash
-  ;MOVE.W #$7fff,dmacon+hardware
   MOVE.W #$7fff,intena+hardware
   MOVE.W #$f00,color00+hardware
   BRA.S badflash
@@ -16032,7 +16015,6 @@ restorePeekRam:
   BSR.W ClearSpriteData
   BRA.W LAB_A19C8E
 memPeekKeyF2:
-  ;LEA SaveColor,A0
   MOVE.W #$FF,D2
 LAB_A1936C:
   JSR random
@@ -16394,7 +16376,6 @@ LAB_A19542:
   BSR.W Delay
   BRA.W LAB_A19C8E
 memPeekKeyI:
-  ;LEA SaveColor,A0
   MOVE.W #$FF,D2
 LAB_A1955E:
   MOVE.W D2,D0
@@ -20885,7 +20866,6 @@ LAB_A1CA90:
   DC.W  $4e58
 BootScreenShow:
   MOVE.W  #$0020,intreq+hardware
-  ;MOVE.W  $dff002,debuginfo2
 LAB_40D56A:
   BTST  #5,intreqr+1+hardware
   BEQ.S LAB_40D56A
@@ -21136,14 +21116,12 @@ LAB_A1D118:
 
   MOVEA.L #SaveCpuA7,A0
   MOVE.L A0,A1
-  ;MOVE.L (A1),D2
   ADD.L D0,(A0)
   MOVEA.L (A0),A0
   JSR memSafeReadWord
   MOVE.W  D0,SaveOldSr
   ADDQ.W  #2,A0
   JSR memSafeReadLong
-  ;MOVE.L D2,(A1)
   MOVE.L  D0,SaveOldPc
   MOVE.L  D0,DefaultAddress
   LEA ExceptionTypesTable(PC),A0
@@ -21177,7 +21155,6 @@ LAB_A1D1F4:
   RTS
 RamAllocFailTable:
   DC.B  $D,"ProgramRam-Allocation Failure!!",$D,0
-  ;DC.B $D,"ChipRam-Allocation Failure!!",$D,0,0
   even
   endc
 
@@ -22237,7 +22214,6 @@ setupPrefsViewer:
   ADD.W #1,D0
   MULU #80*2,D0
   SUB.W #1,D0
-  ;MOVE.W  #$0f9f,D0
 LAB_A1DA46:
   CLR.L (A0)+
   DBF D0,LAB_A1DA46
@@ -22301,7 +22277,6 @@ LAB_A1DB3C:
   ADD.W #1,D0
   MULU #80*2,D0
   SUB.W #1,D0
-  ;MOVE.W  #$0f9f,D0
 LAB_A1DB68:
   CLR.L (A0)+
   DBF D0,LAB_A1DB68
@@ -27730,7 +27705,6 @@ LAB_A207B2:
   BMI.S LAB_A207DE
   BRA.S .1
 .rawmfm
-  ;MOVE.B D0,pdosTrack
   BSR.W readRawMfmTrack
   BMI.S LAB_A207DE
   BRA.S .1
@@ -35287,6 +35261,11 @@ LAB_A25E06:
 
   if arhardware=1
 SUB_41BB88:
+  CMPI.B  #$13,kickstartVersion
+  BEQ.S .1
+  RTS
+
+.1  
   LEA LAB_A483AA,A0
   CLR.L (A0)+
   CLR.L (A0)+
@@ -35346,7 +35325,11 @@ LAB_41BC78:
   BSR.W SUB_41BD86
   RTS
 
-SUB_41BC8A
+SUB_41BC8A:
+  CMPI.B  #$13,kickstartVersion
+  BEQ.S .1
+  RTS
+.1
   LEA LAB_A483AA,A0
   CLR.L (A0)+
   CLR.L (A0)+
@@ -38482,7 +38465,6 @@ LAB_A28878:
   DC.B  "NoQual:    Sh:    Al:  AlSh:    Ct:  CtSh:  CtAl:CtAlSh:",0
   even
   DC.W 0
-  ;DC.B 0
 
 ScanningMemText:
   DC.B  "Scanning memory for buffer, please wait."
@@ -39192,9 +39174,9 @@ LAB_A293A0:
   MOVEQ #0,D0
 LAB_A293A2:
   MOVE.L  D0,-(A7)
-  MOVE.W	#$007c,D0		;41fde2: 303c007c
-  MOVE.W	#$00c7,D1		;41fde6: 323c00c7
-  JSR	clearScreenArea		;41fdea: 4eb90041454e
+  MOVE.W	#$007c,D0
+  MOVE.W	#$00c7,D1
+  JSR	clearScreenArea
   MOVE.L  (A7)+,D0
   BRA.W LAB_A29608
 LAB_A293AA:
@@ -45590,7 +45572,6 @@ crc32tbl:
   DC.L SECSTRT_0
   DC.B "AR5_"
 BusError:
-  ;JSR ExceptionEntry
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  BUS_ERROR+oldVecs,-(A7)
@@ -45599,7 +45580,6 @@ BusError:
   MOVE.L  BUS_ERROR.W,-(A7)
   RTS
 AddressError:
-  ;JSR ExceptionEntry
   TST.B MoveVbr
   BNE.S .1
 
@@ -45610,8 +45590,6 @@ AddressError:
   MOVE.L  ADR_ERROR.W,-(A7)
   RTS
 Illegal:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45623,8 +45601,6 @@ Illegal:
   RTS
 
 DivZero:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45636,8 +45612,6 @@ DivZero:
   RTS
 
 ChkInstruction:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45648,8 +45622,6 @@ ChkInstruction:
   RTS
 
 TrapVInstruction:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45661,8 +45633,6 @@ TrapVInstruction:
   RTS
 
 PrivViolation:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45674,8 +45644,6 @@ PrivViolation:
   RTS
 
 LineAInstruction:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45687,8 +45655,6 @@ LineAInstruction:
   RTS
 
 LineFInstruction:
-  ;JSR ExceptionEntry
-
   TST.B MoveVbr
   BNE.S .1
 
@@ -45801,10 +45767,6 @@ NMI_SoftEntry:
   JMP Freeze
 
 Trap0Handler:
-  ;CMPI.L  #$00000040,TRAP_00.W
-  ;BEQ.S LAB_A31A56
-  ;JSR ExceptionEntry
-LAB_A31A56:
   TST.B MoveVbr
   BNE.S .1
 
@@ -45816,10 +45778,6 @@ LAB_A31A56:
   RTS
 
 Trap1Handler:
-  ;CMPI.L  #$00000040,TRAP_01.W
-  ;BEQ.S LAB_A31A6C
-  ;JSR ExceptionEntry
-LAB_A31A6C:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_01+oldVecs,-(A7)
@@ -45829,10 +45787,6 @@ LAB_A31A6C:
   RTS
 
 Trap2Handler:
-  ;CMPI.L  #$00000040,TRAP_02.W
-  ;BEQ.S LAB_A31A82
-  ;JSR ExceptionEntry
-LAB_A31A82:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_02+oldVecs,-(A7)
@@ -45842,10 +45796,6 @@ LAB_A31A82:
   RTS
 
 Trap3Handler:
-  ;CMPI.L  #$00000040,TRAP_03.W
-  ;BEQ.S LAB_A31A98
-  ;JSR ExceptionEntry
-LAB_A31A98:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_03+oldVecs,-(A7)
@@ -45855,10 +45805,6 @@ LAB_A31A98:
   RTS
 
 Trap4Handler:
-  ;CMPI.L  #$00000040,TRAP_04.W
-  ;BEQ.S LAB_A31AAE
-  ;JSR ExceptionEntry
-LAB_A31AAE:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_04+oldVecs,-(A7)
@@ -45868,10 +45814,6 @@ LAB_A31AAE:
   RTS
 
 Trap5Handler:
-  ;CMPI.L  #$00000040,TRAP_05.W
-  ;BEQ.S LAB_A31AC4
-  ;JSR ExceptionEntry
-LAB_A31AC4:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_05+oldVecs,-(A7)
@@ -45881,10 +45823,6 @@ LAB_A31AC4:
   RTS
 
 Trap6Handler:
-  ;CMPI.L  #$00000040,TRAP_06.W
-  ;BEQ.S LAB_A31ADA
-  ;JSR ExceptionEntry
-LAB_A31ADA:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_06+oldVecs,-(A7)
@@ -45894,10 +45832,6 @@ LAB_A31ADA:
   RTS
 
 Trap7Handler:
-  ;CMPI.L  #$00000040,TRAP_07.W
-  ;BEQ.S LAB_A31AF0
-  ;JSR ExceptionEntry
-LAB_A31AF0:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_07+oldVecs,-(A7)
@@ -45907,10 +45841,6 @@ LAB_A31AF0:
   RTS
 
 Trap8Handler:
-  ;CMPI.L  #$00000040,TRAP_08.W
-  ;BEQ.S LAB_A31B06
-  ;JSR ExceptionEntry
-LAB_A31B06:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_08+oldVecs,-(A7)
@@ -45920,10 +45850,6 @@ LAB_A31B06:
   RTS
 
 Trap9Handler:
-  ;CMPI.L  #$00000040,TRAP_09.W
-  ;BEQ.S LAB_A31B1C
-  ;JSR ExceptionEntry
-LAB_A31B1C:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_09+oldVecs,-(A7)
@@ -45933,10 +45859,6 @@ LAB_A31B1C:
   RTS
 
 Trap10Handler:
-  ;CMPI.L  #$00000040,TRAP_10.W
-  ;BEQ.S LAB_A31B32
-  ;JSR ExceptionEntry
-LAB_A31B32:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_10+oldVecs,-(A7)
@@ -45946,10 +45868,6 @@ LAB_A31B32:
   RTS
 
 Trap11Handler:
-  ;CMPI.L  #$00000040,TRAP_11.W
-  ;BEQ.S LAB_A31B48
-  ;JSR ExceptionEntry
-LAB_A31B48:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_11+oldVecs,-(A7)
@@ -45959,10 +45877,6 @@ LAB_A31B48:
   RTS
 
 Trap12Handler:
-  ;CMPI.L  #$00000040,TRAP_12.W
-  ;BEQ.S LAB_A31B5E
-  ;JSR ExceptionEntry
-LAB_A31B5E:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_12+oldVecs,-(A7)
@@ -45972,10 +45886,6 @@ LAB_A31B5E:
   RTS
 
 Trap13Handler:
-  ;CMPI.L  #$00000040,TRAP_13.W
-  ;BEQ.S LAB_A31B74
-  ;JSR ExceptionEntry
-LAB_A31B74:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_13+oldVecs,-(A7)
@@ -45985,10 +45895,6 @@ LAB_A31B74:
   RTS
 
 Trap14Handler:
-  ;CMPI.L  #$00000040,TRAP_14.W
-  ;BEQ.S LAB_A31B8A
-  ;JSR ExceptionEntry
-LAB_A31B8A:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_14+oldVecs,-(A7)
@@ -45998,10 +45904,6 @@ LAB_A31B8A:
   RTS
 
 Trap15Handler:
-  ;CMPI.L  #$00000040,TRAP_15.W
-  ;BEQ.S LAB_A31BA0
-  ;JSR ExceptionEntry
-LAB_A31BA0:
   TST.B MoveVbr
   BNE.S .1
   MOVE.L  TRAP_15+oldVecs,-(A7)
@@ -46867,8 +46769,6 @@ TextPage2Addr
 ;  DS.L  1
 ;debuginfo2
 ;  DS.W  1
-;SaveOldStk1
-;  DS.L 1
 AgaPaletteSave
   DS.L 1
 AgaPaletteCopy
