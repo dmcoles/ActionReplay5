@@ -13801,7 +13801,7 @@ ARInit:
 .k2
   MOVE.B  #$20,kickstartVersion
 .k3
-
+  
   JSR SUB_41BB88
   JSR SUB_A17DF4
   MOVE.B  ExtMemAddPrefsFlag,LAB_A483DA
@@ -35299,7 +35299,10 @@ SUB_41BB88:
   MOVEQ #$14,D1
 LAB_41BBB4:
   MOVE.W  (A0),D0
-  AND.W #$a000,D0
+  CMP.W #$ffff,D0
+  BEQ.W LAB_41BC78
+
+  AND.W #$e000,D0
   CMPI.W  #$a000,D0
   BNE.W LAB_41BC78
   MOVE.W  2(A0),D0
@@ -35309,6 +35312,11 @@ LAB_41BBB4:
   MOVE.B  #$ff,$4C(A0)
   BRA.W LAB_41BC78
 LAB_41BBDE:
+;#$1000 ; 64k e90000
+;#$2000 ; 128k ea0000
+;#$3000 ; 256k e00000
+;#$4000 ; 512k 200000
+;#$5000 ; 1024k 200000
   CMPI.W  #$6000,D0
   BNE.W LAB_41BC78
   SF  AutoConfigPrefsFlag
@@ -35351,7 +35359,10 @@ SUB_41BC8A
   MOVEQ #$14,D1
 LAB_41BCB6:
   MOVE.W  (A0),D0
-  AND.W #$a000,D0
+  CMP.W #$ffff,D0
+  BEQ.W LAB_41BD7A
+  
+  AND.W #$e000,D0
   CMPI.W  #$a000,D0
   BNE.W LAB_41BD7A
   MOVE.W  2(A0),D0
@@ -35394,25 +35405,33 @@ SUB_41BD86:
   BEQ.W LAB_41BDEA
 LAB_41BD98:
   MOVE.W  (A0),D0
-  AND.W #$a000,D0
+  CMP.W #$ffff,D0
+  BEQ.S LAB_41BDE0
+
+  AND.W #$e000,D0
   CMPI.W  #$a000,D0
   BNE.W LAB_41BDE0
-  MOVE.W  2(A0),D0
+  MOVE.W  2(A0),D0  ;board size
   AND.W #$7000,D0
   BNE.W LAB_41BDBC
+  ;8mb board
   MOVE.B  #$ff,$4C(A0)
   BRA.W LAB_41BDE0
 LAB_41BDBC:
   CMPI.W  #$7000,D0
   BNE.W LAB_41BDCE
-  MOVE.B  #$60,$48(A0)
+
+  ;4mb board
+  MOVE.B  #$60,$48(A0)  ;map to $600000
   BRA.W LAB_41BDEC
 LAB_41BDCE:
   CMPI.W  #$6000,D0
   BNE.W LAB_41BDE0
-  MOVE.B  #$20,$48(A0)
+  ;2mb board
+  MOVE.B  #$20,$48(A0)  ;map to $200000
   BRA.W LAB_41BDEC
 LAB_41BDE0:
+  ;other size
   MOVE.B  #$ff,$4C(A0)
   DBF D1,LAB_41BD98
 LAB_41BDEA:
