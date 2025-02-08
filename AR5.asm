@@ -4129,6 +4129,10 @@ handleApiCall
   MOVE.L SaveCpuRegs,D0
   CMP.W #maxApiCall,D0
   BGT.S .1
+  ADD.W #1,D0
+  TST.W D0
+  BMI.S .1
+  
   LEA apiTable,A0
   ADD.W D0,D0
   ADD.W D0,D0
@@ -4137,6 +4141,10 @@ handleApiCall
 .1
   RTS
 
+apiEndApi:
+  SF.B restartFlag
+  RTS
+  
 apiPrintText:
   MOVE.L SaveCpuRegs+32,A0
   BSR PrintText
@@ -4348,7 +4356,8 @@ switch:
   JSR redrawTextPage
   RTS
 
-apiTable
+apiTable:
+  DC.L apiEndApi
   DC.L apiPrintText,apiPrintValue,apiCls,apiSelectScreen
   DC.L apiLoadFile,apiSaveFile,apiSaveData
   DC.L apiReadTracks,apiWriteTracks
@@ -41354,7 +41363,7 @@ HelpText:
   DC.B  "F6     : Switch printer dump on/off",$D
   DC.B  "F7     : Switch overwrite/insert mode",$D
   DC.B  "F8     : Show instructions for the mempeeker",$D
-  DC.B  "F9     : Switch uk, german & usa keyboard",$D
+  DC.B  "F9     : Switch uk, german, italian & usa keyboard",$D
   DC.B  "SH F9  : Compare screen pages",$D
   DC.B  "F10    : Switch screen",$D
   DC.B  "SH F10 : Switch between 15Mhz/31Mhz",$D

@@ -11,6 +11,14 @@ The value in D0.W will decide which api function call is triggered.
 
 The current api calls are as follows:
 
+ Function -1: End Api
+ ----------------------
+ On Entry:
+   D0 = -1
+
+ Description:
+   Stop executing code and return to the Action Repay command prompt.
+
  Function 0: Print Text
  ----------------------
 
