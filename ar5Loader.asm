@@ -1178,12 +1178,14 @@ Level7Interru.MSG dc.b  '       Level 7 Interrupt       ',0
 
 keymapValue dc.l  0
 keymapValues  dc.l  keymapValue
-  dc.l  3
+  dc.l  4
   dc.l  UK.MSG
   dc.l  DE.MSG
   dc.l  US.MSG
+  dc.l  IT.MSG
 UK.MSG  dc.b  '  UK  ',0
 DE.MSG  dc.b  '  DE  ',0
+IT.MSG  dc.b  '  IT  ',0
 US.MSG  dc.b  '  US  ',0
 
   SECTION arpro2003344,DATA_C
