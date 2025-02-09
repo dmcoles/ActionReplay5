@@ -1981,7 +1981,17 @@ AREntry3:
   MOVE.W  0(A7),SaveOldSr
   MOVE  #$2000,SR
   LEA StackEnd,A7
+  
+  CMP.B #$13,kickstartVersion
+  BEQ.S .1
+  
+  TST.B ks2memTested
+  BNE.S .1
+  
+  JSR TestMemKS2
+  ST.B ks2memTested
 
+.1
   MOVE.L  D0,tempD0
   JSR getCACR
   MOVE.L  D0,SAVE_CACR
@@ -4965,6 +4975,13 @@ commandTable:
   DC.L  CMD_RCOLOR
   DC.L cmd_rcolour_help
 
+  if arhardware=1
+  DC.B  "SAVECFG",0
+  even
+  DC.L  CMD_SAVECFG
+  DC.L cmd_savecfg_help
+  endc
+
   DC.B  "DELETE",0
   even
   DC.L  CMD_DELETE
@@ -5064,6 +5081,12 @@ commandTable:
   even
   DC.L  CMD_DISKIO
   DC.L cmd_diskio_help
+
+
+  DC.B  "AXFER",0
+  even
+  DC.L  CMD_AXFER
+  DC.L cmd_axfer_help
 
   DC.B  "DOSIO",0
   even
@@ -5987,6 +6010,11 @@ cmd_avail_help:
   DC.B  "  AVAIL",13
   DC.B 0
 
+cmd_axfer_help
+  DC.B  "AXFER (Start debugger for AmigaXfer)",13
+  DC.B  "  AXFER",13
+  DC.B 0
+
 cmd_b_help:
   DC.B  "B (Show breakpoints)",13
   DC.B  "  B",13
@@ -6756,8 +6784,13 @@ cmd_sa_help:
   DC.B 0
 
 cmd_safedisk_help:
-  DC.B  "SAFEDISK",13
+  DC.B  "SAFEDISK (Enable safedisk)",13
   DC.B  "  SAFEDISK (a/b/s/n/u/v/q)",13
+  DC.B 0
+
+cmd_savecfg_help
+  DC.B  "SAVECFG (Save config to flash memory)",13
+  DC.B  "  SAVECFG",13
   DC.B 0
 
 cmd_scan_help:
@@ -9506,7 +9539,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.03022025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.09022025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -10222,7 +10255,7 @@ CMD_NO:
 LAB_A15288:
   LEA CurrentOffsetText(PC),A0
   BSR.W PrintText
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   BSR.W PrintCrIfNotBlankLine
   BRA.S LAB_A152A6
 LAB_A1529A:
@@ -13795,7 +13828,7 @@ ARInit:
 .k2
   MOVE.B  #$20,kickstartVersion
 .k3
-  
+    
   JSR SUB_41BB88
   JSR SUB_A17DF4
   MOVE.B  ExtMemAddPrefsFlag,LAB_A483DA
@@ -13848,6 +13881,12 @@ LAB_A17D26:
   SF  SetmapDPrefsFlag
   SF  LAB_A483D6
   SF  DeepTrainerActive
+
+  if arhardware=1
+  LEA arramstart-512,A1
+  JSR LoadPrefsFromMem
+  endc
+
   LEA LAB_A483E0,A0
   MOVEQ #$35,D0
 LAB_A17DC8:
@@ -14323,6 +14362,8 @@ CMD_FLASH:
   JMP PrintReady
 
 .goflash
+
+
   MOVE.L D1,EXT_20000+$40000-4
   LEA flashcode(PC),A0
   LEA mt_sin,A1
@@ -14331,6 +14372,17 @@ CMD_FLASH:
   CMP.L #flashend,A0
   BNE.S .copy
 
+  LEA arramstart-512,A0
+  CMP.L #"pref",(A0)
+  BNE.S .goflash2
+  
+  LEA $60000-512,A1
+  MOVE.W #128-1,D0
+.copypref
+  MOVE.W (A0)+,(A1)+
+  DBF D0,.copypref
+
+.goflash2:
   JSR mt_sin
   ;JSR flashcode
   RTS
@@ -32985,6 +33037,213 @@ dosiohelp:
 
   even
 
+CMD_SAVECFG:
+  JSR readCmdChar
+  CMPI.B  #"F",D0
+  BEQ.S .goflash
+  
+  TST.L newRamdiskAddr
+  BNE.S .goflash
+
+  LEA notSupportedText,A0
+  JMP PrintText 
+.goflash
+
+  LEA EXT_1000,A1
+  BSR SavePrefsToMem
+.pad
+  MOVE.L A1,D0
+  AND.B #3,D0
+  BEQ.S .paddone
+  CLR.B (A1)+
+  BRA.S .pad
+.paddone
+  LEA EXT_1000,A0
+  MOVE.L A0,A2
+  MOVEQ #0,D0
+.docrc
+  ADD.L (A0)+,D0
+  CMP.L A0,A1
+  BNE.S .docrc
+  NEG.L D0          ;calculate inverse crc
+  MOVE.L D0,(A1)+   ;store it
+  
+  MOVE.L A1,D0
+  SUB.L A2,D0
+
+  LEA saveflashcode(PC),A2
+  LEA mt_sin,A3
+.copy
+  MOVE.W (A2)+,(A3)+
+  CMP.L #saveflashend,A2
+  BNE.S .copy
+
+  ;prefs start in A0
+  ;length in D0
+  JSR mt_sin
+  ;JSR saveflashcode
+
+  LEA settingsSavedText(PC),A0
+  JMP PrintText 
+  RTS
+
+settingsSavedText: DC.B 13,"Settings saved sucessfully",13,0
+  even
+
+saveflashcode:
+  LEA hardware,A6
+  MOVE.W intenar(a6),D7
+  SWAP D7
+  MOVE.W dmaconr(a6),D7
+  OR.L #$80008000,D7
+  MOVE.L D7,tempD0
+
+  MOVE.W #$7fff,intena(a6)
+  MOVE.W #$7fff,dmacon(a6)
+
+  ;enter product identification mode (chip1)
+  MOVE.B #$AA,SECSTRT_0+($5555*2)
+  MOVE.B #$55,SECSTRT_0+($2AAA*2)
+  MOVE.B #$90,SECSTRT_0+($5555*2)
+  BSR FlDelay2
+
+  ;read id
+  MOVEQ #0,D1
+  MOVE.B SECSTRT_0+$400,D1
+  LSL.W #8,D1
+  MOVE.B SECSTRT_0+$400+2,D1
+
+  ;exit product identification mode (chip1)
+  MOVE.B #$AA,SECSTRT_0+($5555*2)
+  MOVE.B #$55,SECSTRT_0+($2AAA*2)
+  MOVE.B #$F0,SECSTRT_0+($5555*2)
+  BSR FlDelay2
+
+  LEA SECSTRT_0+4,A1
+  CMP.L #"ACTI",(A1)
+  BNE.W badflash2
+
+  ;check product id
+  CMP.W #$1FD5,D1
+  BNE noflash2
+
+  ;enter product identification mode (chip2)
+  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
+  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
+  MOVE.B #$90,SECSTRT_0+1+($5555*2)
+  BSR FlDelay2
+
+  ;read id
+  MOVEQ #0,D1
+  MOVE.B SECSTRT_0+$400+1,D1
+  LSL.W #8,D1
+  MOVE.B SECSTRT_0+$400+2+1,D1
+
+  ;exit product identification mode (chip2)
+  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
+  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
+  MOVE.B #$F0,SECSTRT_0+1+($5555*2)
+  BSR FlDelay2
+
+  LEA SECSTRT_0+4,A1
+  CMP.L #"ACTI",(A1)
+  BNE.W badflash2
+
+  ;check product id
+  CMP.W #$1FD5,D1
+  BNE noflash2
+  
+  ;enable software protect (chip 1)
+  LEA SECSTRT_0,A3
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$A0,(A3)
+
+  ;enable software protect (chip 2)
+  LEA SECSTRT_0+1,A3
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$A0,(A3)
+
+  LEA arramstart-512,A1
+
+  ;write both sectors at the same time
+  MOVE.W #256-1,D1
+.loop
+  TST.B D0
+  BEQ .flclr
+  MOVE.B (A0)+,(A1)+
+  SUBQ.L #1,D0
+  BRA.S .flskip
+.flclr
+  CLR.B (A1)+
+.flskip
+  DBF D1,.loop
+
+.fldone
+  ;wait for sector flash on on both chips to complete
+.wait
+  MOVE.B -2(A1),D0
+  MOVE.B -2(A1),D1
+  CMP.B D1,D0
+  BNE.S .wait
+  MOVE.B -3(A1),D0
+  MOVE.B -3(A1),D1
+  CMP.B D1,D0
+  BNE.S .wait
+
+  LEA hardware,A6
+  MOVE.L tempD0,D1
+  MOVE.W D1,dmacon(A6)
+  SWAP D1
+  MOVE.W D1,intena(A6)
+
+  RTS
+
+FlDelay2:
+  MOVE.B  #0,ciaatodlo
+.1:
+  CMP.B #2,ciaatodlo
+  BNE.S .1
+  RTS
+
+noflash2
+  LEA hardware,A6
+  MOVE.L tempD0,D1
+  MOVE.W D1,dmacon(A6)
+  SWAP D1
+  MOVE.W D1,intena(A6)
+
+  LEA noflashText,A0
+  JSR PrintText
+  RTS
+
+badflash2
+  MOVE.W #$7fff,intena+hardware
+  MOVE.W #$f00,color00+hardware
+  BRA.S badflash2
+
+saveflashend
+
+CMD_AXFER:
+  JSR checkExecBaseValid
+  BEQ.S .1
+
+  LEA $100.W,A0
+  MOVE.L #$2c780004,(A0)+   ;move.l 4.w,a6
+  MOVE.L #$4eaeff8e,(A0)+   ;jsr -$72(a6)
+  MOVE.W #$60fa,(A0)+       ;bra $104
+  MOVE.L #$100,SaveOldPc
+  ST.B restartFlag
+  RTS
+.1 JMP LAB_A1B1FC
+
 CMD_CRC16:
   JSR ReadParameter
   TST.B ParamFound
@@ -34953,13 +35212,13 @@ LAB_A259D2:
   BPL.S LAB_A259F2
   CMPI.W  #$fff8,D0
   BEQ.S LAB_A259FA
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
 LAB_A259F2:
   ADDQ.W  #1,D1
   DBF D4,LAB_A259D2
   MOVEQ #0,D0
 LAB_A259FA:
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.B  (A7)+,currDriveNo
@@ -35057,7 +35316,7 @@ LAB_A25B14:
   TST.W D0
   BNE.S LAB_A25B2E
   MOVEQ #-14,D0
-  BRA.W PrintDiskOpResult
+  JMP PrintDiskOpResult
 LAB_A25B2E:
   MOVE.L  D0,D2
   JSR ReadParameter
@@ -35268,6 +35527,55 @@ LAB_A25DFC:
 LAB_A25E06:
   RTS
 
+TestMemKS2:
+  LEA $200000,A0
+  MOVE.L A0,A2
+  if arsoft=1
+  LEA $a00000,A0
+  elseif dbg=1
+  LEA $a00000,A0
+  else
+  LEA SECSTRT_0,A1
+  endc
+
+.proc1
+  ADD.L #64*1024,A2
+
+  MOVE.W -3942(A2),D2
+  MOVE.W -4068(A0),D3
+  MOVE.W -4068(A2),D4
+
+  CLR.W -4068(A2)
+  MOVE.W #$2198,-4068(A0)
+  TST.W -4068(A2)
+  BNE.S .proc2
+  
+  MOVE.W  #$3fff,-3942(A2)
+  CMP.W #$3fff,-3942(A2)
+  BEQ.S .proc3
+
+.proc2
+  SUB.L #64*1024,A2
+  BRA.S .proc4
+
+.proc3
+  MOVE.W D2,-3942(A2)
+  MOVE.W D3,-4068(A0)
+  MOVE.W D4,-4068(A2)
+
+  CMP.L A2,A1
+  BNE.S .proc1
+
+.proc4
+  CMP.L A0,A2
+  BEQ.S .noproc
+  MOVE.L A0,foundAutoConfigMemStart
+  MOVE.L A0,autoConfigMemStart
+  MOVE.L A2,foundAutoConfigMemEnd
+  MOVE.L A2,autoConfigMemEnd
+.noproc
+  RTS
+  
   if arhardware=1
 SUB_41BB88:
   CMPI.B  #$13,kickstartVersion
@@ -36104,11 +36412,12 @@ LAB_A2653C:
   JSR SUB_A1375E
   ST  forceUpper
   TST.W D0
-  BEQ.W LAB_A21070
+  BEQ.S .wtf
   LEA stringWorkspace,A0
   BSR.S SUB_A26514
   JSR PrintReady
   RTS
+.wtf JMP PrintWTF
 SUB_A26564:
   MOVEM.L D1/D6/A1/A3-A4,-(A7)
   CLR.L (A2)
@@ -40814,23 +41123,9 @@ LoadPrefs:
   JSR readFileBytes
   BMI.W LAB_4210BC
   LEA EXT_1000,A1
-  CMPI.L  #$70726566,(A1)+
-  BNE.W LAB_4210BC
-  LEA LAB_4211F4(PC),A2
-LAB_42109E:
-  MOVE.L  (A2)+,D0
-  BEQ.W LAB_4210B2
-  MOVEA.L D0,A3
-  MOVE.W  (A2)+,D0
-  SUBQ.W  #1,D0
-LAB_4210AA:
-  MOVE.B  (A1)+,(A3)+
-  DBF D0,LAB_4210AA
-  BRA.S LAB_42109E
-LAB_4210B2:
+  JSR LoadPrefsFromMem
   JSR restoreMfmBuffer
   BPL.W LAB_4210FA
-LAB_4210BC:
   MOVE.L  D0,-(A7)
   MOVE.L  #$00009c40,D0
 LAB_4210C4:
@@ -40841,6 +41136,7 @@ LAB_4210C4:
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   BPL.W LAB_4210FA
+LAB_4210BC:
   MOVE.L  D0,-(A7)
   MOVE.L  #$00009c40,D0
 LAB_4210EA:
@@ -40855,6 +41151,24 @@ LAB_4210FA:
   MOVE.W  #$8100,dmacon+hardware
   MOVEM.L (A7)+,D0-D3/A0-A3
   RTS
+
+LoadPrefsFromMem:
+  CMPI.L  #$70726566,(A1)+
+  BNE.W LAB_4210B2
+  LEA LAB_4211F4(PC),A2
+LAB_42109E:
+  MOVE.L  (A2)+,D0
+  BEQ.W LAB_4210B2
+  MOVEA.L D0,A3
+  MOVE.W  (A2)+,D0
+  SUBQ.W  #1,D0
+LAB_4210AA:
+  MOVE.B  (A1)+,(A3)+
+  DBF D0,LAB_4210AA
+  BRA.S LAB_42109E
+LAB_4210B2:
+  RTS
+
 SavePrefs:
   MOVEM.L D0-D3/A0-A3,-(A7)
   LEA EXT_7000.W,A0
@@ -40870,20 +41184,7 @@ SavePrefs:
   BMI.W LAB_42119A
   MOVEQ #4,D1
   LEA EXT_1000,A1
-  MOVE.L  #$70726566,(A1)+
-  LEA LAB_4211F4(PC),A2
-LAB_42115E:
-  MOVE.L  (A2)+,D0
-  BEQ.W LAB_421174
-  MOVEA.L D0,A3
-  MOVE.W  (A2)+,D0
-  ADD.W D0,D1
-  SUBQ.W  #1,D0
-LAB_42116C:
-  MOVE.B  (A3)+,(A1)+
-  DBF D0,LAB_42116C
-  BRA.S LAB_42115E
-LAB_421174:
+  BSR SavePrefsToMem
   LEA EXT_1000,A2
   MOVEQ #0,D0
   MOVE.W  D1,D0
@@ -40919,6 +41220,24 @@ LAB_4211D8:
   MOVE.W  #$8100,dmacon+hardware
   MOVEM.L (A7)+,D0-D3/A0-A3
   RTS
+
+SavePrefsToMem:
+  MOVE.L  #$70726566,(A1)+
+  LEA LAB_4211F4(PC),A2
+LAB_42115E:
+  MOVE.L  (A2)+,D0
+  BEQ.W LAB_421174
+  MOVEA.L D0,A3
+  MOVE.W  (A2)+,D0
+  ADD.W D0,D1
+  SUBQ.W  #1,D0
+LAB_42116C:
+  MOVE.B  (A3)+,(A1)+
+  DBF D0,LAB_42116C
+  BRA.S LAB_42115E
+LAB_421174:
+  RTS
+
 LAB_4211F4:
   DC.L  memoryControlPrefsValue
   DC.W  $0002
@@ -41238,12 +41557,14 @@ HelpText:
   DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
   DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
   DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
-  DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
   if arhardware=1
+  DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
   DC.B  "     arram: display the amount of memory on cart - arram",$D
+  DC.B  "   savecfg: save current cfg (requires flash hw) - savecfg",$D
   endc
   DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
   DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
+  DC.B  "     axfer: Setup system for AmigaXfer           - axfer",$D
   DC.B  "       led: toggle led status                    - led",$D
   DC.B  "     imode: Entering AR-PRO mode                 - imode 0|1|2|3",$D
   DC.B  "      kill: Removes action replay from memory    - kill",$D
@@ -45946,7 +46267,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $37b1bd83 ; v0.8.0
+  DC.L $efd1439a ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -46755,6 +47076,18 @@ full64k
   DS.B  1
 fullPal
   DS.B  1
+apiActive
+  DS.B 1
+apiCall
+  DS.B 1
+DisableVposWrite
+  DS.B 1
+LAB_A310FC:
+  DS.B  1
+RomAvoidFlag:
+  DS.B  1
+ks2memTested
+  DS.B 1
   even
 newRamdiskAddr
   DS.L  1
@@ -46786,17 +47119,6 @@ SaveAgaColor0
   DS.L 1
 SaveAgaColor1
   DS.L 1
-apiActive
-  DS.B 1
-apiCall
-  DS.B 1
-DisableVposWrite
-  DS.B 1
-LAB_A310FC:
-  DS.B  1
-RomAvoidFlag:
-  DS.B  1
-  even
 stackSave:
   DS.L 1
 seed:
