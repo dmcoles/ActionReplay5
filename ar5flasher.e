@@ -129,6 +129,11 @@ PROC main()
   //fix checksum  
   PutLong(arbase+(256*1024)-4,checksum)
   
+  //copy pref settings to the new file
+  IF Long(arbase+$40000-512)="pref"
+    CopyMem(arbase+$40000-512,romFile+$40000-512,128)
+  ENDIF
+  
   WriteF('\nFlashing: ')
   FOR chip:=0 TO 1
     src:=romFile+chip
