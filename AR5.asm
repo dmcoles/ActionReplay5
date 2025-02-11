@@ -262,6 +262,14 @@ ciaaicr    EQU $BFED01
 ciaacra    EQU $BFEE01
 ciaacrb    EQU $BFEF01
 
+blocksize=1029
+blocksize128=133
+X_STX=2
+X_ACK=6
+X_EOT=4
+X_SOH=1
+X_CAN=24
+
 rsnoop SET 0
   if arhardware=1
 rsnoop SET 1
@@ -1964,7 +1972,7 @@ LAB_A10934:
 LAB_A10944:
   MOVEA.L (A7)+,A0
   BSET  #7,(A7)
-  RTS
+  RTE
 AREntry2:
   SF  LAB_A4824E
 AREntry3:
@@ -2838,6 +2846,7 @@ CheckPalMode
   MOVE.L D0,tempD0
   MOVE.L D1,tempD1
   SF.B fullPal
+  SF.B palMode
 
   MOVE.W intenar+hardware,D1
   MOVE.W  #$0020,intena+hardware
@@ -2854,6 +2863,8 @@ CheckPalMode
 
   CMP.L #$12000,D0
   BLT.S .3
+
+  ST.B palMode
 
   TST.B full64k
   SNE.B fullPal
@@ -3619,6 +3630,20 @@ LAB_A119D0:
   RTE
 GetMappedKeyCode:
   MOVEM.L D1/A0,-(A7)
+  TST.B serIO
+  BEQ.S .noser
+  JSR RawMayGetChar
+  TST.L D0
+  BMI.S .noser
+  JSR SerInTranslate
+  TST.L D0
+  BMI.S .noser
+  
+  MOVE.W  D0,KeyCode
+  CLR.W keyRepeat
+  BRA.S LAB_A11AD8
+  
+.noser
   BSR.S DecodeRawKeyCode
   TST.W D0
   BEQ.S LAB_A11ACC
@@ -4997,6 +5022,11 @@ commandTable:
   DC.L  CMD_CLRAPI
   DC.L cmd_clrapi_help
 
+  DC.B  "RPREFS",0
+  even
+  DC.L  CMD_RPREFS
+  DC.L cmd_rprefs_help
+
   DC.B  "FCRC16",0
   even
   DC.L  CMD_FCRC16
@@ -5087,6 +5117,12 @@ commandTable:
   even
   DC.L  CMD_AXFER
   DC.L cmd_axfer_help
+
+  DC.B  "SERSP",0
+  even
+  DC.L  CMD_SERSP
+  DC.L cmd_sersp_help
+
 
   DC.B  "DOSIO",0
   even
@@ -5356,6 +5392,11 @@ commandTable:
   DC.L  CMD_DIR
   DC.L cmd_dir_help
 
+  DC.B  "SER",0
+  even
+  DC.L  CMD_SER
+  DC.L cmd_ser_help
+
   DC.B  "RNC",0
   even
   DC.L  CMD_RNC
@@ -5620,6 +5661,11 @@ commandTable:
   even
   DC.L  CMD_CI
   DC.L cmd_ci_help
+
+  DC.B  "SY",0
+  even
+  DC.L  CMD_SY
+  DC.L cmd_sy_help
 
   DC.B  "FC",0
   even
@@ -6758,6 +6804,11 @@ cmd_rpb_help:
   DC.B  "  RPB <start-offset> (<num-bytes> <dest-addr>)",13
   DC.B 0
 
+cmd_rprefs_help:
+  DC.B  "RPREFS (Reset all prefs)",13
+  DC.B  "  RPREFS",13
+  DC.B 0
+
 cmd_rps_help:
   DC.B  "RPS (Read pdos sectors from active drive)",13
   DC.B  "  RPS <start-sector> (<num-sectors> <dest-addr>)",13
@@ -6806,6 +6857,16 @@ cmd_schar_help:
 cmd_sdisk_help:
   DC.B  "SDISK (Alias for SAFEDISK)",13
   DC.B  "  SDISK (a/b/s/n/u/v/q)",13
+  DC.B 0
+
+cmd_ser_help:
+  DC.B  "SER (Toggle serial)",13
+  DC.B  "  SER",13
+  DC.B 0
+
+cmd_sersp_help:
+  DC.B  "SERSP (Set serial speed)",13
+  DC.B  "  SERSP <baud>",13
   DC.B 0
 
 cmd_setapi_help:
@@ -6911,6 +6972,11 @@ cmd_sstick_help:
 cmd_st_help:
   DC.B  "ST (Trace current program (also subs))",13
   DC.B  "  ST <steps>",13
+  DC.B 0
+
+cmd_sy_help:
+  DC.B  "SY (Send ymodem)",13
+  DC.B  "  SY",13
   DC.B 0
 
 cmd_t_help:
@@ -9458,10 +9524,10 @@ LAB_A13C1E:
   ADDQ.W  #6,D0
   ADD.L D0,$3C(A0)
   MOVEA.L $3C(A0),A0 
-  BSR.W	memSafeReadWord
+  BSR.W memSafeReadWord
   MOVE.W  D0,SaveOldSr
-  ADDQ.L	#2,A0
-  BSR.W	memSafeReadLong
+  ADDQ.L  #2,A0
+  BSR.W memSafeReadLong
   SUBQ.L  #2,D0
   MOVE.L  D0,SaveOldPc
   MOVE.L  (A7)+,(A1)
@@ -9487,10 +9553,10 @@ LAB_A13C7C:
   ADDQ.W  #6,D0
   ADD.L D0,$3C(A0)
   MOVEA.L $3C(A0),A0
-  BSR.W	memSafeReadWord
+  BSR.W memSafeReadWord
   MOVE.W  D0,SaveOldSr
-  ADDQ.L	#2,A0
-  BSR.W	memSafeReadLong
+  ADDQ.L  #2,A0
+  BSR.W memSafeReadLong
   MOVE.L  (A7)+,(A1)
   MOVE.L  D0,SaveOldPc
   LEA EXT_13E,A1
@@ -9539,7 +9605,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.09022025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.11022025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -12026,6 +12092,42 @@ LAB_A16A86:
   DBF D0,LAB_A16A86
   MOVEM.L (A7)+,D0-D4/A0-A1
   RTS
+ValueToString:
+  MOVEM.L D0-D1/D4-D7,-(A7)
+  MOVEQ #0,D5
+  MOVEQ #0,D4
+  MOVE.L  D0,D7
+  MOVE.W  D1,D6
+  SUBQ.W  #1,D6
+  MOVEQ #7,D0
+  SUB.W D6,D0
+  LSL.W #2,D0
+  LSL.L D0,D7
+.loop:
+  ROL.L #4,D7
+  MOVE.W  D7,D0
+  ANDI.W  #$000f,D0
+  ADDI.W  #$0030,D0
+  CMPI.W  #$0039,D0
+  BLS.S .1
+  ADDQ.W  #7,D0
+.1:
+  TST.W D4
+  BNE.S .11
+  CMP.B #"0",D0
+  BEQ.S .12
+  MOVEQ #1,D4
+.11:
+  MOVE.B D0,(A0)+
+.12:
+  DBF D6,.loop
+  TST.W D4
+  BNE.S .2
+  MOVE.B #"0",(A0)+
+.2
+  MOVEM.L (A7)+,D0-D1/D4-D7
+  RTS
+
 PrintValue:
   MOVEM.L D0-D1/D5-D7,-(A7)
   MOVEQ #0,D5
@@ -12045,7 +12147,7 @@ LAB_A16AAA:
   BLS.S LAB_A16ABE
   ADDQ.W  #7,D0
 LAB_A16ABE:
-  BSR.S PrintChar
+  BSR.W PrintChar
   DBF D6,LAB_A16AAA
   MOVEM.L (A7)+,D0-D1/D5-D7
   RTS
@@ -12057,8 +12159,115 @@ AsciiCharToHexDigit:
 LAB_A16AD6:
   ADDI.B  #$0a,D0
   RTS
+PrintSerChar
+  MOVEM.L D0/A0-A1,-(A7)
+  LEA serOutTransTable,A0
+  MOVE.L A0,A1
+.findTransChar
+  TST.B (A0)
+  BEQ.S .notrans
+  
+  CMP.B (A0)+,D0
+  BNE.S .findTransChar
+  
+  SUB.L A1,A0
+  MOVE.L A0,D0
+  SUBQ.L #1,D0
+  LSL.W #2,D0
+  lea serOutTransTable2,A0
+  LEA (A0,D0),A0
+  MOVE.L (A0)+,A0
+.dotrans
+  MOVE.B (A0)+,D0
+  TST.B D0
+  BEQ.S .transdone
+  JSR RawPutChar
+  BRA.S .dotrans
+.notrans
+  JSR RawPutChar
+.transdone
+  MOVEM.L (A7)+,D0/A0-A1
+  RTS
+
+SerInTranslate:
+  CMP.B #27,D0
+  BNE.S .0
+
+  JSR WaitSerCharTimeout
+  TST.L D0
+  BMI.S .timeout
+  CMP.B #"[",D0
+  BNE.S .1
+
+  JSR WaitSerCharTimeout
+  TST.L D0
+  BMI.S .timeout
+  
+  CMP.B #"A",D0
+  BNE.S .na
+  
+  MOVE.W #CursorUp,D0
+  RTS
+.na
+  CMP.B #"B",D0
+  BNE.S .nb
+  
+  MOVE.W #CursorDown,D0
+  RTS
+.nb
+  CMP.B #"C",D0
+  BNE.S .nc
+  
+  MOVE.W #CursorRight,D0
+  RTS
+.nc
+  CMP.B #"D",D0
+  BNE.S .nd
+  
+  MOVE.W #CursorLeft,D0
+  RTS
+.nd
+.0
+  CMP.B #$7f,D0   ;DEL
+  BNE.S .1
+    MOVE.L #$84,D0
+.timeout
+.1 RTS
+
+serOutTransTable
+  DC.B 13
+  DC.B CursorDown
+  DC.B CursorUp
+  DC.B CursorLeft
+  DC.B CursorRight
+  DC.B $84
+  DC.B 0
+
+
+serTransCR: DC.B 13,10,0
+serTransCursorDn: DC.B 27,"[B",0
+serTransCursorUp: DC.B 27,"[A",0
+serTransCursorLeft: DC.B 27,"[D",0
+serTransCursorRight: DC.B 27,"[C",0
+serTransDel DC.B $7F,0
+  even
+serOutTransTable2
+  DC.L serTransCR
+  DC.L serTransCursorDn
+  DC.L serTransCursorUp
+  DC.L serTransCursorLeft
+  DC.L serTransCursorRight
+  DC.L serTransDel
+  
 PrintChar:
   MOVEM.L D0-D3/A0-A2,-(A7)
+  
+  TST.B serIO
+  BEQ.S .noser
+  TST.B D0
+  BEQ.S .noser
+  BSR PrintSerChar
+.noser
   LEA EXT_1000,A0
   LEA fontData,A1
   MOVEQ #0,D1
@@ -13881,10 +14090,21 @@ LAB_A17D26:
   SF  SetmapDPrefsFlag
   SF  LAB_A483D6
   SF  DeepTrainerActive
+  MOVE.L #9600,serSpeed
 
   if arhardware=1
   LEA arramstart-512,A1
+  LEA 128(A1),A2
+.findend
+  CMP.L A2,A1
+  BEQ.S .noprefs
+  TST.B -(A2)
+  BEQ.S .findend
+  MOVE.L A2,D0
+  SUB.L A1,D0
+  SUBQ.L #3,D0
   JSR LoadPrefsFromMem
+.noprefs
   endc
 
   LEA LAB_A483E0,A0
@@ -14272,6 +14492,53 @@ LAB_A18164:
   BEQ.W LAB_A17F60
   MOVE.L  D0,D3
   BRA.W LAB_A18114
+
+CMD_RPREFS:
+
+  MOVE.W #$10,memoryControlPrefsValue
+  LEA LAB_A483AA,A0
+  CLR.L (A0)+
+  CLR.L (A0)+
+  CLR.L (A0)+
+
+  SF  AutoConfigPrefsFlag
+  CLR.B NoresPrefsFlag 
+  CLR.B TestPrefsFlag
+
+  ST  BlankerPrefsFlag
+  SF  SaveDiskResidentPrefsFlag
+  SF  LAB_A483D6
+  SF  LAB_A481E5
+
+  SF  BootblockCoderPrefsFlag
+  CLR.L BootblockCoderValue
+
+  CLR.B DiskCoderDf0Flag
+  CLR.B DiskCoderDf1Flag
+  CLR.B DiskCoderDf2Flag
+  CLR.B DiskCoderDf3Flag
+  CLR.L DiskCoderDf0Value
+  CLR.L DiskCoderDf1Value
+  CLR.L DiskCoderDf2Value
+  CLR.L DiskCoderDf3Value
+ 
+  CLR.W DriveControlPrefsValue
+  MOVE.B  #3,VirusCheckerSettingsPrefs
+  ST.B keymap
+  SF  ExtMemAddPrefsFlag
+  CLR.L LAB_A483B6
+  ST  BurstNibblerFastStartPrefsFlag
+  MOVE.L #9600,serSpeed 
+  MOVE.W  #$0aaa,ArBgCol
+  MOVE.W  #0,ArFgCol
+
+  LEA PrefsRestoredText(PC),A0
+  JSR PrintText(PC)
+  JSR PrintReady
+  RTS
+
+PrefsRestoredText: DC.B "Default preferences restored.",13,0
+  even
 
 CMD_RCOLOR:
   LEA ColorsRestoredText(PC),A0
@@ -15198,7 +15465,7 @@ LAB_A18952:
   BNE.S LAB_A18952
   MOVEM.L (A7)+,D0/A1
   RTS
-PrintWtf:
+LAB_A18966:
   MOVEM.L D0/A1-A2,-(A7)
   LEA $20(A0),A0
   LEA LAB_A18994(PC),A2
@@ -17309,7 +17576,7 @@ LAB_A1A184:
   SF  picViewerMode
   BSR.W SwapChipRam1
   LEA WidthText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   MOVE.W  LAB_A480D6,D0
   ADDI.W  #$000e,D0
   SUB.W LAB_A480CE,D0
@@ -17321,7 +17588,7 @@ LAB_A1A1C4:
   MOVEQ #3,D1
   BSR.W PrintValue
   LEA HeightText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   MOVE.W  LAB_A480DA,D0
   SUB.W LAB_A480D2,D0
   ADDI.W  #$000e,D0
@@ -18304,7 +18571,7 @@ ShowMemQuick:
   ST  D6
 LAB_A1AE3E:
   MOVEA.L A1,A0
-  JSR memSafeReadByte(PC)
+  JSR memSafeReadByte
   CMPI.B  #$2e,D0
   BEQ.S LAB_A1AE94
   JSR InvalidAsciiToDot
@@ -20208,7 +20475,10 @@ LAB_A1C4AA:
   BSR.W SUB_A1827E
   BSR.W readCmdChar
   CMPI.W  #$002d,D0
+  BNE.S .1
+  CMP.B #$28,(A0)
   BEQ.W LAB_A1C6EA
+.1
   CMPI.W  #$0028,D0
   BEQ.W LAB_A1C6A0
   CMPI.W  #$0023,D0
@@ -20309,7 +20579,7 @@ LAB_A1C622:
   BSR.W readCmdChar
   CMPI.W  #$0029,D0
   BNE.S LAB_A1C638
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #6,(A1)
   BRA.W LAB_A1C424
 LAB_A1C638:
@@ -20331,7 +20601,7 @@ LAB_A1C65A:
   CMPI.W  #$0053,D0
   BNE.W LAB_A1C424
   MOVE.W  #7,(A1)
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   BRA.W LAB_A1C424
 LAB_A1C682:
   BSR.W ReadParameter
@@ -20339,7 +20609,7 @@ LAB_A1C682:
   BEQ.W LAB_A1C424
   MOVE.L  D0,2(A1)
   MOVE.W  #$000b,(A1)
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   BRA.W LAB_A1C424
 LAB_A1C6A0:
   BSR.W readCmdChar
@@ -20353,13 +20623,13 @@ LAB_A1C6A0:
   BSR.W readCmdChar
   CMPI.W  #$0029,D0
   BNE.W LAB_A1C424
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   CMPI.W  #$002b,D0
   BEQ.S LAB_A1C6DE
   MOVE.W  #2,(A1)
   BRA.W LAB_A1C424
 LAB_A1C6DE:
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #3,(A1)
   BRA.W LAB_A1C424
 LAB_A1C6EA:
@@ -20377,7 +20647,7 @@ LAB_A1C6EA:
   BSR.W readCmdChar
   CMPI.W  #$0029,D0
   BNE.W LAB_A1C424
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #4,(A1)
   BRA.W LAB_A1C424
 LAB_A1C72E:
@@ -20468,7 +20738,7 @@ SUB_A1C7FE:
   MOVEQ #0,D0
   MOVEQ #0,D2
   LEA stringWorkspace,A1
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #$ffff,D2
   TST.B endOfCmdString
   BNE.S LAB_A1C860
@@ -30972,7 +31242,7 @@ LAB_A22FD2:
   MOVEA.L (A1)+,A0
   MOVE.L  A0,USP
   MOVEA.L A1,A0
-  JSR PrintWtf
+  JSR LAB_A18966
   MOVEA.L A0,A1
   MOVEQ #0,D0
   MOVE.W  DrivesConnected,D1
@@ -33048,8 +33318,10 @@ CMD_SAVECFG:
   LEA notSupportedText,A0
   JMP PrintText 
 .goflash
+  LEA EXT_7000.W,A0
+  BSR.W backupMfmBuffer
 
-  LEA EXT_1000,A1
+  LEA EXT_7000,A1
   BSR SavePrefsToMem
 .pad
   MOVE.L A1,D0
@@ -33058,7 +33330,7 @@ CMD_SAVECFG:
   CLR.B (A1)+
   BRA.S .pad
 .paddone
-  LEA EXT_1000,A0
+  LEA EXT_7000,A0
   MOVE.L A0,A2
   MOVEQ #0,D0
 .docrc
@@ -33070,6 +33342,7 @@ CMD_SAVECFG:
   
   MOVE.L A1,D0
   SUB.L A2,D0
+  MOVE.L A2,A0
 
   LEA saveflashcode(PC),A2
   LEA mt_sin,A3
@@ -33083,11 +33356,21 @@ CMD_SAVECFG:
   JSR mt_sin
   ;JSR saveflashcode
 
+  MOVE.L D0,-(A7)
+  LEA EXT_7000.W,A0
+  JSR restoreMfmBuffer
+  MOVE.L (A7)+,D0
+  TST.L D0
+  BMI.S .err
+
   LEA settingsSavedText(PC),A0
   JMP PrintText 
-  RTS
 
-settingsSavedText: DC.B 13,"Settings saved sucessfully",13,0
+.err
+  LEA noflashText,A0
+  JMP PrintText 
+
+settingsSavedText: DC.B 13,"Settings saved successfully",13,0
   even
 
 saveflashcode:
@@ -33102,9 +33385,14 @@ saveflashcode:
   MOVE.W #$7fff,dmacon(a6)
 
   ;enter product identification mode (chip1)
-  MOVE.B #$AA,SECSTRT_0+($5555*2)
-  MOVE.B #$55,SECSTRT_0+($2AAA*2)
-  MOVE.B #$90,SECSTRT_0+($5555*2)
+  LEA SECSTRT_0,A3
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$90,(A3)
   BSR FlDelay2
 
   ;read id
@@ -33114,9 +33402,9 @@ saveflashcode:
   MOVE.B SECSTRT_0+$400+2,D1
 
   ;exit product identification mode (chip1)
-  MOVE.B #$AA,SECSTRT_0+($5555*2)
-  MOVE.B #$55,SECSTRT_0+($2AAA*2)
-  MOVE.B #$F0,SECSTRT_0+($5555*2)
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$F0,(A3)
   BSR FlDelay2
 
   LEA SECSTRT_0+4,A1
@@ -33128,9 +33416,9 @@ saveflashcode:
   BNE noflash2
 
   ;enter product identification mode (chip2)
-  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
-  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
-  MOVE.B #$90,SECSTRT_0+1+($5555*2)
+  MOVE.B #$AA,1(A3)
+  MOVE.B #$55,1(A4)
+  MOVE.B #$90,1(A3)
   BSR FlDelay2
 
   ;read id
@@ -33140,9 +33428,9 @@ saveflashcode:
   MOVE.B SECSTRT_0+$400+2+1,D1
 
   ;exit product identification mode (chip2)
-  MOVE.B #$AA,SECSTRT_0+1+($5555*2)
-  MOVE.B #$55,SECSTRT_0+1+($2AAA*2)
-  MOVE.B #$F0,SECSTRT_0+1+($5555*2)
+  MOVE.B #$AA,1(A3)
+  MOVE.B #$55,1(A4)
+  MOVE.B #$F0,1(A3)
   BSR FlDelay2
 
   LEA SECSTRT_0+4,A1
@@ -33154,35 +33442,27 @@ saveflashcode:
   BNE noflash2
   
   ;enable software protect (chip 1)
-  LEA SECSTRT_0,A3
-  MOVE.L A3,A4
-  ADD.L #$5555*2,A3
-  ADD.L #$2AAA*2,A4
   MOVE.B #$AA,(A3)
   MOVE.B #$55,(A4)
   MOVE.B #$A0,(A3)
 
   ;enable software protect (chip 2)
-  LEA SECSTRT_0+1,A3
-  MOVE.L A3,A4
-  ADD.L #$5555*2,A3
-  ADD.L #$2AAA*2,A4
-  MOVE.B #$AA,(A3)
-  MOVE.B #$55,(A4)
-  MOVE.B #$A0,(A3)
+  MOVE.B #$AA,1(A3)
+  MOVE.B #$55,1(A4)
+  MOVE.B #$A0,1(A3)
 
   LEA arramstart-512,A1
 
   ;write both sectors at the same time
-  MOVE.W #256-1,D1
+  MOVE.W #128-1,D1
 .loop
-  TST.B D0
+  TST.L D0
   BEQ .flclr
-  MOVE.B (A0)+,(A1)+
-  SUBQ.L #1,D0
+  MOVE.W (A0)+,(A1)+
+  SUBQ.L #2,D0
   BRA.S .flskip
 .flclr
-  CLR.B (A1)+
+  CLR.W (A1)+
 .flskip
   DBF D1,.loop
 
@@ -33203,7 +33483,7 @@ saveflashcode:
   MOVE.W D1,dmacon(A6)
   SWAP D1
   MOVE.W D1,intena(A6)
-
+  MOVEQ #0,D0
   RTS
 
 FlDelay2:
@@ -33219,17 +33499,14 @@ noflash2
   MOVE.W D1,dmacon(A6)
   SWAP D1
   MOVE.W D1,intena(A6)
-
-  LEA noflashText,A0
-  JSR PrintText
+  MOVEQ #-1,D0
   RTS
 
 badflash2
   MOVE.W #$7fff,intena+hardware
   MOVE.W #$f00,color00+hardware
   BRA.S badflash2
-
-saveflashend
+saveflashend:
 
 CMD_AXFER:
   JSR checkExecBaseValid
@@ -33264,12 +33541,16 @@ CMD_CRC16:
   JSR Print2DigitHex
   JSR PrintRangeInfo
 
-  MOVEQ #0,D0
+  JSR doCrc16
 
-  ;#define ucrc16(ch,crc) Eor(zm.crc16tbl[Eor(Shr(crc,8) AND $ff,ch)],Shl(crc,8)) AND $ffff
-  ;a = Shr(crc,8) AND $ff
-  ;b = Eor(a,ch)
-  ;crc = Eor(zm.crc16tbl[a],Shl(crc,8))
+  JSR Print4DigitHex
+  JSR PrintCR
+  JSR PrintCR
+
+  JMP PrintReady
+
+doCrc16:
+  MOVEQ #0,D0
 
   LEA crc16tbl,A3
 .crc16
@@ -33287,12 +33568,7 @@ CMD_CRC16:
 
   CMP.L A1,A2
   BNE.S .crc16
-
-  JSR Print4DigitHex
-  JSR PrintCR
-  JSR PrintCR
-
-  JMP PrintReady
+  RTS
 
 CMD_CRC32:
   JSR ReadParameter
@@ -33585,7 +33861,357 @@ CheckARRam:
   MOVE.W D7,D0
   RTS
 
+CMD_SERSP:
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ syWTF
 
+  CMP.L #300,D0
+  BLT.W syWTF
+
+  CMP.L #921600,D0
+  BGT.S syWTF
+
+  MOVE.L D0,serSpeed
+  JMP PrintReady
+
+CMD_SY:
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S syWTF
+  MOVE.L  D0,A1
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S syWTF
+  MOVE.L D0,A2
+
+  CMP.L A2,A1
+  BHI.S syWTF
+
+  LEA sendingDataText,A0
+  JSR PrintText
+
+  MOVE.B serIO,-(A7)
+
+  MOVE.L A1,A5    ;start address
+  SUB.L A1,A2
+  MOVE.L A2,D7    ;data length
+  
+  JSR doYModemSend
+  MOVE.B (A7)+,serIO
+  JMP PrintReady
+
+sendingDataText: DC.B "Starting serial YModem transfer.",13,0
+
+  even
+
+syWTF:
+  JMP PrintWTF
+
+doYModemSend:
+  ST.B serIO
+  JSR RawIOInit
+
+  MOVE.W #9,D1
+.getmode
+  JSR WaitSerCharTimeout2
+  
+  CMP.B #24,D0  ;cancelled
+  BEQ.W sendfail
+
+  CMP.B #"A",D0  ;2k block - not supported
+  BEQ.W sendfail
+
+  MOVEQ #1,D2
+  CMP.B #"C",D0  ;1k block - with acks
+  BEQ.S startsend
+
+  MOVEQ #0,D2
+  CMP.B #"G",D0  ;1k block - no acks
+  BEQ.S startsend
+
+  DBF D1,.getmode
+  BRA.W sendfail 
+startsend:
+  LEA mt_sin,A0
+  MOVE.L A0,A4
+  LEA 131(A0),A1
+  MOVE.B #X_SOH,(A0)+  ;start
+  CLR.B (A0)+ ;block
+  MOVE.B #$FF,(A0)+ ;block_neg
+  MOVE.B #"f",(A0)+
+  MOVE.L #"ile.",(A0)+
+  MOVE.L #"test",(A0)+
+  CLR.B (A0)+
+  MOVE.L D7,D0
+  JSR ConvertToBCD
+  JSR ValueToString
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+
+  MOVE.B #" ",(A0)+
+  MOVE.B #"1",(A0)+
+  MOVE.B #" ",(A0)+
+  JSR ValueToString
+.clear
+  CLR.B (A0)+
+  CMP.L A0,A1
+  BNE.S .clear
+
+  LEA 3(A4),A1
+  LEA 128(A1),A2
+  JSR doCrc16
+  ROL.W #8,D0
+  MOVE.B D0,(A0)+
+  ROL.W #8,D0
+  MOVE.B D0,(A0)+
+
+  MOVE.W #9,D1
+resend1:
+  SF.B serIO
+  LEA sendingBlockText,A0
+  JSR PrintText
+  MOVEQ #0,D0
+  MOVE.B 1(A4),D0
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
+  MOVE.L A4,A0
+  MOVE.W #blocksize128,D0
+  JSR SendBlock
+
+  TST.B serIO
+  BEQ.W sendfail
+
+  TST.L D2
+  BEQ.S .getack1
+  
+  JSR RawMayGetChar
+  CMP.B #X_CAN,D0  ;cancelled
+  BEQ.W sendfail
+  BRA.S continuesend
+
+  MOVE.W D1,-(A7)
+.getack1
+  JSR WaitSerCharTimeout2
+
+  CMP.B #X_CAN,D0  ;cancelled
+  BEQ.W sendfail
+
+  CMP.B #X_ACK,D0
+  BEQ.W .ack1
+  DBF D1,.getack1
+  MOVE.W (A7)+,D1
+  DBF D1,resend1
+  BRA sendfail
+
+.ack1
+  JSR WaitSerCharTimeout2
+  CMP.B #"A",D0  ;2k block - not supported
+  BEQ.W sendfail
+
+  MOVEQ #1,D2
+  CMP.B #"C",D0  ;1k block - with acks
+  BEQ.S continuesend
+
+  MOVEQ #0,D2
+  CMP.B #"G",D0  ;1k block - no acks
+  BEQ.S continuesend
+  BRA.W sendfail
+
+continuesend:
+  LEA mt_sin,A0
+  ADD.B #1,1(A0)
+                
+nextblock:
+  TST.L D7
+  BEQ.W allsent
+  BMI.W allsent
+
+  MOVE.B #X_STX,(A0)
+  MOVE.L D7,D6
+  MOVE.B  1(A0),D0
+  MOVE.B #$FF,D1
+  SUB.W D0,D1
+  MOVE.B D1,2(A0)
+  MOVE.L #1023,D1
+  LEA 3(A0),A1
+.copy
+  CLR.B (A1)+
+  TST.L D6
+  BEQ.S .1
+  
+  MOVE.L  A0,-(A7)
+  MOVE.L A5,A0
+  JSR memSafeReadByte
+  MOVE.B D0,-1(A1)
+  ADDQ.L #1,A5
+  MOVE.L (A7)+,A0
+  SUBQ.L #1,D6
+.1
+  DBF D1,.copy
+
+  LEA 3(A4),A1
+  LEA 1024(A1),A2
+  JSR doCrc16
+
+  MOVE.B D0,1028(A0)  ;crc
+  LSR.W #8,D0
+  MOVE.B D0,1027(A0)  ;crc
+
+resend2:
+  SF.B serIO
+  LEA sendingBlockText,A0
+  JSR PrintText
+  MOVEQ #0,D0
+  MOVE.B 1(A4),D0
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
+  MOVE.L A4,A0
+  MOVE.W #blocksize,D0
+  JSR SendBlock
+  
+  TST.B EscapePressed
+  BNE.W sendfail
+  
+  TST.B serIO
+  BEQ.W sendfail
+
+  TST.L D2
+  BEQ.S .getack2
+  
+  JSR RawMayGetChar
+  CMP.B #X_CAN,D0  ;cancelled
+  BEQ.W sendfail
+  BRA.S continuesend2
+
+.getack2
+  JSR WaitSerCharTimeout2
+
+  CMP.B #X_CAN,D0  ;cancelled
+  BEQ.W sendfail
+
+  CMP.B #X_ACK,D0
+  BEQ.W continuesend2
+
+  DBF D1,.getack2
+
+  MOVE.W (A7)+,D1
+  DBF D1,resend2
+  BRA sendfail
+
+continuesend2:
+  ADD.B #1,1(A0)
+  SUB.L #1024,D7        
+  BRA.W nextblock
+                
+  
+allsent:
+  JSR WaitSerCharTimeout2
+  MOVE.L #X_EOT,D0
+  JSR RawPutChar
+
+  JSR WaitSerCharTimeout2
+  JSR WaitSerCharTimeout2
+
+  LEA mt_sin,A0
+  MOVE.L A0,A4
+  LEA 131(A0),A1
+  MOVE.B #X_SOH,(A0)+  ;start
+  CLR.B (A0)+ ;block
+  MOVE.B #$FF,(A0)+ ;block_neg
+
+  CLR.B (A0)+ ;filename
+  MOVE.B #"0",(A0)+   ;fsize
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+ ; file date
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+   ;?
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+   ;?
+  MOVE.B #" ",(A0)+
+  MOVE.B #"1",(A0)+   ;files remaining
+  MOVE.B #" ",(A0)+
+  MOVE.B #"0",(A0)+   ;sent bytes
+.clear
+  CLR.B (A0)+
+  CMP.L A0,A1
+  BNE.S .clear
+
+  LEA 3(A4),A1
+  LEA 128(A1),A2
+  JSR doCrc16
+  ROL.W #8,D0
+  MOVE.B D0,(A0)+
+  ROL.W #8,D0
+  MOVE.B D0,(A0)+
+
+  MOVE.W #9,D1
+resend4:
+  SF.B serIO
+  LEA sendingBlockText,A0
+  JSR PrintText
+  MOVEQ #0,D0
+  MOVE.B 1(A4),D0
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
+  MOVE.L A4,A0
+  MOVE.W #blocksize128,D0
+  JSR SendBlock
+
+  TST.B serIO
+  BEQ.W sendfail
+
+  TST.L D2
+  BEQ.S .getack4
+  
+  JSR RawMayGetChar
+  BRA.S senddone
+
+.getack4
+  JSR WaitSerCharTimeout2
+  JSR WaitSerCharTimeout2
+senddone:
+  SF.B serIO
+  LEA sendCompletedText(PC),A0
+  JSR PrintText
+  RTS
+
+
+sendfail:
+  SF.B serIO
+  LEA sendFailText(PC),A0
+  JSR PrintText
+  RTS
+
+sendFailText
+  DC.B "Sending failed/cancelled.",13,0
+
+sendCompletedText
+  DC.B "Sending completed.",13,0
+
+  even
+CMD_SER:
+  NOT.B serIO
+  LEA serialDisabledText(PC),A0
+  BEQ.S .1
+  
+  LEA serialEnabledText(PC),A0
+  JSR RawIOInit
+.1
+  JMP PrintText
+  
+serialDisabledText: DC.B "Serial IO disabled",13,0
+serialEnabledText: DC.B "Serial IO enabled",13,0
+sendingBlockText: DC.B "Sending block ",0
+
+  even
 CMD_RNC:
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
@@ -34138,7 +34764,7 @@ LAB_A24C46:
   MOVE.L  D3,D1
 LAB_A24CB2:
   LEA EXT_7000.W,A0
-  BSR.W backupMfmBuffer
+  JSR backupMfmBuffer
   TST.B LAB_A480CA
   BNE.S LAB_A24CD8
   MOVEA.L DiskMonBuffer,A1
@@ -34149,7 +34775,7 @@ LAB_A24CB2:
 LAB_A24CD8:
   BSR.W ReadTracks
   BSR.W PrintDiskOpResult
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   SF pdosRead
   SF mfmRead
   SF sectorRead
@@ -34888,7 +35514,7 @@ LAB_A25508:
   CLR.B currDriveNo
   BSR.W SUB_A237D2
   BPL.S LAB_A25532
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   JSR restoreMfmBuffer
   BRA.S LAB_A25552
 LAB_A25532:
@@ -34902,7 +35528,7 @@ LAB_A25532:
 LAB_A25548:
   JSR PrintText
 LAB_A2554E:
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
 LAB_A25552:
   MOVE.B  (A7)+,currDriveNo
   BSR.S SUB_A255A2
@@ -35036,7 +35662,7 @@ LAB_A2576E:
   TST.W D0
   BNE.S LAB_A2579A
   MOVEQ #-8,D0
-  BRA.W PrintDiskOpResult
+  JMP PrintDiskOpResult
 LAB_A2579A:
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
@@ -35049,12 +35675,13 @@ LAB_A2579A:
   EOR.L D2,-8(A1)
   ST  TrackBufferModified
   JSR restoreMfmBuffer
-  BRA.W PrintDiskOpResult
+  JMP PrintDiskOpResult
 LAB_A257C6:
-  JSR PrintDiskOpResult(PC)
+  JSR PrintDiskOpResult
   JSR restoreMfmBuffer
-  BMI.W PrintDiskOpResult
+  BMI.S .1
   RTS
+.1 JMP PrintDiskOpResult
 BBCodeYNText:
   DC.B  "Sure to protect bootblock in drive DF",0
 
@@ -35113,7 +35740,7 @@ filecrcdone:
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   MOVE.W  D1,D0
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   SF  scrollLock
   MOVE.B  (A7)+,currDriveNo
   RTS
@@ -36121,14 +36748,14 @@ LAB_A2644A:
   LEA stringWorkspace,A1
   MOVE.L  D2,D0
   MOVE.B  currDriveNo,-(A7)
-  BSR.W SaveFileInit
+  JSR SaveFileInit
   BMI.S LAB_A26486
   MOVEQ #$36,D0
   LEA LAB_A483E0,A2
   BSR.W SaveFileData
   JSR HandleDiskFull
   BMI.S LAB_A26486
-  BSR.W AddFileToDirBlock
+  JSR AddFileToDirBlock
   LEA JoyCodesSavedText(PC),A0
   JSR PrintText
   MOVEQ #0,D0
@@ -36364,6 +36991,132 @@ CMD_MFM:
 mfmWtf:
   JMP PrintWTF
 
+SerPrint:
+  move.b    (A0)+,D0              Get a string character.
+  beq.s     .1                    Exit if is the terminating zero.
+  cmp.b     #10,D0                Is it a newline?
+  bne.s     .notlf
+  moveq     #13,D0                If so, output a CR first.
+  bsr.w     RawPutChar
+  moveq     #$0A,D0
+.notlf
+  bsr.w     RawPutChar            Output the character.
+  bra.s     SerPrint              Go on to next character.
+.1
+  rts       
+
+RawIOInit:
+  MOVE.L #3546895,D0
+  TST.B palMode
+  BNE.S .1
+  MOVE.L #3579545,D0
+.1
+  MOVE.L serSpeed,D1
+  CMP.L #65535,D1
+  BLE.S .small
+  
+  MOVEQ #0,D2
+.bigdiv
+  SUB.L D1,D0
+  BLT.S .divdone
+  
+  ADD.L #1,D2
+  BRA.S .bigdiv
+
+.small
+  DIVU D1,D0
+  MOVE.W D0,D2
+
+.divdone
+  SUBQ.W #1,D2
+  
+  MOVE.W D2,$00dff032       ; Set up the SERPER register.
+  rts
+
+RawMayGetChar:
+  MOVE.L D1,-(A7)
+  moveq     #-1,D0
+  move.w    $DFF018,D1             ;Read SERDATR.
+  btst      #$0E,D1               ;Is a byte in the receive buffer?
+  beq.s     .1                    ;If not, return -1 and exit.
+  move.w    #$0800,$DFF09C         ;Clear the serial receive interrupt.
+  and.l     #$0000FF,D1           ;Get the received character.
+  move.l    D1,D0                 ;Return it to the caller.
+.1
+  MOVE.L (A7)+,D1
+  rts         
+
+WaitSerChar:
+  bsr.s     RawMayGetChar
+  tst.l     D0                    ;Did we get a character?
+  bmi.s     WaitSerChar              ;Continue waiting if not.
+  rts                             ;Return the character.
+
+WaitSerCharTimeout:
+  MOVE.B  #0,ciaatodlo
+.2
+  bsr.s RawMayGetChar
+  tst.l D0
+  bpl.s .1
+  CMP.B #100,ciaatodlo
+  BNE.S .2
+  SF.B serIO
+  LEA serRecvTimeoutText(PC),A0
+  JSR PrintText 
+.1:
+  rts
+
+WaitSerCharTimeout2:
+  MOVE.B  #0,ciaatodlo
+.2
+  bsr.s RawMayGetChar
+  tst.l D0
+  bpl.s .1
+  CMP.B #100,ciaatodlo
+  BNE.S .2
+.1:
+  rts
+
+SendBlock:
+  MOVEM.L D0-D2/A0,-(A7)
+  TST.W D0
+  BEQ.S .end  
+  SUBQ.W #1,D0
+  MOVE.W D0,D2
+.sendchars
+  MOVE.B (A0)+,D0
+  JSR RawPutChar
+  DBF D2,.sendchars
+.end 
+  MOVEM.L (A7)+,D0-D2/A0
+  RTS
+
+RawPutChar:
+  TST.B serIO
+  BEQ.S .noser
+  MOVE.B  #0,ciaatodlo
+
+.trysend  
+  CMP.B #100,ciaatodlo
+  BEQ.S .timeout
+  move.w    $DFF018,D1             ;Read SERDATR.
+  btst      #13,D1                ;Transmitter ready?
+  beq.s     .trysend                 ;Wait until true.
+
+  and.w     #$FF,D0               ;Mask out all but bits 0-7.
+  or.w      #$0100,D0             ;Set the stop bit.
+  move.w    D0,$DFF030             ;Write to SERDAT.
+.noser
+  rts
+.timeout
+  SF.B serIO
+  LEA serSendTimeoutText(PC),A0
+  JSR PrintText
+  RTS
+
+serSendTimeoutText: DC.B "Timeout while sending. Serial disabled.",13,0
+serRecvTimeoutText: DC.B "timeout while receiving. Serial disabled.",13,0
+  even
 CMD_DBG:
   ST debuggerMode
   RTS
@@ -36767,7 +37520,7 @@ LAB_A26A34:
 SUB_A26A52:
   EXG A0,A6
   SF  LAB_A48332
-  JSR SUB_A21A66(PC)
+  JSR SUB_A21A66
   EXG A0,A6
   TST.W D0
   BMI.S LAB_A26A34
@@ -38520,6 +39273,7 @@ CMD_PAL:
   MOVE.W  #$0020,beamcon0+hardware
   MOVE.W  #$0020,SaveBeamCon0
   CLR.W VgaModeFlag
+  ST.B palMode
 
   JSR PrintReady
   RTS
@@ -38527,6 +39281,7 @@ CMD_NTSC:
   MOVE.W  #0,beamcon0+hardware
   MOVE.W  #0,SaveBeamCon0
   CLR.W VgaModeFlag
+  SF.B palMode
 
   JSR PrintReady
   RTS
@@ -39492,9 +40247,9 @@ LAB_A293A0:
   MOVEQ #0,D0
 LAB_A293A2:
   MOVE.L  D0,-(A7)
-  MOVE.W	#$007c,D0
-  MOVE.W	#$00c7,D1
-  JSR	clearScreenArea
+  MOVE.W  #$007c,D0
+  MOVE.W  #$00c7,D1
+  JSR clearScreenArea
   MOVE.L  (A7)+,D0
   BRA.W LAB_A29608
 LAB_A293AA:
@@ -41123,6 +41878,7 @@ LoadPrefs:
   JSR readFileBytes
   BMI.W LAB_4210BC
   LEA EXT_1000,A1
+  MOVE.L  fileSize,D0
   JSR LoadPrefsFromMem
   JSR restoreMfmBuffer
   BPL.W LAB_4210FA
@@ -41156,6 +41912,7 @@ LoadPrefsFromMem:
   CMPI.L  #$70726566,(A1)+
   BNE.W LAB_4210B2
   LEA LAB_4211F4(PC),A2
+  MOVE.L D0,D1
 LAB_42109E:
   MOVE.L  (A2)+,D0
   BEQ.W LAB_4210B2
@@ -41164,6 +41921,8 @@ LAB_42109E:
   SUBQ.W  #1,D0
 LAB_4210AA:
   MOVE.B  (A1)+,(A3)+
+  SUBQ.L #1,D1
+  BEQ.S LAB_4210B2
   DBF D0,LAB_4210AA
   BRA.S LAB_42109E
 LAB_4210B2:
@@ -41273,6 +42032,8 @@ LAB_4211F4:
   DC.W  $0004
   DC.L  BurstNibblerFastStartPrefsFlag
   DC.W  $0001
+  DC.L  serSpeed
+  DC.W  4
   DC.L  $0000
 
 CMD_COPY:
@@ -41537,6 +42298,7 @@ HelpText:
   DC.B  "    unpack: Unpacks with pack-command packed mem - unpack dest endofpacked",$D
   DC.B  "     color: Set/show module-editor colors        - color (back pen)",$D
   DC.B  "    rcolor: Reset module-editor colors           - rcolor",$D
+  DC.B  "    rprefs: Reset all preferences                - rprefs",$D
   DC.B  "        tm: Show remarks about curr. program     - tm",$D
   DC.B  "       tms: Set remark about curr. programaddr.  - tms addr",$D
   DC.B  "       tmd: Delete remark about program          - tmd addr",$D
@@ -46267,7 +47029,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $efd1439a ; v0.8.0
+  DC.L $483c99b5 ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -46590,6 +47352,7 @@ cursorEnabled:
   DS.B  1
 LAB_A481E5:
   DS.B  1
+  DS.B  1
   even
 VirusCheckerSettingsPrefs:
   DS.W  1
@@ -46636,6 +47399,7 @@ breakpointsActive:
   DS.W  1
 autofireP1ORP2:
   DS.W  1
+  even
 newActivateMode:
   DS.B  1
 newActivateModeLo:
@@ -46647,18 +47411,22 @@ currMouseY:
   DS.W  1
 viewingPrefs:
   DS.W  1
+  even
 P1AutoFirePrefsSetting:
   DS.B  1
 P1AutoFireSettingLo:
   DS.B  1
+  even
 P2AutoFirePrefsSetting:
   DS.B  1
 P2AutoFireSettingLo:
   DS.B  1
+  even
 DrivesConnected:
   DS.B  1
 DrivesConnectedLo:
   DS.B  1
+  even
 DriveControlPrefsValue:
   DS.B  1
 DriveControlPrefsValueLo:
@@ -46670,6 +47438,7 @@ LAB_A4822A:
   DS.B  1
 LAB_A4822B:
   DS.B  1
+  even
 memoryControlPrefsValue:
   DS.B  1
 memoryControlPrefsValueLo:
@@ -46725,6 +47494,7 @@ mfmSectorAddresses:
   DS.L  $B
   DS.L  1   ;extra sector for PDOS read function
   DS.W  1
+;dont split1
 DiskCoderFlags:
 DiskCoderDf0Flag:
   DS.B  1
@@ -46748,6 +47518,7 @@ DiskCoderDf3Value:
   DS.L  1
 DiskCoderDf4Value:
   DS.L  1
+;end
 LAB_A4829A:
   DS.L  1
 LAB_A4829E:
@@ -46796,6 +47567,7 @@ VerifyFormat:
   even
 QuickFormat:
   DS.W  1
+  even
 FilenameLen:
   DS.B  1
 FilenameLenLo:
@@ -46968,12 +47740,14 @@ viewingPrefsCopy:
   DS.B  1
 LAB_A483D3:
   DS.B  1
+;dont split
 BlankerPrefsFlag:
   DS.B  1
 SaveDiskResidentPrefsFlag:
   DS.B  1
 LAB_A483D6:
   DS.B  1
+;end
 SetmapDPrefsFlag:
   DS.B  1
 LAB_A483D8:
@@ -47072,28 +47846,32 @@ sectorRead:
   DS.B  1
 byteRead:
   DS.B  1
-full64k
+full64k:
   DS.B  1
-fullPal
+fullPal:
   DS.B  1
-apiActive
+apiActive:
   DS.B 1
-apiCall
+apiCall:
   DS.B 1
-DisableVposWrite
+DisableVposWrite:
   DS.B 1
 LAB_A310FC:
   DS.B  1
 RomAvoidFlag:
   DS.B  1
-ks2memTested
+ks2memTested:
+  DS.B 1
+serIO:
+  DS.B 1
+palMode:
   DS.B 1
   even
-newRamdiskAddr
+newRamdiskAddr:
   DS.L  1
-trackStartSkip
+trackStartSkip:
   DS.L  1
-trackMaxByteCount
+trackMaxByteCount:
   DS.L  1
 memSaveEnd:
   DS.L  1
@@ -47123,7 +47901,8 @@ stackSave:
   DS.L 1
 seed:
   DS.L 1
-
+serSpeed
+  DS.L 1
 
   if arsoft=1
   even
