@@ -4,7 +4,7 @@ PROC checkArMem(arbase) IS Long(arbase+4)="ACTI"
 
 PROC calcArChecksum(arbase)
   DEF check=0,i
-  FOR i:=arbase TO arbase+1024*256-4 STEP 4
+  FOR i:=arbase+$7c TO arbase+(1024*256)-8 STEP 4
     check:=check+Long(i)
   ENDFOR
 ENDPROC check
@@ -110,10 +110,10 @@ PROC main()
     RETURN
   ENDIF
   
-  checksum:=calcArChecksum(arbase)
+  checksum:=calcArChecksum(romFile)
   
   //check checksum
-  IF checksum<>Long(arbase+(256*1024)-4)
+  IF checksum<>Long(romFile+(256*1024)-4)
     WriteF('Warning: The ROM checksum is not correct. It will be corrected when writing\n\n')
   ENDIF
   WriteF('\nFlashing is about to commence. Corruption may occur if power is lost during the process. ')
@@ -127,10 +127,11 @@ PROC main()
   ENDIF
 
   //fix checksum  
-  PutLong(arbase+(256*1024)-4,checksum)
+  PutLong(romFile+(256*1024)-4,checksum)
   
   //copy pref settings to the new file
   IF Long(arbase+$40000-512)="pref"
+    WriteF('\nCopy prefs from current ROM')
     CopyMem(arbase+$40000-512,romFile+$40000-512,128)
   ENDIF
   
