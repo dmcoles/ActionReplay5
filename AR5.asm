@@ -264,10 +264,14 @@ ciaacrb    EQU $BFEF01
 
 blocksize=1029
 blocksize128=133
-X_STX=2
-X_ACK=6
-X_EOT=4
+X_SUCCESS=0
+X_FAILURE=-1
 X_SOH=1
+X_STX=2
+X_ETX=3
+X_EOT=4
+X_ACK=6
+X_NAK=21
 X_CAN=24
 
 rsnoop SET 0
@@ -4905,6 +4909,11 @@ commandTable:
   DC.L  CMD_BOOTPROT
   DC.L cmd_bootprot_help
 
+  DC.B  "RESETCFG",0
+  even
+  DC.L  CMD_RESETCFG
+  DC.L cmd_resetcfg_help
+
   DC.B  "ROMAVOID",0
   even
   DC.L  CMD_ROMAVOID
@@ -4929,6 +4938,11 @@ commandTable:
   even
   DC.L  CMD_SAFEDISK
   DC.L cmd_safedisk_help
+
+  DC.B  "SERSPEED",0
+  even
+  DC.L  CMD_SERSPEED
+  DC.L cmd_serspeed_help
 
   DC.B  "MAKEDIR",0
   even
@@ -5022,11 +5036,6 @@ commandTable:
   DC.L  CMD_CLRAPI
   DC.L cmd_clrapi_help
 
-  DC.B  "RPREFS",0
-  even
-  DC.L  CMD_RPREFS
-  DC.L cmd_rprefs_help
-
   DC.B  "FCRC16",0
   even
   DC.L  CMD_FCRC16
@@ -5112,17 +5121,15 @@ commandTable:
   DC.L  CMD_DISKIO
   DC.L cmd_diskio_help
 
+  DC.B  "SYSRAM",0
+  even
+  DC.L  CMD_SYSRAM
+  DC.L cmd_sysram_help
 
   DC.B  "AXFER",0
   even
   DC.L  CMD_AXFER
   DC.L cmd_axfer_help
-
-  DC.B  "SERSP",0
-  even
-  DC.L  CMD_SERSP
-  DC.L cmd_sersp_help
-
 
   DC.B  "DOSIO",0
   even
@@ -5666,6 +5673,11 @@ commandTable:
   even
   DC.L  CMD_SY
   DC.L cmd_sy_help
+
+  DC.B  "RY",0
+  even
+  DC.L  CMD_RY
+  DC.L cmd_ry_help
 
   DC.B  "FC",0
   even
@@ -6804,9 +6816,9 @@ cmd_rpb_help:
   DC.B  "  RPB <start-offset> (<num-bytes> <dest-addr>)",13
   DC.B 0
 
-cmd_rprefs_help:
-  DC.B  "RPREFS (Reset all prefs)",13
-  DC.B  "  RPREFS",13
+cmd_resetcfg_help:
+  DC.B  "RESETCFG (Reset all prefs)",13
+  DC.B  "  RESETCFG",13
   DC.B 0
 
 cmd_rps_help:
@@ -6827,6 +6839,11 @@ cmd_rs_help:
 cmd_rt_help:
   DC.B  "RT (Read tracks from active drive)",13
   DC.B  "  RT <start-track> (<num-tracks> <dest-addr>)",13
+  DC.B 0
+
+cmd_ry_help:
+  DC.B  "RY (Receive ymodem)",13
+  DC.B  "  RY <dest-addr>",13
   DC.B 0
 
 cmd_sa_help:
@@ -6864,9 +6881,9 @@ cmd_ser_help:
   DC.B  "  SER",13
   DC.B 0
 
-cmd_sersp_help:
-  DC.B  "SERSP (Set serial speed)",13
-  DC.B  "  SERSP <baud>",13
+cmd_serspeed_help:
+  DC.B  "SERSPEED (Set serial speed)",13
+  DC.B  "  SERSPEED <baud>",13
   DC.B 0
 
 cmd_setapi_help:
@@ -6976,7 +6993,12 @@ cmd_st_help:
 
 cmd_sy_help:
   DC.B  "SY (Send ymodem)",13
-  DC.B  "  SY",13
+  DC.B  "  SY <start-addr> <end-addr>",13
+  DC.B 0
+
+cmd_sysram_help:
+  DC.B  "SYSRAM (Show system ram blocks)",13
+  DC.B  "  SYSRAM",13
   DC.B 0
 
 cmd_t_help:
@@ -9605,7 +9627,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.11022025 - private alpha release for TTE",0
+  DC.B  "                 v0.8.0.12022025 - private alpha release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -14493,7 +14515,7 @@ LAB_A18164:
   MOVE.L  D0,D3
   BRA.W LAB_A18114
 
-CMD_RPREFS:
+CMD_RESETCFG:
 
   MOVE.W #$10,memoryControlPrefsValue
   LEA LAB_A483AA,A0
@@ -14629,8 +14651,6 @@ CMD_FLASH:
   JMP PrintReady
 
 .goflash
-
-
   MOVE.L D1,EXT_20000+$40000-4
   LEA flashcode(PC),A0
   LEA mt_sin,A1
@@ -33317,12 +33337,13 @@ CMD_SAVECFG:
 
   LEA notSupportedText,A0
   JMP PrintText 
+
 .goflash
   LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
 
   LEA EXT_7000,A1
-  BSR SavePrefsToMem
+  JSR SavePrefsToMem
 .pad
   MOVE.L A1,D0
   AND.B #3,D0
@@ -33550,11 +33571,17 @@ CMD_CRC16:
   JMP PrintReady
 
 doCrc16:
+  MOVEM.L D1-D2/A1/A3,-(A7)
   MOVEQ #0,D0
 
   LEA crc16tbl,A3
 .crc16
-  MOVE.B (A1)+,D1
+  MOVEM.L D0/A0,-(A7)
+  MOVE.L A1,A0
+  JSR memSafeReadByte
+  MOVE.B D0,D1
+  ADDQ.L #1,A1
+  MOVEM.L (A7)+,D0/A0
 
   MOVE.W D0,D2
   LSR.W #8,D2
@@ -33566,8 +33593,10 @@ doCrc16:
   LSL.W #8,D0
   EOR.W D2,D0
 
+
   CMP.L A1,A2
   BNE.S .crc16
+  MOVEM.L (A7)+,D1-D2/A1/A3
   RTS
 
 CMD_CRC32:
@@ -33593,7 +33622,11 @@ CMD_CRC32:
 
   LEA crc32tbl,A3
 .crc16
-  MOVE.B (A1)+,D1
+  MOVEM.L D0/A0,-(A7)
+  MOVE.L A1,A0
+  JSR memSafeReadByte
+  MOVE.B D0,D1
+  MOVEM.L (A7)+,D0/A0
 
   MOVEQ #0,D2
   MOVE.B D0,D2
@@ -33802,6 +33835,58 @@ filecrc32done:
   MOVE.B  (A7)+,currDriveNo
   RTS
 
+CMD_SYSRAM:
+  
+  JSR checkExecBaseValid
+  TST.W D0
+  BNE.S .execok
+  JMP LAB_A1B1FC
+
+.execok
+  LEA memoryBlocksText(PC),A0
+  JSR PrintText
+  MOVE.L  EXT_4.W,D0
+
+  MOVE.L D0,A0  
+;  MaxLocMem EQU 62
+;MemList equ 322
+
+  LEA 322(A0),A0 ;MemList
+  JSR memSafeReadLong 
+.nextblock
+  MOVE.L D0,A0
+  MOVE.L D0,A1
+  JSR memSafeReadLong
+  TST.L D0
+  BEQ.S .done
+
+  MOVE.L A1,D0
+  CMP.L #$40000,D0
+  BGT.S .notchip
+  
+  MOVEQ #0,D0
+.notchip
+  
+  JSR PrintAddressHex
+  MOVE.B #"-",D0
+  JSR PrintChar
+  LEA $18(A1),A0
+  JSR memSafeReadLong
+  JSR PrintAddressHex
+  JSR PrintCR
+
+  MOVE.L A1,A0
+  JSR memSafeReadLong
+  TST.L D0
+  BNE.S .nextblock
+.done
+  JMP PrintReady
+
+memoryBlocksText:
+  DC.B "System Memory blocks:",13,0
+  even
+
+  
   if arhardware=1
 CMD_ARRAM:
   JSR CheckARRam
@@ -33861,19 +33946,367 @@ CheckARRam:
   MOVE.W D7,D0
   RTS
 
-CMD_SERSP:
+CMD_SERSPEED:
   JSR ReadParameter
   TST.B ParamFound
-  BEQ syWTF
+  BEQ printSpeed
 
   CMP.L #300,D0
   BLT.W syWTF
 
   CMP.L #921600,D0
-  BGT.S syWTF
+  BGT.W syWTF
 
   MOVE.L D0,serSpeed
+printSpeed:
+  LEA currentSpeedText(PC),A0
+  JSR PrintText
+  MOVE.L serSpeed,D0
+  JSR ConvertToBCD
+  JSR Print6DigitHex
+  JSR PrintCR
+  
   JMP PrintReady
+
+currentSpeedText: DC.B "Serial port speed: !",0
+  even
+
+CMD_RY:
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.W syWTF
+  MOVE.L  D0,A1
+
+  LEA receivingFilesText,A0
+  JSR PrintText
+
+  MOVE.B serIO,-(A7)
+  ST.B serIO
+
+  MOVEQ #0,D5   ;not gmodem
+nextfile:
+  MOVEQ #9,D1
+ryloop1
+  MOVE.W D1,-(A7)
+  MOVE.L #"C",D0
+  JSR RawPutChar
+
+  LEA mt_sin,A0
+  MOVEQ #0,D0 ;expected block
+  JSR GetBlock
+  CMP.B #X_SUCCESS,D0
+  BNE.S notsuccess
+
+  TST.L D5  ;gmode
+  BNE.S gotblock0
+
+  MOVE.L #X_ACK,D0
+  JSR RawPutChar
+
+  BRA.S gotblock0
+notsuccess:
+  MOVE.W (A7)+,D1
+  DBF D1,ryloop1
+  BRA.W ryfail
+  
+gotblock0:
+  TST.W (A7)+
+  
+  LEA mt_sin,A0
+  TST.B (A0)
+  BEQ.W ryend
+
+  MOVE.L #"C",D0
+  JSR RawPutChar
+
+  SF.B serIO
+  MOVE.L A0,-(A7)
+  LEA storingFileText(PC),A0
+  JSR PrintText
+  MOVE.L (A7),A0
+  JSR PrintText
+  LEA ataddrText(PC),A0
+  JSR PrintText
+  MOVE.L A1,D0
+  JSR PrintAddressHex
+  JSR PrintCR
+  MOVE.L (A7)+,A0
+  ST.B serIO
+
+.findfnend  TST.B (A0)+
+  BNE.S .findfnend
+  MOVEQ #0,D4
+  MOVEQ #0,D0
+.calclen
+  MOVE.B (A0)+,D0
+  CMP.B #" ",D0
+  BEQ.S .endlen
+  SUB.B #"0",D0
+  MOVE.L D4,D6
+  LSL.L #3,D6
+  ADD.L D4,D4
+  ADD.L D6,D4
+  ADD.L D0,D4
+  BRA .calclen
+.endlen
+  MOVE.L A1,A0
+  ADD.L D4,A1
+
+  MOVEQ #1,D7
+  MOVEQ #9,D6
+
+.blockloop:
+  SF.B serIO
+  MOVE.L A0,-(A7)
+  LEA receivingBlockText(PC),A0
+  JSR PrintText
+  MOVE.B D7,D0
+  JSR Print2DigitHex
+  JSR PrintCR
+  MOVE.L (A7)+,A0
+  ST.B serIO
+
+  CMP.L #1,D7
+  BEQ.S .gmode  ;noack for first block
+  TST.L D5  ;gmode
+  BNE.S .gmode
+
+  MOVE.L #X_ACK,D0
+  JSR RawPutChar
+
+.gmode
+
+  MOVE.B D7,D0  ;expected block
+  JSR GetBlock
+  CMP.B #X_SUCCESS,D0
+  BEQ .blocksuccess
+  
+  CMP.B #X_EOT,D0
+  BNE.S .noteot
+  MOVE.L #X_NAK,D0
+  JSR RawPutChar
+  JSR WaitSerCharTimeout2
+  MOVE.L #X_ACK,D0
+  JSR RawPutChar
+  BRA.W .filedone
+.noteot
+
+  CMP.B #X_CAN,D0
+  BEQ.S .filedone
+  MOVE.L #X_NAK,D0
+  JSR RawPutChar
+
+  DBF D6,.blockloop
+  BRA.S ryfail
+  
+.blocksuccess
+
+  TST.L D4
+  BLE.S .toomanybytes
+
+  ADDQ.L #1,D7
+  SUB.L D1,D4  ;bytes left
+  MOVEQ #9,D6
+  BRA.W .blockloop
+
+.toomanybytes
+.filedone
+  BRA.W nextfile
+ryend:
+  MOVE.B (A7)+,serIO
+  LEA receiveOkText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+
+ryfail:
+  MOVE.B (A7)+,serIO
+  LEA receiveFailText(PC),A0
+  JSR PrintText
+  JMP PrintReady
+ 
+;expected block num D0
+;address to store block data A0
+;
+;returns error code in D0, block length in D1
+GetBlock:
+  MOVEM.L D2-D6/A1-A2/A3/A5,-(A7)
+  MOVE.B D0,D6    ;expected block num
+
+  MOVEQ #0,D2
+  JSR WaitSerCharTimeout2
+
+  MOVE.L #128,D1
+  CMP.B #X_SOH,D0
+  BEQ.W .blockstart  
+
+  MOVE.L #1024,D1
+  CMP.B #X_STX,D0
+  BEQ.W .blockstart  
+
+  MOVE.L #2048,D1
+  CMP.B #X_ETX,D0
+  BEQ.S .blockstart  
+  
+  CMP.B #X_EOT,D0
+  BNE.S .noteot
+ SF.B serIO
+ LEA eotText(PC),A0
+ JSR PrintText
+ ST.B serIO
+  MOVE.L #X_EOT,D0
+  BRA.W .blockreturn
+.noteot
+  CMP.B #X_CAN,D0
+  BNE.S .notcan
+ SF.B serIO
+ LEA canText(PC),A0
+ JSR PrintText
+ ST.B serIO
+  MOVE.L #X_CAN,D0
+  BRA.W .blockreturn
+.notcan
+ SF.B serIO
+ LEA unknownText(PC),A0
+ JSR PrintText
+ JSR Print2DigitHex
+ JSR PrintCR
+ ST.B serIO
+  MOVE.L #X_FAILURE,D0
+  BRA.W .blockreturn
+
+.blockstart
+  JSR WaitSerCharTimeout2
+  MOVE.B D0,D3  ;block num
+
+  MOVE.W #1,errcode
+  JSR WaitSerCharTimeout2 ;inverse block num
+  CMP.L #-1,D0
+  BEQ.W .blockfail
+  MOVE.B D0,D4
+  
+  MOVE.L A0,A1
+  ;MOVE.L A0,A2
+  ;ADD.L D1,A2
+  LEA mt_sin,A0
+  MOVE.W D1,D2
+  SUBQ.W #1,D2
+  MOVE.W #2,errcode
+.getblock:
+  JSR WaitSerCharTimeout2 ;block byte
+  CMP.L #-1,D0
+  BEQ.W .blockfail
+  MOVE.B D0,(A0)+  
+  DBF D2,.getblock
+    
+  MOVE.W #3,errcode
+  JSR WaitSerCharTimeout2 ;crc byte1
+  CMP.L #-1,D0
+  BEQ.W .blockfail
+  MOVE.B D0,D5
+  
+  MOVE.W #4,errcode
+  JSR WaitSerCharTimeout2 ;crc byte2
+  CMP.L #-1,D0
+  BEQ.W .blockfail
+  
+  LSL.W #8,D5
+  MOVE.B D0,D5
+
+  MOVE.W #5,errcode
+  NOT.B D4
+  CMP.B D3,D4
+  BNE.W .blockfail
+
+  MOVE.W #6,errcode
+  CMP.B D3,D6  ;block num and expected block num
+  BNE.S .wrongblock
+
+  MOVE.L A1,A0
+  LEA mt_sin,A1
+  
+  MOVE.W D1,D2
+  SUB.W #1,D2
+  
+  LEA crc16tbl,A3
+  MOVEQ #0,D4
+.copydata
+  MOVE.B (A1)+,D0
+
+  MOVE.W D4,D3
+  LSR.W #8,D3
+
+  EOR.B D0,D3
+
+  ADD.W D3,D3
+  MOVE.W (A3,D3),D3
+  LSL.W #8,D4
+  EOR.W D3,D4
+
+  CMP.L A0,A1
+  BEQ.S .skipcopy
+  JSR memSafeUpdateByte
+.skipcopy
+  ADDQ.L #1,A0
+  DBF D2,.copydata
+
+  ;JSR doCrc16
+  ;MOVE.W D0,D2
+  
+  MOVE.W #7,errcode
+  CMP.W D5,D4
+  BNE.S .badcrc
+
+  MOVE.W #0,errcode
+
+.success  
+ SF.B serIO
+ LEA BlockOkText(PC),A0
+ JSR PrintText
+ ST.B serIO
+  MOVEQ #X_SUCCESS,D0
+.blockreturn
+  MOVEM.L (A7)+,D2-D6/A1-A2/A3/A5
+  RTS
+.wrongblock
+ SF.B serIO
+ LEA wrongBlockText(PC),A0
+ JSR PrintText
+ ST.B serIO
+  SUB.B #1,D6
+  CMP.B D3,D6
+  BNE.S .blockfail
+  BRA.S .success
+  
+.badcrc
+ SF.B serIO
+ LEA badCrcText(PC),A0
+ JSR PrintText
+ ST.B serIO
+.blockfail
+ SF.B serIO
+ LEA serErrorText(PC),A0
+ JSR PrintText
+ MOVE.W errcode,D0
+ JSR Print1DigitHex
+ JSR PrintCR
+ ST.B serIO
+ MOVE.L #X_FAILURE,D0
+ BRA.S .blockreturn
+
+eotText: DC.B "EOT received",13,0
+canText: DC.B "CAN received",13,0
+unknownText: DC.B "unknown block type received: ",0
+BlockOkText: DC.B "Block ok",13,0
+serErrorText: DC.B "Serial error: ",0
+wrongBlockText: DC.B "Wrong block",13,0
+badCrcText: DC.B "Bad Block CRC",13,0
+receivingFilesText: DC.B "Waiting for files..",13,0
+storingFileText: DC.B "Receiving file: ",13,0
+ataddrText: DC.B " to address: ",0
+receivingBlockText: DC.B "Receiving block: ",0
+receiveFailText: DC.B "Receive failed",13,0
+receiveOkText: DC.B "Receive completed",13,0
+  even
 
 CMD_SY:
   JSR ReadParameter
@@ -33923,17 +34356,25 @@ doYModemSend:
   CMP.B #"A",D0  ;2k block - not supported
   BEQ.W sendfail
 
-  MOVEQ #1,D2
+  MOVEQ #0,D2
   CMP.B #"C",D0  ;1k block - with acks
   BEQ.S startsend
 
-  MOVEQ #0,D2
+  MOVEQ #1,D2
   CMP.B #"G",D0  ;1k block - no acks
   BEQ.S startsend
 
   DBF D1,.getmode
   BRA.W sendfail 
 startsend:
+  SF.B serIO
+  LEA sendModeText(PC),A0
+  JSR PrintText
+  
+  JSR PrintChar
+  JSR PrintCR
+  ST.B serIO
+  
   LEA mt_sin,A0
   MOVE.L A0,A4
   LEA 131(A0),A1
@@ -33989,41 +34430,89 @@ resend1:
 
   TST.L D2
   BEQ.S .getack1
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA strmText(PC),A0
+  JSR PrintText
+  MOVE.L (A7)+,A0
+  ST.B serIO
   
   JSR RawMayGetChar
   CMP.B #X_CAN,D0  ;cancelled
   BEQ.W sendfail
-  BRA.S continuesend
+  BRA.W .ack1
 
-  MOVE.W D1,-(A7)
 .getack1
-  JSR WaitSerCharTimeout2
+  SWAP D1
+  MOVEQ.W #9,D1
+.getack1loop
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA waitAckText(PC),A0
+  JSR PrintText
+  MOVE.L (a7)+,A0
+  ST.B serIO
 
+  MOVEQ #-3,D0
+  TST.B EscapePressed
+  BNE.W sendfail
+
+  JSR WaitSerCharTimeout2
+  
   CMP.B #X_CAN,D0  ;cancelled
   BEQ.W sendfail
 
   CMP.B #X_ACK,D0
   BEQ.W .ack1
-  DBF D1,.getack1
-  MOVE.W (A7)+,D1
+  
+  CMP.B #"G",D0
+  BEQ.W .ack1
+
+  SF.B serIO
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
+
+  DBF D1,.getack1loop
+  SWAP D1
   DBF D1,resend1
+  MOVEQ #-1,D0
   BRA sendfail
 
 .ack1
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA ackReceivedText(PC),A0
+  JSR PrintText
+  MOVE.L (a7)+,A0
+  ST.B serIO
+  MOVEQ.W #9,D1
+.wait1
   JSR WaitSerCharTimeout2
   CMP.B #"A",D0  ;2k block - not supported
   BEQ.W sendfail
 
-  MOVEQ #1,D2
+  MOVEQ #0,D2
   CMP.B #"C",D0  ;1k block - with acks
   BEQ.S continuesend
 
-  MOVEQ #0,D2
+  MOVEQ #1,D2
   CMP.B #"G",D0  ;1k block - no acks
   BEQ.S continuesend
+  DBF D1,.wait1
+  MOVEQ #-2,D0
   BRA.W sendfail
 
 continuesend:
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA sendModeText(PC),A0
+  JSR PrintText  
+  JSR PrintChar
+  JSR PrintCR
+  MOVE.L (a7)+,A0
+  ST.B serIO
+
   LEA mt_sin,A0
   ADD.B #1,1(A0)
                 
@@ -34063,6 +34552,7 @@ nextblock:
   LSR.W #8,D0
   MOVE.B D0,1027(A0)  ;crc
 
+  MOVEQ #9,D1
 resend2:
   SF.B serIO
   LEA sendingBlockText,A0
@@ -34076,14 +34566,23 @@ resend2:
   MOVE.W #blocksize,D0
   JSR SendBlock
   
+  MOVEQ #-3,D0
   TST.B EscapePressed
   BNE.W sendfail
   
+  MOVEQ #-4,D0
   TST.B serIO
   BEQ.W sendfail
 
   TST.L D2
   BEQ.S .getack2
+
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA strmText(PC),A0
+  JSR PrintText
+  MOVE.L (a7)+,A0
+  ST.B serIO
   
   JSR RawMayGetChar
   CMP.B #X_CAN,D0  ;cancelled
@@ -34091,18 +34590,41 @@ resend2:
   BRA.S continuesend2
 
 .getack2
+  SWAP D1
+  MOVE.W #9,D1
+.getack2loop
+  SF.B serIO
+  MOVE.L A0,-(a7)
+  LEA waitAckText(PC),A0
+  JSR PrintText
+  MOVE.L (a7)+,A0
+  ST.B serIO
+  MOVEQ #-3,D0
+  TST.B EscapePressed
+  BNE.W sendfail
+
+.ack2
   JSR WaitSerCharTimeout2
 
   CMP.B #X_CAN,D0  ;cancelled
   BEQ.W sendfail
 
+  CMP.B 1(A4),D0
+  BEQ.W continuesend2
+
   CMP.B #X_ACK,D0
   BEQ.W continuesend2
 
-  DBF D1,.getack2
+  SF.B serIO
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
 
-  MOVE.W (A7)+,D1
+  DBF D1,.getack2loop
+
+  SWAP D1
   DBF D1,resend2
+  MOVEQ #-5,D0
   BRA sendfail
 
 continuesend2:
@@ -34117,6 +34639,10 @@ allsent:
   JSR RawPutChar
 
   JSR WaitSerCharTimeout2
+
+  MOVE.L #X_EOT,D0
+  JSR RawPutChar
+
   JSR WaitSerCharTimeout2
 
   LEA mt_sin,A0
@@ -34152,7 +34678,6 @@ allsent:
   MOVE.B D0,(A0)+
 
   MOVE.W #9,D1
-resend4:
   SF.B serIO
   LEA sendingBlockText,A0
   JSR PrintText
@@ -34165,16 +34690,26 @@ resend4:
   MOVE.W #blocksize128,D0
   JSR SendBlock
 
+  MOVEQ #-6,D0
   TST.B serIO
   BEQ.W sendfail
 
   TST.L D2
-  BEQ.S .getack4
+  BEQ.S .getack3
+
+  SF.B serIO
+  LEA strmText(PC),A0
+  JSR PrintText
+  ST.B serIO
   
   JSR RawMayGetChar
   BRA.S senddone
 
-.getack4
+.getack3
+  SF.B serIO
+  LEA waitAckText(PC),A0
+  JSR PrintText
+  ST.B serIO
   JSR WaitSerCharTimeout2
   JSR WaitSerCharTimeout2
 senddone:
@@ -34188,6 +34723,7 @@ sendfail:
   SF.B serIO
   LEA sendFailText(PC),A0
   JSR PrintText
+  JSR Print8DigitHex
   RTS
 
 sendFailText
@@ -34206,7 +34742,11 @@ CMD_SER:
   JSR RawIOInit
 .1
   JMP PrintText
-  
+
+waitAckText: DC.B "Waiting ACK...",13,0 
+strmText: DC.B "Streaming",13,0 
+ackReceivedText: DC.B "Ack received",13,0
+sendModeText: DC.B "Transfer mode: ",0
 serialDisabledText: DC.B "Serial IO disabled",13,0
 serialEnabledText: DC.B "Serial IO enabled",13,0
 sendingBlockText: DC.B "Sending block ",0
@@ -34397,7 +34937,7 @@ CMD_RNC:
   DBF D6,.retry
   JSR PrintCR
   BSR.W PrintDiskOpResult
-  BSR.W restoreMfmBuffer
+  JSR restoreMfmBuffer
   RTS
 
 RncTypesTable:
@@ -34425,12 +34965,12 @@ readRNCTrack:
   MOVE.B  currDriveNo,D0
   BTST  D0,LAB_A4824C
   BNE.S .3
-  BSR.W SUB_A1FAB4
+  JSR SUB_A1FAB4
   BMI.W RNCREAD_DONE
 .3:
   MOVE.L  D1,D0
-  BSR.W StepToTrack
-  BSR.W selectDrive
+  JSR StepToTrack
+  JSR selectDrive
   MOVE.W  #$8210,$96(A5)
   MOVE.W  #$8914,$7E(A5)
   MOVE.W  #$77f0,$9E(A5)
@@ -35035,7 +35575,7 @@ LAB_A24EC4:
   MOVE.L  D0,-(A7)
   JSR restoreMfmBuffer
   MOVE.L  (A7)+,D0
-  BRA.W PrintDiskOpResult
+  JMP PrintDiskOpResult
 
 SUB_A24EF0:
   MOVEM.L D1-D7/A0-A6,-(A7)
@@ -35121,7 +35661,7 @@ LAB_A24F30:
   MOVEQ #4,D0
   JSR PrintSpaces
   MOVE.L  (A7)+,D0
-  BSR.W PrintDiskOpResult2
+  JSR PrintDiskOpResult2
   JSR PrintCrIfNotBlankLine
   CMPI.W  #$fff8,D0
   BEQ.S LAB_A24F9A
@@ -35221,9 +35761,9 @@ LAB_A25042:
   MOVE.L  #$0000009f,D7
   MOVEQ #-13,D0
   BTST  D4,DrivesConnectedLo
-  BEQ.W PrintDiskOpResult
+  BEQ.S dodiskres
   BTST  D5,DrivesConnectedLo
-  BEQ.W PrintDiskOpResult
+  BEQ.S dodiskres
   SF  cursorEnabled
   MOVE.L  DiskCoderFlags,-(A7)
   TST.B D2
@@ -35235,7 +35775,8 @@ LAB_A250B2:
   MOVE.B  (A7)+,currDriveNo
   MOVE.L  (A7)+,DiskCoderFlags
   ST  cursorEnabled
-  BRA.W PrintDiskOpResult
+dodiskres:
+  JMP PrintDiskOpResult
 SUB_A250D0:
   CMP.W D4,D5
   BEQ.W LAB_A25168
@@ -35667,7 +36208,7 @@ LAB_A2579A:
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVEQ #0,D0
-  JSR loadSector(PC)
+  JSR loadSector
   BMI.S LAB_A257C6
   ADDQ.W  #8,A1
   MOVE.L  LAB_A480CA,D2
@@ -36090,11 +36631,11 @@ CMD_DISKWIPE:
   MOVE.B  currDriveNo,D0
 LAB_A25D18:
   BTST  D0,DrivesConnectedLo
-  BEQ.W LAB_A21070
+  BEQ.W wipeWtf
   TST.W D0
-  BMI.W LAB_A21070
+  BMI.W wipeWtf
   CMPI.W  #3,D0
-  BHI.W LAB_A21070
+  BHI.W wipeWtf
   LEA hardware,A5
   MOVE.B  currDriveNo,-(A7)
   MOVE.B  D0,currDriveNo
@@ -36136,6 +36677,8 @@ LAB_A25DB6:
   ST  cursorEnabled
   MOVE.W  #$0010,$96(A5)
   RTS
+wipeWtf:
+  JMP PrintWTF
 LAB_A25DD2:
   MOVEQ #-10,D0
   BRA.S LAB_A25DB6
@@ -37006,6 +37549,13 @@ SerPrint:
   rts       
 
 RawIOInit:
+  MOVE.B $BFD200,D0
+  BSET #6,d0  ;rts output
+  BCLR #4,d0  ;cts input
+  MOVE.B D0,$BFD200
+  
+  BSET #6,$BFD000 ;clear rts
+
   MOVE.L #3546895,D0
   TST.B palMode
   BNE.S .1
@@ -37034,16 +37584,20 @@ RawIOInit:
   rts
 
 RawMayGetChar:
-  MOVE.L D1,-(A7)
-  moveq     #-1,D0
-  move.w    $DFF018,D1             ;Read SERDATR.
-  btst      #$0E,D1               ;Is a byte in the receive buffer?
+  BCLR #6,$BFD000 ;    signal we are ok to receive
+.wait
+  move.w    $DFF018,D0             ;Read SERDATR.
+  btst      #$0E,D0               ;Is a byte in the receive buffer?
   beq.s     .1                    ;If not, return -1 and exit.
   move.w    #$0800,$DFF09C         ;Clear the serial receive interrupt.
-  and.l     #$0000FF,D1           ;Get the received character.
-  move.l    D1,D0                 ;Return it to the caller.
+  and.l     #$0000FF,D0           ;Get the received character.
+  
+
+  BSET #6,$BFD000 ;signal not ready to receive
+  RTS
 .1
-  MOVE.L (A7)+,D1
+  BSET #6,$BFD000 ;signal not ready to receive
+  moveq     #-1,D0
   rts         
 
 WaitSerChar:
@@ -37069,12 +37623,20 @@ WaitSerCharTimeout:
 WaitSerCharTimeout2:
   MOVE.B  #0,ciaatodlo
 .2
-  bsr.s RawMayGetChar
-  tst.l D0
-  bpl.s .1
+  BCLR #6,$BFD000 ;we are  ready to receive
+  move.w    $DFF018,D0             ;Read SERDATR.
+  btst      #$0E,D0               ;Is a byte in the receive buffer?
+  btst      #$0E,D0               ;Is a byte in the receive buffer?
+  beq.s     .1                    ;If not, return -1 and exit.
+  move.w    #$0800,$DFF09C         ;Clear the serial receive interrupt.
+  and.l     #$0000FF,D0           ;Get the received character.
+  BSET #6,$BFD000 ;we are not ready to receive
+  rts
+.1
   CMP.B #100,ciaatodlo
   BNE.S .2
-.1:
+  BSET #6,$BFD000 ;we are not ready to receive
+  moveq     #-1,D0
   rts
 
 SendBlock:
@@ -37090,8 +37652,8 @@ SendBlock:
 .end 
   MOVEM.L (A7)+,D0-D2/A0
   RTS
-
 RawPutChar:
+  MOVE.L D1,-(A7)
   TST.B serIO
   BEQ.S .noser
   MOVE.B  #0,ciaatodlo
@@ -37099,6 +37661,9 @@ RawPutChar:
 .trysend  
   CMP.B #100,ciaatodlo
   BEQ.S .timeout
+  BTST #4,$BFD000
+  bne.s     .trysend      ;wait for RTS
+  
   move.w    $DFF018,D1             ;Read SERDATR.
   btst      #13,D1                ;Transmitter ready?
   beq.s     .trysend                 ;Wait until true.
@@ -37107,11 +37672,13 @@ RawPutChar:
   or.w      #$0100,D0             ;Set the stop bit.
   move.w    D0,$DFF030             ;Write to SERDAT.
 .noser
+  MOVE.L (A7)+,D1
   rts
 .timeout
   SF.B serIO
   LEA serSendTimeoutText(PC),A0
   JSR PrintText
+  MOVE.L (A7)+,D1
   RTS
 
 serSendTimeoutText: DC.B "Timeout while sending. Serial disabled.",13,0
@@ -37524,7 +38091,7 @@ SUB_A26A52:
   EXG A0,A6
   TST.W D0
   BMI.S LAB_A26A34
-  JSR SUB_A2202C(PC)
+  JSR SUB_A2202C
   MOVE.L  D0,D2
   JSR ConvertToBCD
   MOVE.L  cursorX,-(A7)
@@ -37567,7 +38134,7 @@ SUB_A26AE8:
   JSR PrintSpaces
   MOVE.L  #$00240013,cursorX
   EXG A6,A0
-  JSR SUB_A22160(PC)
+  JSR SUB_A22160
   EXG A6,A0
   MOVE.L  (A7)+,currentDirBlock
   MOVEA.L (A7)+,A0
@@ -42298,7 +42865,7 @@ HelpText:
   DC.B  "    unpack: Unpacks with pack-command packed mem - unpack dest endofpacked",$D
   DC.B  "     color: Set/show module-editor colors        - color (back pen)",$D
   DC.B  "    rcolor: Reset module-editor colors           - rcolor",$D
-  DC.B  "    rprefs: Reset all preferences                - rprefs",$D
+  DC.B  "  resetcfg: Reset all preferences                - resetcfg",$D
   DC.B  "        tm: Show remarks about curr. program     - tm",$D
   DC.B  "       tms: Set remark about curr. programaddr.  - tms addr",$D
   DC.B  "       tmd: Delete remark about program          - tmd addr",$D
@@ -42324,6 +42891,7 @@ HelpText:
   DC.B  "     arram: display the amount of memory on cart - arram",$D
   DC.B  "   savecfg: save current cfg (requires flash hw) - savecfg",$D
   endc
+  DC.B  "    sysram: display the system ram memory blocks - sysram",$D
   DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
   DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
   DC.B  "     axfer: Setup system for AmigaXfer           - axfer",$D
@@ -47029,7 +47597,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
 
-  DC.L $483c99b5 ; v0.8.0
+  DC.L $bd033904 ; v0.8.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -47903,6 +48471,8 @@ seed:
   DS.L 1
 serSpeed
   DS.L 1
+errcode:
+  DS.W 1
 
   if arsoft=1
   even
