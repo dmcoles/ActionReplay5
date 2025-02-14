@@ -557,6 +557,9 @@ Action Replay 5 Complete Command List
   ST (Trace current program (also subs))
     ST <steps>
 
+  SYSRAM (Show system memory blocks)
+    SYSRAM
+
   T (Show addresses/continue trainer)
     T <lives>
 
