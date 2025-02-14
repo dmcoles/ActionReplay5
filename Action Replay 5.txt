@@ -121,3 +121,19 @@ v0.8.0
   - fixes for new AR hardware with extra memory
   - add COLOUR and RCOLOUR aliases
   - add command help templates (eg RENAME ? shows help)
+  - add tracker,scan,kickromadr,mmm,mm,nnn,nn,yyy,yy,dd,ddd to help text
+  - kickromadr fixes
+  - add FCRC16 and FCRC32 commands to show CRC16 and CRC32 of a file
+  - fix issues with setmap command (graphical corruption and crashes)
+  - add MQ command (similar to NQ but for hex/ascii)
+  - add check ON BS command to ensure the memory is writable at that address
+  - improvements to memory handling code
+  - allow negative offsets eg LEA -4(A0),A0 and JSR -48(a0) in assembler
+  - add RESETCFG command
+  - add SYSRAM command to show system memory blocks
+  - add AXFER command to start romwack/sad to use with AmigaXfer
+  - rework startup code so stack is compatible with snapshots
+  - fix error with TYPE command on files >=64k
+  - add DUMP command to dump a file as hex/ascii
+  
+  
