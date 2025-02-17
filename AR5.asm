@@ -40065,7 +40065,9 @@ LAB_A2813E:
   MOVE.W  #$4e71,(A2)+
   else
   MOVE.L  #$00000046,TRAP_15.W
-  MOVE.W  #$4e73,EXT_46.W
+  LEA EXT_46.W,a0
+  MOVE.W #$4ef9,(a0)+
+  MOVE.L #ExceptionEntry2,(a0)+ ;jmp ExceptionEntry2
   MOVE.L  #$4e714e71,(A2)+
   MOVE.L  #$4e4f4e71,(A2)+
   MOVE.W  #$4e71,(A2)+
@@ -40081,6 +40083,12 @@ LAB_A2817C:
   MOVE.W  (A0)+,(A2)+
   CMPA.L  A0,A1
   BNE.S LAB_A2817C
+  if pistorm=1
+  ;enable trace
+  dc.w $4e7a,$01e0  ;movec #$1e0,d0
+  or.w #$1000,d0
+  dc.w $4e7b,$01e0  ;movec d0,#$1e0
+  endc
   ORI.W #$8000,SaveOldSr
   JSR getVBR
   MOVE.L  #$0000013a,TRACE(A0)
