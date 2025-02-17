@@ -8,6 +8,9 @@ arsoft=0
 ;trap 8 - breakpoint
 ;trap 15 - called by trap 8
 
+  if dbg+pistorm+arhardware+arsoft<>1
+  exactly one of dbg, pistorm, arhardware, arsoft must be set to 1
+  endc
 
   if arsoft=1
     opt d-,s-
@@ -275,10 +278,7 @@ X_NAK=21
 X_CAN=24
 
 rsnoop SET 0
-  if arhardware=1
-rsnoop SET 1
-  endc
-  if pistorm=1
+  if (arhardware+pistorm=1)
 rsnoop SET 1
   endc
 
@@ -287,8 +287,8 @@ rsnoop SET 1
 ;  JSR debugDelay
 ;  endm
 
-fixcol macro
-  endm
+;fixcol macro
+;  endm
 
 
  if dbg=1
@@ -906,7 +906,9 @@ VBlankIntHandler:
 NMI_Entry:
   if arhardware=1
   ORI.W #0,arramstart
+  endc
 
+  if (arhardware+pistorm=1)
   MOVE.B  #$13,kickstartVersion
   CMPI.B  #$f8,EXT_F80005
   BEQ.S .k2
@@ -915,13 +917,17 @@ NMI_Entry:
 .k2
   MOVE.B  #$20,kickstartVersion
 .k3
+  endc
 
+  if arhardware=1
   BTST #1,FreezeState
   BNE reset
 
   BTST #0,FreezeState
   BEQ nmi
+  endc
 
+  if (arhardware+pistorm=1)
   tst.b exceptionsActive
   beq.s nmi1
   CMPI.L  #$124,2(A7)
@@ -960,7 +966,9 @@ nmi4:
   JMP DoArTrace
 nmi:
   JMP Freeze
+  endc
 x:
+  if arhardware=1
   TST.B autofireP1ORP2
   BEQ.W LAB_400106
   MOVE.W  D0,-(A7)
@@ -1862,7 +1870,7 @@ LAB_A10230:
   JMP RomEntry
   endc
 LAB_A10240:
-  RTS
+  RTE
 
 RomEntry:
   CLR.B TraceActive
@@ -1979,7 +1987,7 @@ LAB_A10944:
   RTE
 AREntry2:
   SF  LAB_A4824E
-AREntry3:
+
   MOVE.W  intenar+hardware,SaveIntena
   MOVE.W  #$7fff,intena+hardware
   MOVE.W  dmaconr+hardware,SaveDmaCon
@@ -2100,7 +2108,7 @@ LAB_A10A88:
   JSR SUB_A1D77C
   BSR.W KeyboardIntInstall
   BSR.W InstallVblank
-  BSR.W Init
+  JSR Init
   JSR SetupBreakpoints
 
   BSR.W ArMain
@@ -2507,6 +2515,44 @@ LAB_A11076:
   BNE.S LAB_A11076
   MOVE.B  #$80,ciabcrb
   RTS
+UpdateSerCursor:
+  TST. serIO
+  BEQ.W .nomove
+  MOVEM.L D0-D1,-(A7)
+  MOVE.B #27,D0
+  JSR RawPutChar
+  MOVE.B #"[",D0
+  JSR RawPutChar
+  MOVEQ #0,D1
+  MOVE.W cursorY,D1
+  ADDQ.W #1,D1
+  DIVU #10,D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  SWAP D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  MOVE.B #";",D0
+  JSR RawPutChar
+  MOVEQ #0,D1
+  MOVE.W cursorX,D1
+  ADDQ.W #1,D1
+  DIVU #10,D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  SWAP D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  MOVE.B #"H",D0
+  JSR RawPutChar
+  MOVEM.L (A7)+,D0-D1
+.nomove
+  RTS
+
 PrintCursor:
   MOVEM.L D0-D1/A0-A1,-(A7)
   MOVEQ #0,D0
@@ -2558,22 +2604,27 @@ moveCursorRight:
   CMPI.W  #$004f,cursorX
   BEQ.S LAB_A11134
   ADDQ.W  #1,cursorX
+  JSR UpdateSerCursor
   RTS
 LAB_A11134:
   CLR.W cursorX
   BSR.W moveCursorDown
+  JSR UpdateSerCursor
   RTS
 moveCursorLeft:
   CMPI.W  #0,cursorX
   BEQ.S LAB_A11152
   SUBQ.W  #1,cursorX
+  JSR UpdateSerCursor
   RTS
 LAB_A11152:
   MOVE.W  #$004f,cursorX
   BSR.W moveCursorUp
+  JSR UpdateSerCursor
   RTS
 CursorHome:
   CLR.L cursorX
+  JSR UpdateSerCursor
   RTS
 SUB_A11168:
   MOVEM.L D0-D3/A0,-(A7)
@@ -2632,6 +2683,7 @@ LAB_A1121A:
   BNE.S LAB_A111FE
 LAB_A11222:
   MOVE.L  (A7)+,cursorX
+  JSR UpdateSerCursor
 LAB_A11228:
   MOVE.B  (A7)+,printerDumpToggle
   MOVE.L  (A7)+,D0
@@ -2640,6 +2692,7 @@ moveCursorUp:
   CMPI.W  #0,cursorY
   BEQ.S SUB_A11244
   SUBQ.W  #1,cursorY
+  JSR UpdateSerCursor
   RTS
 SUB_A11244:
   ADDQ.W  #1,LAB_A47F40
@@ -2656,6 +2709,7 @@ LAB_A1125E:
   BEQ.S LAB_A11278
   MOVE.L  (A7)+,D0
   ADDQ.W  #1,cursorY
+  JSR UpdateSerCursor
   RTS
 LAB_A11278:
   MOVE.L  (A7)+,D0
@@ -4407,6 +4461,7 @@ apiTable:
 
 debugger:
   SF  cursorEnabled
+  SF serIO
   JSR Cls
   LEA debuggerPage(PC),A0
   JSR DrawPrefsPage
@@ -5146,12 +5201,14 @@ commandTable:
   DC.L  CMD_CRC32
   DC.L cmd_crc32_help
 
-  if arhardware=1
+  if (arhardware+pistorm=1)
   DC.B  "ARRAM",0
   even
   DC.L  CMD_ARRAM
   DC.L cmd_arram_help
+  endc
 
+  if (arhardware=1)
   DC.B  "FLASH",0
   even
   DC.L  CMD_FLASH
@@ -6408,10 +6465,12 @@ cmd_filecrc32_help:
   DC.B  "  FCRC32 (<path>)<file>",13
   DC.B 0
 
+  if (arhardware=1)
 cmd_flash_help:
   DC.B  "FLASH (Update firmware)",13
   DC.B  "  FLASH (<path>)<file>",13
   DC.B 0
+  endc
 
 cmd_format_help:
   DC.B  "FORMAT (Format disk in active drive)",13
@@ -8910,6 +8969,7 @@ ShowCustomRegValues:
   JSR SUB_A23D40
   JSR PrintCRToPrinter
   MOVE.W  #6,cursorX
+  JSR UpdateSerCursor
   BRA.W PrintCursor
 CMD_SEMICOLON:
   BSR.W ReadParameter
@@ -9272,6 +9332,7 @@ LAB_A13854:
   MOVE.W cpuAddrSize,D1
   ADD.W #2,D1
   MOVE.W  D1,cursorX
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   CLR.W repeatCount
@@ -9310,6 +9371,7 @@ LAB_A138BC:
   BSR.W PrintChar
   DBF D1,LAB_A138BC
   MOVE.W  #8,cursorX
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
@@ -9345,6 +9407,7 @@ LAB_A1391A:
   BSR.W PrintChar
   DBF D1,LAB_A1391A
   MOVE.W  #8,cursorX
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
@@ -9470,6 +9533,7 @@ LAB_A13AD6:
   MOVE.L  TextPage2Addr,CurrentPage
 LAB_A13B08:
   CLR.L cursorX
+  JSR UpdateSerCursor
   CLR.L LAB_A47F3E
   JSR Cls
   LEA aboutText(PC),A0
@@ -9627,7 +9691,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.8.0.12022025 - private alpha release for TTE",0
+  DC.B  "                 v0.9.0.17022025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -9922,6 +9986,7 @@ LAB_A14804:
   MOVE.L  D6,D0
   JSR Print8DigitHex
   MOVE.W  #$000f,cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0-D2/D6/A0-A1
   RTS
 CopperEndText:
@@ -11334,6 +11399,7 @@ LAB_A1617A:
   BSR.W PrintText
 LAB_A16192:
   MOVE.W  #$000f,cursorX
+  JSR UpdateSerCursor
   JSR PrintSpace
   LEA LAB_A47FBA,A1
   BSR.S decodeAddressingMode
@@ -12251,30 +12317,40 @@ SerInTranslate:
 .nd
 .0
   CMP.B #$7f,D0   ;DEL
-  BNE.S .1
-    MOVE.L #$84,D0
+  BNE.S .notdel
+  MOVE.W #$84,D0
+  RTS
+.notdel
+  CMP.B #8,D0   ;backspace
+  BNE.S .notbsp
+  MOVE.W #$84,D0
+  RTS
+.notbsp
 .timeout
 .1 RTS
 
 serOutTransTable
   DC.B 13
+  DC.B 8
   DC.B CursorDown
   DC.B CursorUp
   DC.B CursorLeft
   DC.B CursorRight
-  DC.B $84
+  DC.B $84 
   DC.B 0
 
 
 serTransCR: DC.B 13,10,0
+serTransBackSpace: DC.B 0
 serTransCursorDn: DC.B 27,"[B",0
 serTransCursorUp: DC.B 27,"[A",0
 serTransCursorLeft: DC.B 27,"[D",0
 serTransCursorRight: DC.B 27,"[C",0
-serTransDel DC.B $7F,0
+serTransDel DC.B 0
   even
 serOutTransTable2
   DC.L serTransCR
+  DC.L serTransBackSpace
   DC.L serTransCursorDn
   DC.L serTransCursorUp
   DC.L serTransCursorLeft
@@ -12285,9 +12361,9 @@ PrintChar:
   MOVEM.L D0-D3/A0-A2,-(A7)
   
   TST.B serIO
-  BEQ.S .noser
+  BEQ.W .noser
   TST.B D0
-  BEQ.S .noser
+  BEQ.W .noser
   BSR PrintSerChar
 .noser
   LEA EXT_1000,A0
@@ -12496,6 +12572,7 @@ LAB_A16D2A:
   DBF D0,LAB_A16D2A
   JSR redrawTextPage
   MOVE.L  CursorStore,cursorX
+  JSR UpdateSerCursor
   BRA.W LAB_A16C70
 PrintF3:
   JSR DoPrefs
@@ -12528,6 +12605,7 @@ LAB_A16D8C:
   BEQ.S LAB_A16D8C
 LAB_A16DAA:
   MOVEM.L (A7)+,D0/A0
+  JSR UpdateSerCursor
   BRA.W LAB_A16C70
 LAB_A16DB2:
   JSR moveCursorLeft
@@ -12544,6 +12622,7 @@ PrintCursorRight:
   BEQ.S LAB_A16E0A
 LAB_A16DE4:
   ADDQ.W  #1,cursorX
+  JSR UpdateSerCursor
   CMPI.W  #$004f,cursorX
   BEQ.S LAB_A16E0A
   MOVE.W  cursorX,D0
@@ -12560,6 +12639,7 @@ LAB_A16E14:
   BNE.S LAB_A16E2A
   SUBQ.W  #1,cursorX
   BNE.S LAB_A16E14
+  JSR UpdateSerCursor
 LAB_A16E2A:
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A16C70
@@ -12570,6 +12650,7 @@ PrintCursorDown:
   TST.B ShiftKey
   BEQ.S LAB_A16E50
   MOVE.W  PageHeight,cursorY
+  JSR UpdateSerCursor
   BRA.W LAB_A16C70
 LAB_A16E50:
   MOVE.W  PageHeight,D7
@@ -12593,6 +12674,7 @@ LAB_A16E50:
   MOVEA.L D0,A1
   JSR SUB_A1127A
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowMemory(PC)
   BRA.W LAB_A16F22
 LAB_A16EA2:
@@ -12605,6 +12687,7 @@ LAB_A16EA2:
   MOVEA.L D0,A1
   JSR SUB_A1127A
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR SUB_A12F08(PC)
   BRA.S LAB_A16F22
 LAB_A16EC8:
@@ -12614,6 +12697,7 @@ LAB_A16EC8:
   LEA $40(A0),A0
   JSR SUB_A1127A
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowMemAsAscii
   BRA.S LAB_A16F22
 LAB_A16EE6:
@@ -12622,6 +12706,7 @@ LAB_A16EE6:
   ADDQ.L  #4,D0
   JSR SUB_A1127A
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowCopperList(PC)
   BRA.S LAB_A16F22
 LAB_A16EFE:
@@ -12630,6 +12715,7 @@ LAB_A16EFE:
   ADDQ.W  #2,D0
   JSR SUB_A1127A
   CLR.W cursorX
+  JSR UpdateSerCursor  
   JSR ShowCustomRegValues(PC)
   BRA.S LAB_A16F22
 LAB_A16F16:
@@ -12644,6 +12730,7 @@ PrintCursorUp:
   TST.B ShiftKey
   BEQ.S LAB_A16F3C
   CLR.W cursorY
+  JSR UpdateSerCursor
   BRA.W LAB_A16C70
 LAB_A16F3C:
   TST.W cursorY
@@ -12663,6 +12750,7 @@ LAB_A16F3C:
   MOVEA.L D0,A1
   JSR SUB_A11244
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowMemory(PC)
   BRA.W LAB_A1704E
 LAB_A16F84:
@@ -12682,6 +12770,7 @@ LAB_A16FA2:
   BSET  #$1F,D0
   JSR SUB_A11244
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVE.W  LAB_A47FB6,D1
   CMPI.W  #$003c,D1
   BEQ.S LAB_A16FD6
@@ -12698,6 +12787,7 @@ LAB_A16FD6:
   JSR SUB_A11244
   CLR.W cursorX
   CLR.W cursorY
+  JSR UpdateSerCursor
 LAB_A16FEE:
   JSR SUB_A12F08(PC)
   BRA.S LAB_A1704E
@@ -12708,6 +12798,7 @@ LAB_A16FF4:
   LEA -64(A0),A0
   JSR SUB_A11244
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowMemAsAscii
   BRA.S LAB_A1704E
 LAB_A17012:
@@ -12716,6 +12807,7 @@ LAB_A17012:
   SUBQ.L  #4,D0
   JSR SUB_A11244
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowCopperList(PC)
   BRA.S LAB_A1704E
 LAB_A1702A:
@@ -12724,6 +12816,7 @@ LAB_A1702A:
   SUBQ.W  #2,D0
   JSR SUB_A11244
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR ShowCustomRegValues(PC)
   BRA.S LAB_A1704E
 LAB_A17042:
@@ -12743,6 +12836,7 @@ PrintLF:
   MOVE.L  (A7)+,D0
 LAB_A1706A:
   CLR.W cursorX
+  JSR UpdateSerCursor
   JSR moveCursorDown
   BRA.W LAB_A16C70
 LAB_A17078:
@@ -12867,6 +12961,7 @@ PrinterOffText:
 Cls:
   MOVEM.L D0/A0,-(A7)
   CLR.L cursorX
+  JSR UpdateSerCursor
   MOVEA.L CurrentPage,A0
   MOVE.W PageHeight,D0
   ADD.W #1,D0
@@ -12899,6 +12994,7 @@ SUB_A1727A:
   MULU  #$0050,D0
   LEA 0(A0,D0.W),A0
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEQ #$4F,D1
   MOVE.W  PageHeight,D0
   CMP.W cursorY,D0
@@ -12913,6 +13009,40 @@ LAB_A172C4:
   ST  cursorEnabled
   MOVE.B  (A7)+,printerDumpToggle
   MOVE.L  (A7)+,cursorX
+  JSR UpdateSerCursor
+  TST.B serIO
+  BEQ.S .noser
+  MOVE.B #27,D0
+  JSR RawPutChar
+  MOVE.B #"[",D0
+  JSR RawPutChar
+  MOVEQ #0,D1
+  MOVE.W cursorY,D1
+  ADDQ.W #1,D1
+  DIVU #10,D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  SWAP D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  MOVE.B #";",D0
+  JSR RawPutChar
+  MOVEQ #0,D1
+  MOVE.W cursorX,D1
+  ADDQ.W #1,D1
+  DIVU #10,D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  SWAP D1
+  MOVE.W D1,D0
+  ADD.B #"0",D0
+  JSR RawPutChar
+  MOVE.B #"H",D0
+  JSR RawPutChar
+.noser
   MOVEM.L (A7)+,D0-D1/A0
   RTS
 redrawTextPage:
@@ -12920,6 +13050,7 @@ redrawTextPage:
   MOVE.L  cursorX,-(A7)
   SF  cursorEnabled
   CLR.L cursorX
+  JSR UpdateSerCursor
   MOVEA.L CurrentPage,A0
   MOVE.W PageHeight,D1
   ADD.W #1,D1
@@ -12934,6 +13065,7 @@ LAB_A17312:
   DBF D1,LAB_A1730C
   ST  cursorEnabled
   MOVE.L  (A7)+,cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0-D2/A0
   RTS
 readCmdChar:
@@ -13411,6 +13543,7 @@ LAB_A177CC:
   DBF D4,LAB_A177CC
   JSR PrintCRToPrinter
   MOVE.W  #$000f,cursorX
+  JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D4/A0-A3
   RTS
@@ -13491,6 +13624,7 @@ LAB_A178D2:
   DBF D3,LAB_A178D2
   JSR PrintCRToPrinter
   MOVE.W  #8,cursorX
+  JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D3/A0
   RTS
@@ -13602,6 +13736,7 @@ LAB_A17A26:
   MOVE.W cpuAddrSize,D2
   ADD.W #3,D2
   MOVE.W  D2,cursorX
+  JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D2/A0
   RTS
@@ -13729,6 +13864,7 @@ LAB_A17B6A:
   MOVE.W cpuAddrSize,D1
   ADD.W #2,D1
   MOVE.W D1,cursorX
+  JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D1/A1
   RTS
@@ -14139,18 +14275,18 @@ LAB_A17DC8:
 ArEntry1:
   CLR.L AronFlag
   CLR.W arramstart+16384
-  JSR FirstInit
 
   MOVE.L EXT_200.W,Save200
   MOVEM.L D0-D7/A0-A6,SaveEntryRegs
-  MOVE.L  D0,-(A7)
+  JSR FirstInit
+  MOVE.L  D0,tempD0
   MOVE.L  EXT_F80004,D0
   ANDI.L  #$ffff0000,D0
   MOVEA.L D0,A3
   MOVE.L  A3,D0
   ORI.L #$00f80000,D0
   MOVEA.L D0,A3
-  MOVE.L  (A7)+,D0
+  MOVE.L  tempD0,D0
   MOVE.L  #BRON_TAG,bronFlag
   BSR.W GetDrivesConnected
   MOVE.L RegSnoopAddr,A0
@@ -14212,12 +14348,14 @@ FirstInit:
 
   MOVE.L #RegSnoop,RegSnoopAddr
 
-  if arhardware=1
+  if (arhardware+pistorm=1)
   JSR CheckARRam
   CMP.L #1024,D0
   BLT.S .3
   MOVE.L #arramstart+$10000,newRamdiskAddr
-
+  endc
+  
+  if (arhardware=1)
   ;relies on CheckPalMode having saved D1 to tempD1
   ;kickstart sets DMACON to $7FFF very early on
   CMP.W #$7fff,tempD1+2
@@ -14229,7 +14367,9 @@ FirstInit:
 .clr
   CLR.W (A0)+
   DBF D0,.clr
+  endc
 
+  if (arhardware+pistorm=1)
 .old
   LEA EXT_7000.W,A0
   BSET #4,DrivesConnectedLo
@@ -14576,6 +14716,7 @@ CMD_DEBUG:
   TRAP #0
   RTS
 
+  if (arhardware=1)
 CMD_FLASH:
   JSR readCmdChar
   CMPI.B  #"F",D0
@@ -14946,7 +15087,7 @@ flashwarn:
 
 noflashText
   DC.B "Unable to find flash chip.",$D,0
-
+  endc
   even
 
 CMD_COLOR:
@@ -18086,6 +18227,7 @@ LAB_A1A81E:
   JSR PrintTableEntry
   JSR PrintCRToPrinter
   MOVE.W  #5,cursorX
+  JSR UpdateSerCursor
   JMP PrintCursor
 
 CiaRegsTable:
@@ -18563,11 +18705,12 @@ ShowMemQuick2:
   DIVU #3,D0
   ADD.W #57,D0
   MOVE.W D0,cursorX
+  JSR UpdateSerCursor
   MOVE.B -1(A4),D0
   JSR InvalidAsciiToDot
   JSR PrintChar
   MOVE.W (A7)+,cursorX
-  
+  JSR UpdateSerCursor  
 .3
   MOVEQ #-8,D0
   TST.B EscapePressed
@@ -18951,6 +19094,7 @@ printBigVal:
   MOVE.L  D2,D1
   BNE.S .1
   MOVE.L (A7)+,cursorX
+  JSR UpdateSerCursor
   MOVEM.L (Sp)+,D0-D7
   RTS
 
@@ -20508,7 +20652,7 @@ LAB_A1C4AA:
   BSR.W readCmdChar
   CMPI.W  #$0052,D0
   BNE.W LAB_A1C424
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #$000d,(A1)
   BRA.W LAB_A1C424
 LAB_A1C4EC:
@@ -20550,7 +20694,7 @@ LAB_A1C576:
   BSR.W readCmdChar
   CMPI.W  #$0029,D0
   BNE.S LAB_A1C58C
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #$000a,(A1)
   BRA.W LAB_A1C424
 LAB_A1C58C:
@@ -20564,7 +20708,7 @@ LAB_A1C58C:
   BSET  #7,$A(A1)
   BRA.S LAB_A1C576
 LAB_A1C5AE:
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #9,(A1)
   BRA.W LAB_A1C424
 LAB_A1C5BA:
@@ -20576,7 +20720,7 @@ LAB_A1C5BA:
   BSR.W readCmdChar
   CMPI.W  #$0029,D0
   BNE.S LAB_A1C5E4
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #5,(A1)
   BRA.W LAB_A1C424
 LAB_A1C5E4:
@@ -21229,11 +21373,22 @@ LAB_40D56A:
   CLR.L spr5data+hardware
   CLR.L spr6data+hardware
   CLR.L spr7data+hardware
-  LEA SUB_A1D77C(PC),A0
+  LEA bootLogo1End(PC),A0
+  LEA BootScreenCopper1(PC),A1
+  if (arhardware=1)
+  TST.L newRamdiskAddr
+  BEQ.S .2
+  NOT.B bootScreen
+  BEQ.S .2
+  LEA bootLogo2End(PC),A0
+  LEA BootScreenCopper2(PC),A1
+  endc
+.2
+  MOVE.L A1,-(A7)
   MOVE.L  A0,UnpackSourceEnd
   MOVE.L  #$0000100,UnpackDest
   JSR UnpackNoFlash
-  LEA BootScreenCopper(PC),A0
+  MOVE.L (A7)+,A0
   LEA EXT_0.W,A1
 LAB_40D5CE:
   MOVE.L  (A0),(A1)+
@@ -21249,7 +21404,7 @@ LAB_40D624:
   MOVE.W  #$8380,dmacon+hardware
   RTS
 
-BootScreenCopper:
+BootScreenCopper1:
   DC.L  $01020000,$01040024,$008e2c81,$0090b7c1
   DC.L  $00920034,$009400cc,$01080000,$010a0000
   DC.L  $01800000,$01820103,$01840104,$01860134
@@ -21264,6 +21419,23 @@ BootScreenCopper:
   DC.L  $00e80000,$00ea2cc0,$00ec0000,$00ee42a0
   DC.L  $00f00000,$00f25880
   DC.L  $01005200,$fffffffe
+ 
+BootScreenCopper2:
+  DC.L  $01020000,$01040024,$008e2c81,$0090b7c1
+  DC.L  $00920038,$009400d0,$01080000,$010a0000
+	DC.L	$01800000,$01820111,$01840300,$01860411
+	DC.L	$01880600,$018A0A10,$018C0C00,$018E0F00
+	DC.L	$01900000,$01920000,$01940000,$01960000
+	DC.L	$01980000,$019A0000,$019C0000,$019E0000
+	DC.L	$01A00000,$01A20000,$01A40000,$01A60000
+	DC.L	$01A80000,$01AA0000,$01AC0000,$01AE0000
+	DC.L	$01B00000,$01B20000,$01B40000,$01B60000
+	DC.L	$01B80000,$01BA0000,$01BC0000,$01BE0000
+  DC.L  $00e00000,$00e20100,$00e40000,$00e616e0
+  DC.L  $00e80000,$00ea2cc0,$00ec0000,$00ee42a0
+  DC.L  $00f00000,$00f25880
+  DC.L  $01005200,$fffffffe
+
 disableAllDma:
   MOVE.W  #$7fff,dmacon+hardware
   RTS
@@ -21280,7 +21452,7 @@ LAB_A1CD6E:
   JSR getVBR
   ADD.L D0,A0
   JSR memSafeReadLong
-  BSR.W PrintValue
+  JSR PrintValue
   MOVEA.L A1,A0
   BSR.W FindNull
   JSR PrintText
@@ -21293,12 +21465,12 @@ LAB_A1CD6E:
 LAB_A1CD9C:
   MOVE.W  D3,D0
   MOVEQ #1,D1
-  BSR.W PrintValue
+  JSR PrintValue
   BSR.W PrintSpace
   MOVEQ #7,D1
   JSR memSafeReadLong
   ADDQ.L  #4,A0
-  BSR.W PrintValue
+  JSR PrintValue
   MOVEQ #1,D0
   BSR.W PrintSpaces
   ADDQ.W  #1,D3
@@ -22333,6 +22505,221 @@ BadLoadText:
   dc.b 230,013,038,009,030,003,174,011,174,005,145,011,097,013,089,007
   dc.b 233,003,213,015,021,011,061,007,179,015,123,015,240,000,159,000
   dc.b 000,000,131,103,138,100,038,057,000,000,109,160
+bootLogo1End:
+  DC.B $80,$0F,$F7,$00,$1F,$EE,$00,$3F,$DC,$00,$7F,$B8,$00,$FF,$72,$3F
+  DC.B $FE,$E4,$5F,$55,$A1,$81,$03,$24,$04,$47,$C6,$1D,$0E,$20,$3C,$1F
+  DC.B $44,$34,$31,$B0,$F0,$62,$81,$D0,$F8,$A5,$C0,$38,$1D,$A0,$10,$30
+  DC.B $13,$E8,$7B,$45,$C0,$88,$01,$40,$51,$00,$50,$14,$40,$FA,$1A,$80
+  DC.B $18,$00,$81,$C8,$21,$03,$60,$02,$07,$2C,$04,$0C,$90,$12,$1D,$00
+  DC.B $1D,$4E,$41,$84,$02,$08,$A2,$20,$A3,$36,$46,$14,$01,$40,$68,$70
+  DC.B $00,$90,$14,$02,$06,$0A,$02,$01,$06,$00,$DC,$70,$3A,$40,$28,$61
+  DC.B $20,$14,$02,$07,$35,$5C,$0F,$18,$01,$4A,$30,$C4,$81,$31,$04,$0F
+  DC.B $3E,$C0,$80,$80,$40,$2E,$20,$14,$01,$86,$48,$07,$00,$20,$63,$80
+  DC.B $20,$A4,$01,$EC,$2C,$07,$10,$14,$01,$87,$D0,$01,$40,$20,$67,$C0
+  DC.B $49,$DA,$07,$C0,$09,$E5,$98,$7A,$00,$7D,$92,$06,$78,$01,$42,$82
+  DC.B $F3,$03,$A4,$0A,$87,$55,$94,$0F,$64,$69,$21,$40,$38,$78,$00,$14
+  DC.B $02,$06,$F0,$0A,$08,$3C,$45,$00,$E1,$DF,$0F,$03,$0C,$00,$C0,$46
+  DC.B $04,$28,$13,$0D,$41,$48,$1D,$7A,$D0,$31,$40,$B8,$6B,$4A,$40,$FC
+  DC.B $24,$81,$85,$05,$C3,$21,$A2,$06,$40,$01,$08,$48,$02,$90,$08,$05
+  DC.B $03,$61,$FE,$80,$C0,$A2,$82,$C1,$20,$00,$40,$50,$0E,$1C,$C4,$80
+  DC.B $10,$40,$28,$08,$18,$10,$05,$03,$61,$FF,$81,$56,$D0,$94,$00,$29
+  DC.B $04,$80,$50,$1E,$1E,$F9,$FC,$0C,$07,$00,$06,$50,$40,$05,$20,$50
+  DC.B $0A,$06,$C3,$9F,$FF,$81,$80,$85,$08,$A0,$8F,$01,$C3,$1F,$FF,$80
+  DC.B $A0,$10,$38,$01,$D8,$0A,$48,$10,$A0,$6C,$3F,$E0,$18,$0A,$0F,$04
+  DC.B $28,$3E,$D0,$A0,$6C,$3F,$C0,$68,$0D,$00,$28,$21,$41,$07,$00,$A0
+  DC.B $1C,$3F,$80,$78,$68,$42,$96,$00,$F0,$02,$29,$04,$50,$36,$1F,$80
+  DC.B $78,$01,$07,$80,$3D,$05,$28,$04,$08,$67,$42,$80,$70,$C7,$C0,$20
+  DC.B $10,$29,$20,$0F,$F0,$20,$97,$90,$50,$36,$18,$EF,$01,$F8,$03,$76
+  DC.B $00,$7F,$00,$FE,$42,$18,$FE,$07,$14,$0B,$86,$FE,$01,$F7,$C6,$1F
+  DC.B $00,$7F,$D8,$8E,$01,$C2,$82,$E1,$E0,$7F,$80,$42,$FB,$8F,$D0,$1F
+  DC.B $9A,$07,$3F,$A0,$71,$40,$B8,$7F,$E0,$20,$63,$E2,$1A,$07,$E3,$91
+  DC.B $87,$F0,$08,$1C,$50,$16,$18,$E0,$05,$28,$70,$20,$21,$EC,$03,$D0
+  DC.B $29,$CE,$0A,$03,$C3,$FE,$C7,$01,$70,$3E,$F0,$35,$0D,$E0,$A5,$40
+  DC.B $01,$40,$84,$7D,$06,$80,$88,$14,$82,$82,$E1,$FE,$07,$80,$BC,$1E
+  DC.B $30,$18,$01,$CC,$7F,$C0,$70,$A0,$58,$62,$80,$C0,$DE,$1C,$1C,$10
+  DC.B $29,$7D,$D0,$C0,$4C,$16,$18,$F0,$05,$21,$39,$83,$C0,$E3,$D0,$0A
+  DC.B $63,$CE,$8F,$80,$A1,$30,$C8,$00,$E1,$7C,$5F,$80,$31,$7F,$80,$B0
+  DC.B $01,$01,$F9,$71,$A0,$71,$E0,$E8,$60,$3E,$1F,$E8,$2C,$B0,$2F,$C0
+  DC.B $68,$30,$A1,$36,$05,$C3,$E2,$E7,$03,$21,$45,$3F,$C8,$37,$80,$D0
+  DC.B $61,$04,$30,$08,$60,$B9,$EF,$FF,$E9,$FF,$FF,$D9,$FC,$C3,$FC,$01
+  DC.B $D0,$38,$17,$B0,$34,$40,$48,$60,$80,$60,$BA,$2F,$DF,$D9,$30,$21
+  DC.B $30,$00,$82,$E0,$EF,$80,$A0,$1C,$3E,$00,$0A,$14,$3C,$02,$96,$80
+  DC.B $05,$03,$E1,$EF,$80,$18,$60,$0F,$A0,$01,$C4,$61,$C7,$C0,$71,$40
+  DC.B $38,$7D,$19,$F0,$14,$B8,$03,$E0,$29,$40,$00,$50,$1E,$1F,$E6,$38
+  DC.B $08,$86,$00,$3A,$80,$3C,$C4,$1C,$FA,$07,$14,$03,$87,$EF,$0E,$02
+  DC.B $71,$81,$41,$06,$94,$03,$DF,$C0,$A0,$6C,$30,$0F,$38,$72,$C1,$F0
+  DC.B $00,$E8,$14,$A4,$00,$28,$0F,$0F,$EC,$0C,$0E,$1E,$00,$0F,$00,$3A
+  DC.B $28,$0E,$03,$F4,$D3,$03,$C4,$02,$86,$3F,$01,$F3,$01,$4E,$42,$9A
+  DC.B $EE,$C6,$C0,$50,$2E,$1E,$03,$E0,$07,$F0,$59,$05,$07,$26,$18,$0F
+  DC.B $FB,$02,$81,$B0,$D4,$0F,$80,$3F,$03,$48,$45,$20,$30,$70,$14,$0B
+  DC.B $86,$40,$3E,$00,$69,$80,$A8,$07,$03,$05,$02,$97,$E0,$05,$03,$61
+  DC.B $CA,$03,$00,$69,$06,$80,$11,$D0,$A0,$5C,$3C,$C0,$7B,$88,$70,$05
+  DC.B $01,$11,$F3,$03,$78,$45,$01,$81,$FC,$00,$50,$16,$18,$FF,$98,$0A
+  DC.B $30,$21,$41,$25,$11,$40,$B8,$6F,$20,$20,$10,$60,$12,$08,$A0,$EA
+  DC.B $CF,$20,$0C,$39,$F0,$11,$C8,$F8,$10,$32,$08,$50,$0E,$1A,$F8,$0C
+  DC.B $AA,$16,$51,$41,$E0,$00,$A0,$2C,$3C,$F0,$1F,$94,$50,$31,$19,$5C
+  DC.B $80,$06,$29,$80,$68,$A0,$5C,$33,$0B,$83,$7E,$0D,$11,$4D,$14,$A1
+  DC.B $E2,$61,$C8,$5F,$E0,$04,$08,$10,$82,$D3,$A1,$C1,$07,$81,$02,$80
+  DC.B $04,$EC,$0C,$30,$89,$AA,$A0,$01,$94,$0B,$C0,$6C,$8A,$08,$25,$AC
+  DC.B $30,$03,$F0,$02,$CF,$0F,$BF,$90,$F7,$00,$0E,$69,$50,$00,$52,$89
+  DC.B $85,$87,$59,$46,$07,$E0,$78,$BF,$80,$03,$8F,$F3,$0A,$5D,$D2,$61
+  DC.B $A1,$4F,$B0,$37,$AC,$9F,$F0,$73,$81,$ED,$8A,$5C,$56,$E2,$C8,$0D
+  DC.B $0F,$C0,$1A,$15,$75,$90,$07,$E1,$FE,$F0,$7F,$D0,$CB,$88,$78,$02
+  DC.B $80,$30,$FE,$01,$A1,$0E,$80,$50,$BF,$DF,$E7,$FC,$58,$14,$8F,$80
+  DC.B $28,$03,$0F,$66,$43,$00,$29,$3A,$58,$1F,$F7,$9F,$F8,$C5,$85,$02
+  DC.B $61,$9D,$02,$82,$0A,$85,$0B,$F1,$7F,$FE,$8D,$4B,$F0,$10,$A0,$30
+  DC.B $CF,$40,$15,$03,$00,$74,$21,$40,$B7,$3F,$F0,$20,$BE,$00,$28,$03
+  DC.B $0C,$10,$05,$91,$0C,$1E,$A4,$0E,$F0,$7E,$04,$12,$1C,$28,$1D,$0F
+  DC.B $DE,$0A,$16,$28,$20,$75,$25,$C0,$03,$0C,$50,$3C,$40,$48,$62,$B1
+  DC.B $80,$B8,$02,$80,$48,$01,$54,$5C,$8D,$20,$77,$2B,$D0,$C5,$00,$81
+  DC.B $B2,$C3,$60,$A0,$2F,$46,$CC,$3A,$08,$52,$20,$03,$04,$79,$FD,$AE
+  DC.B $27,$80,$42,$8A,$03,$43,$38,$01,$00,$E2,$94,$63,$C0,$06,$03,$02
+  DC.B $85,$30,$00,$50,$34,$31,$40,$18,$0C,$78,$B4,$63,$C2,$8C,$4F,$C0
+  DC.B $1F,$22,$0F,$10,$22,$18,$10,$30,$54,$81,$C0,$3C,$8E,$20,$48,$BD
+  DC.B $7B,$40,$D1,$00,$61,$8F,$00,$64,$23,$CD,$48,$1B,$E0,$05,$01,$E1
+  DC.B $BE,$35,$C0,$69,$68,$1F,$80,$05,$01,$E1,$FC,$03,$BF,$A1,$80,$08
+  DC.B $1A,$0C,$90,$32,$40,$58,$7C,$1F,$F0,$90,$FA,$06,$5C,$20,$8F,$3C
+  DC.B $7A,$1C,$00,$7F,$B8,$00,$FF,$70,$01,$FE,$E0,$03,$FD,$C0,$07,$FB
+  DC.B $80,$0F,$F7,$17,$FF,$EC,$AF,$FF,$DA,$AA,$70,$31,$AD,$B0,$6C,$80
+  DC.B $50,$C5,$22,$81,$DA,$01,$03,$A9,$02,$06,$D7,$B0,$8E,$E0,$18,$1F
+  DC.B $44,$34,$3F,$A5,$F0,$74,$00,$14,$06,$87,$D8,$B4,$0C,$32,$A4,$1C
+  DC.B $84,$50,$3C,$40,$88,$70,$50,$A0,$D9,$C0,$81,$87,$80,$50,$1A,$1A
+  DC.B $00,$05,$00,$81,$81,$C1,$03,$14,$2E,$30,$90,$3A,$40,$C8,$6F,$FC
+  DC.B $A0,$C1,$81,$C6,$50,$50,$0A,$07,$43,$89,$8E,$07,$FC,$D2,$0B,$C0
+  DC.B $0A,$4A,$30,$C5,$81,$E0,$04,$0E,$40,$70,$00,$54,$53,$A0,$77,$00
+  DC.B $C3,$0C,$01,$7F,$10,$31,$30,$7B,$A9,$03,$AC,$6A,$07,$48,$15,$0C
+  DC.B $60,$11,$1B,$C0,$D8,$00,$39,$30,$00,$F0,$14,$01,$86,$20,$0B,$00
+  DC.B $E0,$66,$00,$88,$AF,$E3,$4C,$3B,$5A,$50,$68,$B0,$A0,$2C,$3A,$5C
+  DC.B $A0,$6D,$A4,$C0,$C5,$03,$61,$AB,$31,$03,$08,$00,$A0,$02,$32,$CA
+  DC.B $A0,$62,$82,$20,$0C,$41,$16,$85,$86,$59,$54,$0D,$00,$02,$80,$88
+  DC.B $C7,$81,$81,$86,$00,$50,$3E,$1C,$C4,$8A,$14,$70,$02,$D1,$F0,$D4
+  DC.B $FA,$28,$21,$C0,$C4,$80,$C0,$28,$00,$8D,$5A,$45,$04,$04,$01,$E0
+  DC.B $08,$F8,$00,$73,$03,$00,$52,$06,$00,$A0,$6C,$32,$30,$18,$17,$80
+  DC.B $41,$C0,$29,$01,$00,$50,$36,$1A,$1C,$04,$34,$07,$80,$45,$04,$14
+  DC.B $0E,$1C,$18,$1B,$6A,$C0,$03,$28,$4A,$C0,$04,$80,$A0,$1C,$30,$10
+  DC.B $24,$CB,$80,$05,$00,$81,$80,$70,$40,$50,$0E,$18,$3C,$F0,$42,$85
+  DC.B $08,$00,$A0,$42,$36,$C6,$82,$83,$C3,$30,$2E,$00,$F1,$D8,$06,$10
+  DC.B $14,$0F,$86,$F0,$63,$03,$C9,$00,$C2,$10,$40,$A0,$7C,$39,$C3,$18
+  DC.B $1D,$C9,$86,$01,$02,$07,$81,$E1,$DF,$42,$00,$A0,$11,$80,$0A,$03
+  DC.B $C3,$D5,$14,$B0,$08,$54,$11,$60,$26,$61,$40,$38,$75,$F4,$14,$2C
+  DC.B $01,$21,$00,$00,$B2,$02,$00,$07,$07,$8D,$87,$65,$38,$80,$30,$40
+  DC.B $8C,$00,$01,$90,$0A,$00,$8E,$00,$0A,$13,$12,$90,$15,$05,$49,$04
+  DC.B $02,$80,$70,$C0,$80,$29,$5B,$C2,$01,$00,$68,$98,$0A,$0F,$87,$80
+  DC.B $01,$20,$86,$4A,$20,$02,$82,$84,$01,$40,$38,$71,$62,$30,$08,$18
+  DC.B $10,$02,$41,$40,$B8,$6F,$40,$40,$C6,$20,$21,$47,$02,$81,$02,$70
+  DC.B $2D,$86,$20,$0A,$C1,$FF,$19,$82,$B8,$80,$80,$44,$8E,$18,$07,$C7
+  DC.B $F9,$BA,$07,$F0,$DF,$FF,$F8,$9F,$A2,$07,$A0,$82,$01,$AE,$9C,$0E
+  DC.B $10,$02,$1B,$F9,$44,$10,$21,$64,$51,$00,$2A,$42,$1B,$10,$4A,$F6
+  DC.B $87,$CA,$94,$0C,$50,$12,$15,$F4,$3E,$0C,$E8,$A0,$12,$08,$70,$C5
+  DC.B $01,$81,$80,$1C,$41,$CA,$20,$02,$57,$F4,$38,$80,$A0,$63,$00,$B2
+  DC.B $28,$81,$80,$02,$86,$05,$01,$E1,$8E,$08,$42,$BA,$40,$85,$25,$80
+  DC.B $0A,$03,$C3,$C0,$10,$C0,$0F,$08,$00,$05,$20,$4F,$20,$64,$80,$30
+  DC.B $C3,$C0,$A1,$11,$00,$04,$10,$04,$24,$50,$69,$1E,$1F,$35,$50,$00
+  DC.B $29,$00,$A7,$42,$30,$9E,$18,$38,$14,$3B,$6A,$40,$21,$01,$E0,$78
+  DC.B $70,$00,$F0,$28,$90,$16,$4A,$09,$0A,$12,$55,$70,$F8,$20,$E0,$2F
+  DC.B $14,$0F,$C1,$26,$02,$80,$F0,$D0,$41,$81,$09,$02,$80,$7C,$11,$20
+  DC.B $28,$17,$0F,$C0,$82,$03,$50,$F1,$44,$00,$28,$0F,$0D,$E0,$19,$08
+  DC.B $40,$C0,$98,$20,$14,$1F,$0C,$4F,$A8,$13,$20,$8A,$50,$50,$70,$C7
+  DC.B $01,$20,$5C,$0C,$0C,$50,$1E,$18,$70,$08,$04,$24,$02,$81,$08,$C4
+  DC.B $EC,$81,$92,$01,$03,$0A,$0B,$87,$00,$03,$98,$60,$68,$10,$A0,$5C
+  DC.B $35,$02,$8A,$14,$92,$14,$0B,$86,$60,$03,$F1,$99,$8A,$06,$74,$7D
+  DC.B $0C,$40,$38,$1E,$80,$30,$30,$80,$5E,$D6,$86,$40,$E9,$02,$61,$A8
+  DC.B $50,$80,$ED,$82,$07,$81,$22,$66,$C3,$10,$BF,$17,$FC,$10,$70,$EE
+  DC.B $22,$80,$70,$CC,$07,$43,$FD,$2F,$C3,$FC,$8E,$D2,$28,$07,$0E,$00
+  DC.B $0A,$11,$05,$C1,$78,$07,$C2,$FA,$C5,$09,$86,$90,$38,$00,$D0,$9E
+  DC.B $00,$0F,$10,$3D,$7F,$82,$82,$B8,$1E,$70,$20,$70,$80,$50,$C8,$01
+  DC.B $A1,$06,$00,$14,$05,$00,$7C,$03,$B0,$14,$00,$77,$90,$D8,$62,$00
+  DC.B $F2,$AB,$A3,$00,$65,$08,$38,$00,$A2,$2B,$63,$61,$84,$02,$32,$22
+  DC.B $00,$A0,$FA,$14,$70,$1D,$90,$40,$D9,$01,$A1,$82,$02,$B8,$A2,$83
+  DC.B $49,$72,$17,$A4,$26,$18,$30,$05,$03,$81,$B8,$C3,$C3,$23,$00,$25
+  DC.B $45,$00,$81,$A2,$03,$A2,$36,$1C,$00,$1C,$28,$20,$90,$05,$2D,$03
+  DC.B $9B,$AD,$70,$0C,$36,$F5,$20,$71,$11,$C0,$C2,$81,$61,$F0,$03,$BC
+  DC.B $2C,$1C,$98,$34,$30,$A5,$E0,$7C,$05,$01,$A0,$82,$E4,$30,$34,$40
+  DC.B $28,$6F,$00,$30,$02,$06,$82,$38,$00,$4A,$8E,$05,$C8,$06,$19,$20
+  DC.B $30,$22,$E0,$20,$7C,$41,$E2,$07,$18,$20,$2B,$38,$30,$37,$80,$08
+  DC.B $63,$40,$C0,$E2,$0F,$C4,$11,$81,$6C,$86,$C3,$05,$04,$58,$50,$3F
+  DC.B $E4,$38,$08,$03,$03,$BD,$0E,$07,$30,$0E,$0E,$00,$12,$01,$40,$FC
+  DC.B $07,$E1,$26,$2D,$0F,$60,$2C,$1C,$40,$23,$16,$81,$A9,$01,$03,$04
+  DC.B $03,$C0,$2C,$3F,$80,$35,$07,$23,$08,$07,$00,$50,$31,$40,$78,$68
+  DC.B $08,$10,$10,$06,$07,$8D,$23,$0E,$00,$3F,$DC,$00,$7F,$B8,$00,$FF
+  DC.B $70,$01,$FE,$E0,$03,$FD,$C0,$07,$FB,$E3,$FF,$F7,$97,$FF,$EF,$9C
+  DC.B $DC,$1D,$20,$24,$31,$48,$08,$7E,$E0,$D0,$C1,$80,$10,$04,$0E,$D0
+  DC.B $08,$1E,$90,$10,$32,$2B,$E8,$7B,$40,$40,$C0,$0C,$21,$40,$51,$00
+  DC.B $75,$C3,$03,$64,$02,$86,$70,$00,$80,$20,$64,$00,$A0,$28,$C0,$31
+  DC.B $B7,$81,$D2,$06,$43,$0F,$DA,$06,$C0,$01,$40,$E0,$60,$03,$D0,$16
+  DC.B $D9,$86,$88,$55,$02,$86,$00,$0B,$76,$1B,$78,$D0,$3C,$00,$46,$14
+  DC.B $38,$03,$C9,$40,$F9,$02,$A1,$B1,$4D,$03,$34,$02,$07,$CE,$5D,$92
+  DC.B $D2,$05,$43,$75,$02,$06,$08,$24,$0C,$50,$A2,$8B,$30,$DA,$66,$81
+  DC.B $80,$89,$98,$10,$30,$0A,$18,$7A,$5A,$40,$F0,$21,$01,$F0,$00,$A0
+  DC.B $E0,$01,$FF,$58,$1A,$20,$24,$3A,$05,$20,$60,$07,$D0,$14,$19,$46
+  DC.B $84,$4C,$C3,$A6,$EA,$06,$F8,$0C,$0B,$E0,$12,$E5,$19,$19,$87,$60
+  DC.B $14,$0F,$02,$00,$78,$80,$A1,$41,$06,$61,$E0,$02,$A8,$48,$1B,$80
+  DC.B $04,$23,$C0,$06,$04,$4E,$57,$90,$3A,$18,$94,$C5,$CD,$03,$14,$0F
+  DC.B $87,$5F,$84,$0C,$50,$43,$01,$88,$22,$80,$70,$EC,$0B,$C0,$01,$08
+  DC.B $50,$01,$1C,$C4,$8A,$14,$38,$02,$81,$F0,$CC,$0A,$28,$23,$C0,$C4
+  DC.B $10,$96,$F8,$62,$81,$88,$CE,$E4,$81,$F0,$00,$E6,$14,$10,$30,$0A
+  DC.B $06,$C3,$DF,$3F,$80,$A0,$10,$30,$D9,$14,$0B,$87,$3E,$03,$B6,$8A
+  DC.B $05,$03,$07,$00,$A0,$1C,$3F,$F0,$18,$0F,$04,$28,$08,$8C,$04,$1A
+  DC.B $17,$00,$3C,$02,$05,$07,$66,$1B,$2F,$86,$28,$18,$8F,$F0,$3E,$02
+  DC.B $82,$0E,$01,$40,$84,$7F,$00,$60,$80,$00,$29,$60,$00,$0E,$E0,$05
+  DC.B $14,$2F,$87,$0C,$FC,$03,$F3,$C3,$02,$83,$E1,$C3,$01,$40,$B8,$7C
+  DC.B $0F,$F0,$63,$BC,$C3,$E0,$29,$7C,$73,$9F,$A0,$50,$0E,$1E,$07,$FC
+  DC.B $1C,$A1,$4B,$80,$FF,$F1,$02,$80,$F0,$C2,$DB,$EE,$3F,$01,$48,$7B
+  DC.B $BD,$FD,$02,$80,$F0,$E0,$40,$DF,$C6,$30,$29,$07,$7F,$40,$50,$1E
+  DC.B $1F,$FC,$18,$1E,$79,$FF,$81,$F8,$7F,$05,$03,$E1,$FF,$63,$C0,$50
+  DC.B $A7,$A0,$FF,$9F,$F8,$08,$2D,$86,$13,$04,$0F,$E0,$FA,$02,$80,$88
+  DC.B $C0,$A6,$28,$5F,$00,$28,$3C,$20,$14,$0B,$87,$BE,$01,$41,$78,$FC
+  DC.B $07,$40,$A0,$5C,$31,$30,$20,$6F,$0F,$0F,$88,$05,$80,$EE,$30,$02
+  DC.B $82,$C3,$0F,$05,$20,$10,$39,$41,$1E,$BD,$F9,$E0,$3C,$03,$0F,$F8
+  DC.B $02,$81,$A0,$FF,$FD,$DF,$D1,$C8,$1D,$0F,$00,$14,$05,$54,$9F,$7B
+  DC.B $09,$77,$93,$C1,$C5,$96,$18,$A5,$F7,$FF,$FF,$7F,$FE,$44,$48,$0F
+  DC.B $43,$8D,$02,$81,$70,$FE,$3F,$E0,$28,$23,$E0,$14,$B6,$31,$FB,$D0
+  DC.B $28,$17,$0F,$7C,$02,$92,$9C,$28,$10,$8F,$F0,$02,$91,$E0,$05,$0B
+  DC.B $F1,$8F,$01,$40,$78,$79,$E0,$27,$D8,$01,$E4,$14,$08,$47,$FD,$8E
+  DC.B $06,$39,$80,$41,$49,$3E,$87,$00,$A0,$1C,$35,$EA,$0C,$0C,$FD,$02
+  DC.B $97,$80,$77,$E2,$05,$02,$E1,$C0,$7F,$C0,$C3,$BF,$91,$26,$43,$FF
+  DC.B $81,$FF,$F0,$28,$07,$0F,$FC,$03,$3C,$7F,$02,$82,$7B,$DF,$01,$40
+  DC.B $B8,$78,$0F,$E0,$1F,$E3,$70,$14,$14,$BF,$79,$E0,$28,$17,$0F,$80
+  DC.B $FC,$03,$F8,$34,$82,$83,$F3,$C6,$0E,$8A,$92,$B2,$07,$43,$1F,$F0
+  DC.B $1F,$00,$F8,$0E,$00,$62,$A5,$C7,$C3,$01,$40,$B8,$7F,$00,$D4,$11
+  DC.B $48,$04,$02,$85,$FC,$00,$A0,$6C,$3F,$C0,$65,$08,$A0,$62,$3F,$E0
+  DC.B $68,$09,$19,$45,$01,$E1,$8F,$FF,$C2,$BD,$08,$18,$A4,$06,$01,$4B
+  DC.B $E0,$02,$80,$B0,$E7,$FF,$E0,$28,$14,$0C,$BA,$14,$0B,$87,$BE,$FF
+  DC.B $01,$40,$90,$73,$48,$30,$E2,$06,$94,$A1,$65,$14,$00,$46,$56,$22
+  DC.B $81,$C0,$F3,$27,$90,$06,$1E,$CF,$46,$8A,$7D,$0A,$03,$C3,$30,$BB
+  DC.B $A7,$B0,$35,$C8,$A1,$57,$D1,$61,$FF,$80,$C0,$20,$50,$4A,$64,$50
+  DC.B $70,$00,$28,$0B,$0F,$D2,$AF,$29,$98,$87,$80,$50,$62,$63,$A1,$C4
+  DC.B $09,$F8,$02,$DA,$28,$25,$57,$00,$3C,$22,$60,$61,$FE,$4D,$64,$55
+  DC.B $71,$81,$78,$43,$C0,$28,$59,$68,$E8,$7F,$92,$8B,$7F,$00,$F8,$78
+  DC.B $E2,$50,$47,$FC,$20,$29,$4B,$47,$43,$FC,$9B,$49,$FC,$02,$82,$BC
+  DC.B $2F,$FF,$10,$14,$0D,$87,$E0,$0B,$48,$50,$5D,$28,$01,$FF,$07,$4C
+  DC.B $7C,$01,$40,$18,$75,$42,$7F,$0A,$0F,$00,$3A,$24,$52,$A6,$AD,$20
+  DC.B $54,$37,$C0,$0A,$01,$03,$8C,$1F,$C0,$3B,$D9,$57,$E0,$12,$60,$61
+  DC.B $8F,$00,$84,$A2,$85,$C0,$BF,$82,$6C,$FE,$02,$0A,$1A,$18,$85,$F5
+  DC.B $52,$0F,$C0,$14,$0B,$78,$02,$89,$F0,$04,$14,$74,$3C,$01,$14,$0E
+  DC.B $07,$7C,$5E,$00,$30,$C5,$03,$C4,$08,$87,$80,$01,$B8,$50,$18,$18
+  DC.B $01,$C4,$24,$CA,$52,$2C,$80,$50,$C4,$44,$50,$56,$8B,$FC,$BE,$20
+  DC.B $82,$01,$E7,$02,$06,$48,$09,$0C,$C0,$0C,$14,$00,$3C,$05,$04,$00
+  DC.B $10,$17,$F8,$9C,$08,$04,$F0,$02,$80,$D0,$C6,$00,$28,$04,$0C,$80
+  DC.B $07,$37,$25,$80,$6F,$02,$01,$70,$00,$A0,$34,$30,$C0,$18,$0D,$00
+  DC.B $B7,$41,$E0,$C0,$9F,$80,$40,$27,$21,$D0,$C0,$80,$20,$23,$C0,$65
+  DC.B $BF,$C1,$46,$57,$C0,$1E,$97,$A0,$B4,$80,$90,$C4,$0A,$7C,$06,$0B
+  DC.B $FC,$06,$04,$03,$FC,$0A,$02,$81,$83,$10,$26,$1F,$E0,$3C,$A1,$F0
+  DC.B $50,$17,$C0,$02,$80,$F0,$FE,$3F,$FF,$D0,$C0,$04,$0F,$80,$02,$80
+  DC.B $F0,$FC,$3F,$C1,$D0,$C0,$04,$0F,$00,$02,$80,$F0,$E0,$0F,$E1,$C0
+  DC.B $14,$0E,$00,$10,$01,$FE,$E0,$03,$FD,$C0,$07,$FB,$80,$0F,$F7,$00
+  DC.B $1F,$EE,$00,$3F,$DC,$00,$7F,$B8,$00,$FF,$70,$01,$FE,$E0,$03,$FD
+  DC.B $C0,$07,$FB,$80,$0F,$F7,$00,$1F,$EE,$00,$3F,$DC,$00,$7F,$B8,$00
+  DC.B $FF,$70,$01,$FE,$E0,$03,$FD,$C0,$07,$FB,$80,$0F,$F7,$00,$1F,$EE
+  DC.B $00,$3F,$DC,$00,$7F,$B8,$00,$FF,$70,$01,$FE,$E0,$03,$FD,$C0,$07
+  DC.B $FB,$80,$0F,$F7,$00,$1F,$EE,$00,$3F,$DC,$00,$7F,$B8,$00,$FF,$70
+  DC.B $01,$FE,$E0,$03,$FD,$C0,$07,$FB,$80,$0F,$F7,$00,$1F,$EE,$00,$3F
+  DC.B $DC,$00,$7F,$B8,$00,$FF,$70,$01,$FE,$E0,$03,$FD,$C0,$07,$FB,$80
+  DC.B $0F,$F7,$00,$1F,$EF,$E0,$22,$1C,$04,$46,$00,$01,$04,$43,$00,$02
+  DC.B $80,$41,$80,$07,$81,$07,$80,$07,$14,$60,$00,$10,$B8,$B1,$DC,$87
+  DC.B $00,$00,$6D,$A0
+bootLogo2End:
+  even
 SUB_A1D77C:
   MOVE.L  #$ffffffff,LAB_A48438
   SF  LAB_A483D1
@@ -22547,6 +22934,7 @@ LAB_A1DA0A:
   MOVE.W  D1,D2
   MOVE.W  (A1),cursorX
   BCLR  #7,cursorX
+  JSR UpdateSerCursor
 LAB_A1DA1A:
   MOVEQ #0,D0
   MOVE.B  (A0)+,D0
@@ -22621,7 +23009,8 @@ LAB_A1DB3C:
   MOVE.L  (A0)+,color17+hardware
   MOVE.W  (A0)+,color19+hardware
   MOVE.L  (A0)+,cursorX
-  JSR ClearSpriteData(PC)
+  JSR UpdateSerCursor
+  JSR ClearSpriteData
   ST  cursorEnabled
   LEA EXT_1000,A0
   MOVE.W PageHeight,D0
@@ -23584,6 +23973,7 @@ LAB_A1E98C:
   MOVE.W  D0,D2
   MOVEQ #4,D1
   MOVE.L  D7,cursorX
+  JSR UpdateSerCursor
   MOVEQ #8,D0
   JSR PrintSpaces
   MOVE.L  0(A1,D2.W),D0
@@ -24531,6 +24921,7 @@ FindNull:
 PrintCRToPrinter:
   MOVE.L  D0,-(A7)
   CLR.W cursorX
+  JSR UpdateSerCursor
   TST.B printerDumpToggle
   BEQ.S LAB_A1F510
   MOVEQ #$D,D0
@@ -27416,11 +27807,13 @@ findPdosMfmSectors:
   MOVE.L D2,pdosKey
   MOVEM.L D0/A0,-(A7)
   MOVE.W #29,cursorX
+  JSR UpdateSerCursor
   LEA .pdosKeyText(PC),A0
   JSR PrintText
   MOVE.L D2,D0
   JSR Print8DigitHex
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0/A0
 .haskey
 
@@ -28457,6 +28850,7 @@ LAB_A20C24:
   MOVEQ #$23,D0
   JSR PrintSpaces
   CLR.W cursorX
+  JSR UpdateSerCursor
   BSR.W doVerify
   MOVEA.L A0,A1
   TST.W D0
@@ -28470,6 +28864,7 @@ LAB_A20CDE:
   MOVEQ #$23,D0
   JSR PrintSpaces
   CLR.W cursorX
+  JSR UpdateSerCursor
   BSR.W restoreMfmBuffer
   BMI.S LAB_A20CF6
   MOVE.W  D1,D0
@@ -28519,6 +28914,7 @@ LAB_A20D6A:
   MOVEQ #1,D1
   JSR PrintValue
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEA.L A1,A0
   MOVE.W  D2,D0
   BSR.W SUB_A207AA
@@ -33327,6 +33723,7 @@ dosiohelp:
 
   even
 
+  if (arhardware=1)
 CMD_SAVECFG:
   JSR readCmdChar
   CMPI.B  #"F",D0
@@ -33528,7 +33925,8 @@ badflash2
   MOVE.W #$f00,color00+hardware
   BRA.S badflash2
 saveflashend:
-
+  endc
+  
 CMD_AXFER:
   JSR checkExecBaseValid
   BEQ.S .1
@@ -33602,7 +34000,7 @@ doCrc16:
 CMD_CRC32:
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.S crcWTF
+  BEQ.W crcWTF
   MOVE.L  D0,A1
 
   JSR ReadParameter
@@ -33621,10 +34019,11 @@ CMD_CRC32:
   MOVEQ #-1,D0
 
   LEA crc32tbl,A3
-.crc16
+.crc32
   MOVEM.L D0/A0,-(A7)
   MOVE.L A1,A0
   JSR memSafeReadByte
+  ADD.L #1,A1
   MOVE.B D0,D1
   MOVEM.L (A7)+,D0/A0
 
@@ -33640,7 +34039,7 @@ CMD_CRC32:
   EOR.L D2,D0
 
   CMP.L A1,A2
-  BNE.S .crc16
+  BNE.S .crc32
   NOT.L D0
 
   JSR Print8DigitHex
@@ -33887,7 +34286,7 @@ memoryBlocksText:
   even
 
   
-  if arhardware=1
+  if (arhardware+pistorm=1)
 CMD_ARRAM:
   JSR CheckARRam
   JSR ConvertToBCD
@@ -34740,6 +35139,8 @@ CMD_SER:
   
   LEA serialEnabledText(PC),A0
   JSR RawIOInit
+  JSR UpdateSerCursor
+
 .1
   JMP PrintText
 
@@ -35465,6 +35866,7 @@ SUB_A24E3E:
   JSR PrintText
   BSR.W SUB_A25372
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0-D1
   RTS
 SUB_A24E58:
@@ -35651,6 +36053,7 @@ LAB_A24F30:
   MOVE.B  D1,D0
   BSR.W SUB_A25372
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0/A0
   BSR.W SUB_A207FC
   BPL.S LAB_A24F7A
@@ -35707,6 +36110,7 @@ SUB_A24FD6:
   MOVE.B  D1,D0
   BSR.W SUB_A25372
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEM.L (A7)+,D0/A0
   SF  LAB_A48335
   BSR.W SUB_A207AA
@@ -36489,18 +36893,18 @@ LAB_A25B2E:
   MOVE.L  D0,D2
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W smdataWtf
   MOVEA.L D0,A1
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W smdataWtf
 apiSaveData2
   EXG D0,A1
   EXG D0,A1
   MOVE.L  D0,D1
   SUB.L A1,D1
-  BCS.W LAB_A21070
-  BEQ.W LAB_A21070
+  BCS.W smdataWtf
+  BEQ.W smdataWtf
   MOVEA.L A1,A2
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
@@ -36536,6 +36940,8 @@ LAB_A25BB6:
   JSR PrintDiskOpResult
   JSR restoreMfmBuffer
   RTS
+smdataWtf:
+  JMP PrintWTF
 SUB_A25BC0:
   MOVEM.L D1-D7/A1/A3-A6,-(A7)
   MOVEA.L A2,A4
@@ -39916,10 +40322,12 @@ dumpnextbyte:
   DIVU #3,D0
   ADD.W #55,D0
   MOVE.W D0,cursorX
+  JSR UpdateSerCursor
   MOVE.B -1(A4),D0
   JSR InvalidAsciiToDot
   JSR PrintChar
   MOVE.W (A7)+,cursorX
+  JSR UpdateSerCursor
   
 .3
   MOVEQ #-8,D0
@@ -39949,6 +40357,7 @@ SUB_A283B8:
   MOVE.L  A0,-(A7)
   MOVE.B  (A0)+,cursorXLo
   MOVE.B  (A0)+,cursorYLo
+  JSR UpdateSerCursor
   JSR PrintText
   MOVEA.L (A7)+,A0
   RTS
@@ -41982,16 +42391,19 @@ SUB_A2A0F6:
   TST.B debuggerMode
   BEQ.S .1
   MOVE.W  #1,cursorX
+  JSR UpdateSerCursor
   MOVEQ #53,D0
   JSR PrintSpaces
   BRA.S .2
 .1
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVEQ #$4F,D0
   JSR PrintSpaces
 .2
   MOVE.L  (A7)+,D0
   MOVE.W  (A7)+,cursorX
+  JSR UpdateSerCursor
   MOVE.B  (A7)+,printerDumpToggle
   RTS
   MOVE.L  D1,-(A7)
@@ -42324,6 +42736,7 @@ LAB_420EA0:
   JSR PrintChar
 LAB_420EAA:
   MOVE.L  D7,cursorX
+  JSR UpdateSerCursor
   RTS
 LAB_420EB2:
   JMP PrintDiskOpResult
@@ -42341,6 +42754,7 @@ LAB_420ED8:
   ADD.W LAB_A480DA,D4
   MOVEA.L LAB_A480CE,A0
   ADDQ.W  #1,cursorY
+  JSR UpdateSerCursor
   BRA.W LAB_420D4A
 LAB_420EF4:
   MOVE.L  LAB_A480CE,D0
@@ -42368,9 +42782,11 @@ LAB_420F4C:
   TST.W cursorY
   BEQ.W LAB_420F84
   SUBQ.W  #1,cursorY
+  JSR UpdateSerCursor
   CMPI.W  #$004e,D2
   BHI.W LAB_420F6E
   MOVE.W  D2,cursorX
+  JSR UpdateSerCursor
   BRA.W LAB_420D4A
 LAB_420F6E:
   ADDI.W  #$0028,LAB_A480DA
@@ -42389,6 +42805,7 @@ LAB_420F88:
   CMPI.B  #$0a,-1(A0)
   BEQ.W LAB_420FDA
   ADDQ.W  #1,cursorX
+  JSR UpdateSerCursor
   CMPI.W  #$004f,cursorX
   BNE.W LAB_420D4A
   CMPI.B  #$0a,-1(A0)
@@ -42886,9 +43303,11 @@ HelpText:
   DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
   DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
   DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
+  if (arhardware+pistorm=1)
+  DC.B  "     arram: display the amount of memory on cart - arram",$D
+  endc
   if arhardware=1
   DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
-  DC.B  "     arram: display the amount of memory on cart - arram",$D
   DC.B  "   savecfg: save current cfg (requires flash hw) - savecfg",$D
   endc
   DC.B  "    sysram: display the system ram memory blocks - sysram",$D
@@ -43741,6 +44160,7 @@ LAB_A2DE06:
   RTS
 RepeatLastCmd:
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVE.W  #$004e,D1
   LEA LastCmdBuff,A1
   SF  cursorEnabled
@@ -43750,6 +44170,7 @@ LAB_A2DE1E:
   DBF D1,LAB_A2DE1E
   ST  cursorEnabled
   CLR.W cursorX
+  JSR UpdateSerCursor
   MOVE.W  cursorY,D0
   CMP.W PageHeight,D0
   BNE.S LAB_A2DE46
@@ -47596,8 +48017,8 @@ checksum:
   ;DC.L $ea3aa3a2 ;v0.6.0
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
-
-  DC.L $bd033904 ; v0.8.0
+  ;DC.L $275fa408 ; v0.8.0
+  DC.L $154bcf16 ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -47614,7 +48035,7 @@ ChipramSave1:
   ;DS.W  $1F40
   ;endc
 ChipRamSave2:
-  if arhardware=1
+  if (arhardware=1)
   DS.L  $10C0
   else
   DS.W  $10C0
@@ -48433,6 +48854,8 @@ ks2memTested:
 serIO:
   DS.B 1
 palMode:
+  DS.B 1
+bootScreen
   DS.B 1
   even
 newRamdiskAddr:
