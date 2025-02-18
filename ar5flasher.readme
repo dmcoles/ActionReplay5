@@ -1,0 +1,80 @@
+                         
+						 
+                  Action Replay 5 Standalone Flasher Utility
+                  ------------------------------------------
+						 
+This utility is for flashing the DeMoN cartridge. It relies on the presence of
+the AT29C010A flash chips which are used to store the firmware on this device.
+
+While the cartridge can be flashed from the Action Replay console using the
+FLASH commmand it may be necessary to flash the firmware without using the
+device itself. The DeMoN cart has an anti-brick mechanism which allows it to
+be flashed even if the firmware has become corrupted and is not functional.
+There are two jumpers on the PCB that allow the device to be flashed under
+these circumstances.
+
+The first jumper (labelled JP1) which is set to 1-2 under normal operation
+enables the stealth capabilities of the cart. In this mode the ROM and RAM
+present on the cart is not visible to the Amiga system until the cart is
+activated. This means software is not able to detect the presence of the cart.
+In order to flash from the command line tool this jumper should be set to 2-3
+and this will make the DeMoN memory visible at all times.
+
+IF you are able to boot your machine successfully then with this JP1 jumper
+correctly set you can use the standalone flasher to reprogram the firmware
+of the cart. If your machine does not boot with the DeMoN cart plugged in then
+the firmware is most likely corrupted and is not initialising correctly. In
+this scenario JP2 comes into play. Setting JP2 to 2-3 will deactivate the
+cart functionality but the memory will still be visible. This means the system
+can be booted and then the DeMoN can be flashed. Once the flashing is complete
+the JP2 must be returned to 1-2 for normal operation. It is also recommended
+to return JP1 to its standard setting of 1-2 as well but this is not
+mandatory, the cart will function with either setting of JP1 but the stealth
+features will not be operational.
+
+In summary the two jumpers on the board function as follows:
+
+   JP1
+   
+         1 - 2  - 3
+	       |    |
+     Stealth    Visible
+	 
+	 
+  JP2
+         1 - 2  - 3
+	       |    |
+     Enabled    Disabled
+
+both jumpers should be set to 1-2 for normal operation.
+
+
+To run the standalone flasher utility you should create a floppy disk with
+just the standalone command line flasher utility (ar5flasher) and a copy of
+the firmware file you wish to flash. Install the standard bootblock on the
+disk but do not create a startup-sequence. Booting from this floppy will
+then result in the user being dropped to the CLI prompt. Simply run
+the flasher tool from this CLI prompt passing in the name of the ROM file as
+a parameter. This will look something like this (exact text may vary according
+to the version of the Amiga OS being used):
+
+
+Copyright @1987 Commodore-Amiga, Inc.
+All rights reserved.
+Release 1.3
+1> ar5flasher ar5firmware.com
+
+
+After entering this and pressing return the flasher should performm its job
+and the ROM file will be applied to the cart flash memory. A verify operation
+will also take place to ensure it was completed successfully
+
+If the operation completes successfully you may return the cart jumpers to
+your desired setting and continue to use the DeMoN cart as desired.
+
+If the flash is not successful you will be given an appropriate error message
+to indicate where the issue lies.
+
+If the device is functioning correctly this process should allow a reflash of
+the firmware and recovery from a brick where there firmware has become
+corrupted.
