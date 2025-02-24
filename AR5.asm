@@ -4520,8 +4520,6 @@ apiTable:
 
 debugger:
   SF  cursorEnabled
-  SF serIO
-  JSR UpdateRawIO
   JSR Cls
   LEA debuggerPage(PC),A0
   JSR DrawPrefsPage
@@ -23777,9 +23775,16 @@ PrefsSettingPage2:
   even
   DS.W  1
 
+cantWithSerial: DC.B "Cannot do this when the serial output is enabled",13,0
+  even
+
 DoPrefs:
-  SF serIO
-  JSR UpdateRawIO
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText
+  
+.noser  
   MOVEM.L D0-D7/A0-A6,-(A7)
   JSR setupPrefsViewer(PC)
 PrefsPage1:
@@ -34831,10 +34836,10 @@ GetBlock:
   
   CMP.B #X_EOT,D0
   BNE.S .noteot
- SF.B serIO
- LEA eotText(PC),A0
- JSR PrintText
- ST.B serIO
+  SF.B serIO
+  LEA eotText(PC),A0
+  JSR PrintText
+  ST.B serIO
   MOVE.L #X_EOT,D0
   BRA.W .blockreturn
 .noteot
@@ -34943,39 +34948,39 @@ GetBlock:
   MOVEM.L (A7)+,D2-D6/A1-A2/A3/A5
   RTS
 .wrongblock
- SF.B serIO
- LEA wrongBlockText(PC),A0
- JSR PrintText
- MOVE.B D3,D0   ;block
- JSR Print2DigitHex
- JSR PrintCR
- MOVE.B D6,D0   ;wanted block
- JSR Print2DigitHex
- JSR PrintCR
- ST.B serIO
+  SF.B serIO
+  LEA wrongBlockText(PC),A0
+  JSR PrintText
+  MOVE.B D3,D0   ;block
+  JSR Print2DigitHex
+  JSR PrintCR
+  MOVE.B D6,D0   ;wanted block
+  JSR Print2DigitHex
+  JSR PrintCR
+  ST.B serIO
   SUB.B #1,D6
   CMP.B D3,D6
   BNE.S .blockfail
   BRA.S .success
   
 .badcrc
- SF.B serIO
- LEA badCrcText(PC),A0
- JSR PrintText
- ST.B serIO
- MOVE.L #X_FAILURE,D0
- BRA.W .blockreturn
+  SF.B serIO
+  LEA badCrcText(PC),A0
+  JSR PrintText
+  ST.B serIO
+  MOVE.L #X_FAILURE,D0
+  BRA.W .blockreturn
 
 .blockfail
- SF.B serIO
- LEA serErrorText(PC),A0
- JSR PrintText
- MOVE.W errcode,D0
- JSR Print1DigitHex
- JSR PrintCR
- ST.B serIO
- MOVE.L #X_FAILURE,D0
- BRA.W .blockreturn
+  SF.B serIO
+  LEA serErrorText(PC),A0
+  JSR PrintText
+  MOVE.W errcode,D0
+  JSR Print1DigitHex
+  JSR PrintCR
+  ST.B serIO
+  MOVE.L #X_FAILURE,D0
+  BRA.W .blockreturn
 
 getSerTempAddr:
   TST.B full64k
@@ -35497,18 +35502,18 @@ sendfail:
   RTS
 
 CMD_SER:
-  LEA serialDisabledText(PC),A0
-
   NOT.B serIO
   BEQ.S .1
   
-  LEA serialEnabledText(PC),A0
   JSR RawIOInit
   JSR UpdateSerCursor
-
-.1
-  JSR UpdateRawIO
+  LEA serialEnabledText(PC),A0
   JMP PrintText
+.1
+  LEA serialDisabledText(PC),A0
+  JSR PrintText
+  JSR UpdateRawIO
+  RTS
 
 serialDisabledText: DC.B "Serial IO disabled",13,0
 serialEnabledText: DC.B "Serial IO enabled",13,0
@@ -38506,6 +38511,12 @@ serSendTimeoutText: DC.B "Timeout while sending. Serial disabled.",13,0
 serRecvTimeoutText: DC.B "timeout while receiving. Serial disabled.",13,0
   even
 CMD_DBG:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText
+  
+.noser  
   ST debuggerMode
   RTS
 
@@ -38656,6 +38667,13 @@ fileDialog:
 displayFileSelector:
   CLR.B stringWorkspace
 displayFileSelector2:
+  TST.B serIO
+  BEQ.S .notser
+  
+  CLR.W D0
+  RTS
+  
+.notser
   MOVEM.L D1-D7/A0-A6,-(A7)
   MOVE.L  LAB_A480DE,-(A7)
   MOVE.B  currDriveNo,-(A7)
@@ -49331,8 +49349,6 @@ serDataReadPtr:
 serDataWritePtr:
   DS.L 1
 serBufUsed:
-  DS.W 1
-debugErrCount
   DS.W 1
 
   if arsoft=1
