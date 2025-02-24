@@ -62,7 +62,7 @@ to the version of the Amiga OS being used):
 Copyright @1987 Commodore-Amiga, Inc.
 All rights reserved.
 Release 1.3
-1> ar5flasher ar5firmware.com
+1> ar5flasher ar5firmware.rom
 
 
 After entering this and pressing return the flasher should performm its job
