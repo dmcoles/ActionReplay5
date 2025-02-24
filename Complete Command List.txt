@@ -242,7 +242,10 @@ Action Replay 5 Complete Command List
     FR <string>(,<start-addr> <end-addr>)
 
   G (Restart program at address)
-    G <addr>
+    G (<addr>)
+
+  GK (Disable DMA/Interrupts and restart program at address)
+    GK (<addr>)
 
   I (Alias for TRANS)
     I <start-addr> <end-addr> <dest-addr>
@@ -449,6 +452,9 @@ Action Replay 5 Complete Command List
   RF (Show FPU registers)
     RF
 
+  RFY (Receive files via serial ymodem)
+    RFY
+
   RM (Show MMU registers)
     RM
 
@@ -479,6 +485,9 @@ Action Replay 5 Complete Command List
   RT (Read tracks from active drive)
     RT <start-track> (<num-tracks> <dest-addr>)
 
+  RY (Receive files to memory via serial ymodem)
+    RY <start-addr>
+
   SA (Save current program to disk)
     SA (<path>)<name>,<crate>)
 
@@ -494,6 +503,9 @@ Action Replay 5 Complete Command List
   SDISK (Alias for SAFEDISK)
     SDISK (a/b/s/n/u/v/q)
 
+  SERSPEED (Set serial baud rate)
+    SERSPEED <baud>
+
   SETAPI (Set api handler)
     SETAPI
 
@@ -508,6 +520,9 @@ Action Replay 5 Complete Command List
 
   SEXC (Alias for SETEXCEPT)
     SEXC
+
+  SFY (Send files via serial ymodem)
+    SFY (<path>)<file>
 
   SLOADER (Save loader to active drive)
     SLOADER
@@ -548,6 +563,9 @@ Action Replay 5 Complete Command List
   SRIP (Alias for TRACKER)
     SRIP (<start-addr>)
 
+  SSPD (Alias for SERSPEED)
+    SSPD <baud>
+
   SST  (Alias for SSTICK)
     SST (<path>)<file>
 
@@ -556,6 +574,9 @@ Action Replay 5 Complete Command List
 
   ST (Trace current program (also subs))
     ST <steps>
+
+  SY (Send memory via serial ymodem)
+    SY <start-addr> <end-addr>
 
   SYSRAM (Show system memory blocks)
     SYSRAM
