@@ -89,8 +89,8 @@ EXT_100E  EQU $100E
 EXT_4E80  EQU $4E80
 
 EXT_7000  EQU $7000
-EXT_A400  EQU $a400
-EXT_A500  EQU $a500
+EXT_A400  EQU $a700
+EXT_A500  EQU $a800
 
 EXT_B000  EQU $B000
 EXT_20000 EQU $20000
@@ -4107,7 +4107,7 @@ arCommandLoop:
   JSR handleApiCall
 .2
   TST.B restartFlag
-  BNE.S LAB_A12108
+  BNE.W LAB_A12108
   BSR.W PrintInputChar
 LAB_A12160:
   ST  flashLedOnKey
@@ -9800,7 +9800,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.24022025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.25022025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -14078,6 +14078,7 @@ LAB_407D34:
 LAB_407D40:
   MOVE.W  D1,memoryControlPrefsValue
   BSR ARInit
+  
   JSR setActivateMode
   MOVEA.L EXT_F80004,A7
   JMP (A7)
@@ -14304,6 +14305,8 @@ ARInit:
 .k2
   MOVE.B  #$20,kickstartVersion
 .k3
+    
+
     
   JSR SUB_41BB88
   JSR SUB_A17DF4
@@ -21855,8 +21858,19 @@ LAB_A1D34E:
   MOVEM.L (A7)+,D0/A0-A1
   RTS
 CMD_SQR:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   ST  restartFlag
 CMD_SQ:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
+  MOVE.L Int5Save,AUTO_INT5.W
   MOVEM.L D0-D7/A0-A6,-(A7)
   MOVEQ #0,D5
   MOVE.L  SlowMemEnd,D5
@@ -22000,8 +22014,18 @@ DriveCfgWarnText:
   DC.B  "Warning: drive configuration has changed!",$D,0,0
 
 CMD_LQR:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   ST  restartFlag
 CMD_LQ:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   TST.B sqInRamdisk
   BEQ.W LAB_A1D714
   SF  cursorEnabled
@@ -31175,11 +31199,24 @@ LAB_A22634:
   MOVEM.L (A7)+,D0-D7/A0-A6
   RTS
 CMD_SR:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText
+  
+.noser  
   ST  LAB_A480DE
   BRA.S LAB_A2266E
 CMD_SA:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText
+  
+.noser  
   SF  LAB_A480DE
 LAB_A2266E:
+  MOVE.L Int5Save,AUTO_INT5.W
   SF  forceUpper
   BSR.W GetFilename
   ST  forceUpper
@@ -31450,9 +31487,20 @@ LAB_A22AF0:
   TST.L D0
   RTS
 CMD_LR:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText
+  
+.noser  
   ST  LAB_A480DE
   BRA.S LAB_A22B04
 CMD_LA:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   SF  LAB_A480DE
 LAB_A22B04:
   SF  TBufferAllocated
@@ -31779,6 +31827,10 @@ LAB_A22FD2:
   MOVEA.L A1,A0
   JSR LAB_A18966
   MOVEA.L A0,A1
+
+  MOVE.L AUTO_INT5.W,Int5Save
+  MOVE.L  #SerialIntHandler,AUTO_INT5.W
+
   MOVEQ #0,D0
   MOVE.W  DrivesConnected,D1
   AND.W 2(A4),D1
@@ -31844,8 +31896,6 @@ SavedRegsTable:
   DC.L  $00000004
   DC.L  LAB_A483D1
   DC.L  $00000001
-  DC.L  Int5Save
-  DC.L  $00000004
   DC.L  $ffffffff
 SUB_A230EA:
   MOVEM.L D0-D2/A0,-(A7)
@@ -34683,8 +34733,6 @@ gotblock0:
   MOVE.L #X_NAK,D0
   JSR RawPutChar
   JSR WaitSerCharTimeout2
-  MOVE.L #X_ACK,D0
-  JSR RawPutChar
   BRA.W .filedone
 .noteot
 
@@ -36581,7 +36629,7 @@ LAB_A2511A:
   RTS
 LAB_A25126:
   ADDQ.W  #1,D6
-  CMP.W D7,D6
+  CMP.W #159,D6
   BLS.S LAB_A250F8
   JSR restoreMfmBuffer
   RTS
@@ -36708,8 +36756,7 @@ LAB_A25322:
   BEQ.S LAB_A25322
   RTS
 NoFreememText:
-  DC.B  "Couldn't find free memory. Sure to kill running program? (y/n"
-  DC.B  ")",$D,0
+  DC.B  "Couldn't find free memory. Sure to kill running program? (y/n)",13,0
 
 SUB_A25372:
   MOVEM.L D0-D1/A0,-(A7)
@@ -37188,7 +37235,9 @@ SUB_A25A1E:
   RTS
 
 killProgText
-  DC.B  "Not enough memory. Kill running program? (y/n)",13,0
+  DC.B  "Not enough memory. "
+killProgText2
+  DC.B  "Kill running program? (y/n)",13,0
 
 NoFreeMemText:
   DC.B  "Out of free memory error!",$D,0
@@ -39232,12 +39281,23 @@ LAB_A26E02:
   MOVEM.L (A7)+,D0-D7/A0-A3
   RTS
 CMD_EXQR:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   ST  restartFlag
 CMD_EXQ:
+  TST.B serIO
+  BEQ.S .noser
+  LEA cantWithSerial,A0
+  JMP PrintText 
+.noser  
   TST.B sqInRamdisk
   BNE.S LAB_A26E28
   JMP LAB_A1D714
 LAB_A26E28:
+  MOVE.L Int5Save,AUTO_INT5.W
   SF  cursorEnabled
   SF  TBufferAllocated
   LEA hardware,A5
@@ -39280,7 +39340,7 @@ LAB_A26E9E:
 LAB_A26EB0:
   TST.W D0
   BEQ.S LAB_A26EBE
-  LEA DriveConfigWarnText(PC),A0
+  LEA DriveConfigWarnText,A0
   JSR PrintText
 LAB_A26EBE:
   MOVEA.L LAB_A48362,A0
@@ -43496,9 +43556,11 @@ LAB_A2A23A:
   LEA stringWorkspace,A1
   JSR OpenFile
   BMI.W LAB_A2A31C
+redo:
   MOVE.L  fileSize,D0
   CMP.L DiskMonBufferSize,D0
   BHI.W LAB_A2A340
+
   MOVEA.L DiskMonBuffer,A2
   JSR readFileBytes
   BMI.W LAB_A2A31C
@@ -43568,10 +43630,22 @@ LAB_A2A32C:
 LAB_A2A340:
   LEA FileTooLargeText(PC),A0
   JSR PrintText
+  TST.B  LAB_A48393  
+  BNE.S .1
+  LEA killProgText2(PC),A0
+  JSR AskYN
+  TST.W D0
+  BEQ.S .2
+  JSR getKillBuffer
+  BRA.W redo
+.1
+  JSR PrintCR
+.2
   MOVEQ #0,D0
   BRA.S LAB_A2A31C
+  
 FileTooLargeText:
-  DC.B  "File too large for dmon-buffer!",$D,0
+  DC.B  "File too large for dmon-buffer! ",0
 
 ShortcutsText:
   DC.B  $D,"Shortcuts for some commands:",$D
@@ -48462,7 +48536,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $761cde19 ; v0.9.0
+  DC.L $ea82c591 ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
