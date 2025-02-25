@@ -2759,12 +2759,16 @@ LAB_A1125E:
   RTS
 LAB_A11278:
   MOVE.L  (A7)+,D0
+  BSR.S SUB_A1127A
+  JMP UpdateSerCursor 
+  
 SUB_A1127A:
   SUBQ.W  #1,LAB_A47F40
   BSR.S ScrollUp
   RTS
 ScrollUp:
   MOVEM.L D0-D1/A0-A1,-(A7)
+  JSR serScrollUp
   MOVE.W  #$0280,D0
   MULU  cursorY,D0
   ADD.W cursorX,D0
@@ -2846,6 +2850,7 @@ LAB_A11366:
   RTS
 ScrollDown:
   MOVEM.L D0-D1/A0-A1,-(A7)
+  JSR serScrollDown
   MOVEA.L CurrentPage,A0
   MOVE.W PageHeight,D0
   MULU #80,D0
@@ -12356,7 +12361,33 @@ AsciiCharToHexDigit:
 LAB_A16AD6:
   ADDI.B  #$0a,D0
   RTS
-PrintSerChar
+
+serScrollUp:
+  TST.B serIO
+  BEQ.S .noser
+  MOVE.B #27,D0
+  JSR RawPutChar  
+  MOVE.B #"[",D0
+  JSR RawPutChar  
+  MOVE.B #"S",D0
+  JSR RawPutChar  
+  ;JSR UpdateSerCursor
+.noser
+  RTS
+
+serScrollDown:
+  TST.B serIO
+  BEQ.S .noser
+  MOVE.B #27,D0
+  JSR RawPutChar  
+  MOVE.B #"[",D0
+  JSR RawPutChar  
+  MOVE.B #"T",D0
+  JSR RawPutChar  
+.noser
+  RTS
+  
+PrintSerChar:
   MOVEM.L D0/A0-A1,-(A7)
   LEA serOutTransTable,A0
   MOVE.L A0,A1
@@ -12390,15 +12421,15 @@ SerInTranslate:
   CMP.B #27,D0
   BNE.S .0
 
-  JSR WaitSerCharTimeout
+  JSR WaitSerCharTimeout2
   TST.L D0
-  BMI.S .timeout
+  BMI.S .escape1
   CMP.B #"[",D0
-  BNE.S .1
+  BNE.S .escape2
 
-  JSR WaitSerCharTimeout
+  JSR WaitSerCharTimeout2
   TST.L D0
-  BMI.S .timeout
+  BMI.S .escape2
   
   CMP.B #"A",D0
   BNE.S .na
@@ -12429,12 +12460,15 @@ SerInTranslate:
   BNE.S .notdel
   MOVE.W #$84,D0
   RTS
-.notdel
-  CMP.B #8,D0   ;backspace
-  BNE.S .notbsp
-  MOVE.W #$84,D0
+.escape1
+  TST.B EscapeDisabled
+  BNE.S .escape2
+  ST.B EscapePressed
+.escape2
+  MOVEQ #0,D0
   RTS
-.notbsp
+
+.notdel
 .timeout
 .1 RTS
 
@@ -12446,6 +12480,7 @@ serOutTransTable
   DC.B CursorLeft
   DC.B CursorRight
   DC.B $84 
+  DC.B F1Key
   DC.B 0
 
 
@@ -12456,6 +12491,7 @@ serTransCursorUp: DC.B 27,"[A",0
 serTransCursorLeft: DC.B 27,"[D",0
 serTransCursorRight: DC.B 27,"[C",0
 serTransDel DC.B 0
+serTransF1 DC.B 27,"[2J",0
   even
 serOutTransTable2
   DC.L serTransCR
@@ -12465,14 +12501,17 @@ serOutTransTable2
   DC.L serTransCursorLeft
   DC.L serTransCursorRight
   DC.L serTransDel
+  DC.L serTransF1
   
 PrintChar:
   MOVEM.L D0-D3/A0-A2,-(A7)
   
   TST.B serIO
-  BEQ.W .noser
+  BEQ.S .noser
   TST.B D0
-  BEQ.W .noser
+  BEQ.S .noser
+  CMP.B #27,D0
+  BEQ.S .noser
   BSR PrintSerChar
 .noser
   LEA EXT_1000,A0
@@ -34596,6 +34635,10 @@ ryloop1
   BSR getSerTempAddr
   MOVEQ #0,D0 ;expected block
   JSR GetBlock
+
+  TST.B EscapePressed
+  BNE.W ryfail
+
   TST.B serBuffOverrun
   BNE.W rybuffOverrun
   CMP.B #X_SUCCESS,D0
@@ -34721,6 +34764,9 @@ gotblock0:
   JSR GetBlock
   TST.B serBuffOverrun
   BNE.W rybuffOverrun
+
+  TST.B EscapePressed
+  BNE.W ryfail
 
   CMP.B #X_SUCCESS,D0
   BEQ .blocksuccess
@@ -38468,20 +38514,20 @@ WaitSerChar:
   bmi.s     WaitSerChar              ;Continue waiting if not.
   rts                             ;Return the character.
 
-WaitSerCharTimeout:
-  MOVE.B  #0,ciaatodlo
-.2
-  bsr.s RawMayGetChar
-  tst.l D0
-  bpl.s .1
-  CMP.B #100,ciaatodlo
-  BNE.S .2
-  SF.B serIO
-  JSR UpdateRawIO
-  LEA serRecvTimeoutText(PC),A0
-  JSR PrintText 
-.1:
-  rts
+;WaitSerCharTimeout:
+;  MOVE.B  #0,ciaatodlo
+;.2
+;  bsr.s RawMayGetChar
+;  tst.l D0
+;  bpl.s .1
+;  CMP.B #100,ciaatodlo
+;  BNE.S .2
+;  SF.B serIO
+;  JSR UpdateRawIO
+;  LEA serRecvTimeoutText(PC),A0
+;  JSR PrintText 
+;.1:
+;  rts
 
 WaitSerCharTimeout2:
   MOVE.B  #0,ciaatodlo
@@ -43331,6 +43377,7 @@ LAB_420FFE:
   CMPI.B  #$0a,(A0)+
   BNE.S LAB_420FFE
   JSR ScrollUp
+  JSR UpdateSerCursor
   MOVE.W  LAB_A480DA,D2
 SUB_42101A:
   MOVEM.L A0-A1,-(A7)
