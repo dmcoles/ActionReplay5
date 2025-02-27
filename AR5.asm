@@ -4895,16 +4895,9 @@ debuggerSetDisasmPage:
   DC.B  "Disassemble From:",0
   even
   DC.W 0
-CMD_IMODE:
- if arsoft=0
- LEA noimodetext(PC),A0
- BSR.W PrintText
- JMP PrintReady
 
-noimodetext:
- DC.B "IMODE is not available in hardware",$D,0
- even
- else
+  if arsoft=1
+CMD_IMODE:
  JSR ReadParameter
  TST.B ParamFound
  BEQ.S LAB_A1225E
@@ -5032,10 +5025,12 @@ commandTable:
   DC.L  CMD_RESETCFG
   DC.L cmd_resetcfg_help
 
+  if arsoft=1
   DC.B  "ROMAVOID",0
   even
   DC.L  CMD_ROMAVOID
   DC.L cmd_romavoid_help
+  endc
 
   DC.B  "DISKWIPE",0
   even
@@ -5139,6 +5134,11 @@ commandTable:
   DC.L cmd_savecfg_help
   endc
 
+  DC.B  "KILLMEM",0
+  even
+  DC.L  CMD_KILLMEM
+  DC.L cmd_killmem_help
+
   DC.B  "DELETE",0
   even
   DC.L  CMD_DELETE
@@ -5224,10 +5224,12 @@ commandTable:
   DC.L  CMD_DEEPMW
   DC.L cmd_deepmw_help
 
+  if arsoft=1
   DC.B  "ALLEXC",0
   even
   DC.L  CMD_ALLEXC
   DC.L cmd_allexc_help
+  endc
 
   DC.B  "KEYMAP",0
   even
@@ -5389,10 +5391,12 @@ commandTable:
   DC.L  CMD_DCHIP
   DC.L cmd_dchip_help
 
+  if arsoft=1
   DC.B  "IMODE",0
   even
   DC.L  CMD_IMODE
   DC.L cmd_imode_help
+  endc
 
   DC.B  "DMON",0
   even
@@ -5504,10 +5508,12 @@ commandTable:
   DC.L  CMD_ROBD
   DC.L cmd_robd_help
 
+  if arsoft=1
   DC.B  "KILL",0
   even
   DC.L  CMD_KILL
   DC.L cmd_kill_help
+  endc
 
   DC.B  "BDA",0
   even
@@ -6188,10 +6194,12 @@ cmd_alert_help:
   DC.B  "  ALERT <guru-number>",13
   DC.B 0
 
+  if arsoft=1
 cmd_allexc_help:
   DC.B  "ALLEXC (Enable/disable all exceptions)",13
   DC.B  "  ALLEXC",13
   DC.B 0
+  endc
 
 cmd_arram_help:
   DC.B  "ARRAM (Display Action Replay RAM info)",13
@@ -6635,14 +6643,23 @@ cmd_keymap_help:
   DC.B  "  KEYMAP US|UK|DE",13
   DC.B 0
 
+  if arsoft=1
 cmd_kickromadr_help:
   DC.B  "KICKROMADR (Toggle kickstart ROM address)",13
   DC.B  "  KICKROMADR",13
   DC.B 0
+  endc
 
+  if arsoft=1
 cmd_kill_help:
   DC.B  "KILL (Remove AR from memory)",13
   DC.B  "  KILL",13
+  DC.B 0
+  endc
+
+cmd_killmem_help
+  DC.B  "KILLMEM (Kill running program and allocate disk buffer)",13
+  DC.B  "  KILLMEM",13
   DC.B 0
 
 cmd_killvirus_help:
@@ -6934,8 +6951,8 @@ cmd_rf_help:
   DC.B 0
 
 cmd_rfy_help:
-  DC.B  "RFY (Receive file ymodem)",13
-  DC.B  "  RFY",13
+  DC.B  "RFY (Receive file via serial - ymodem)",13
+  DC.B  "  RFY (path)",13
   DC.B 0
 
 cmd_rm_help:
@@ -6953,10 +6970,12 @@ cmd_robd_help:
   DC.B  "  ROBD",13
   DC.B 0
 
+  if arsoft=1
 cmd_romavoid_help:
   DC.B  "ROMAVOID (Enable/disable triggering from ROM)",13
   DC.B  "  ROMAVOID",13
   DC.B 0
+  endc
 
 cmd_rp_help:
   DC.B  "RP (Read pdos tracks from active drive)",13
@@ -6994,7 +7013,7 @@ cmd_rt_help:
   DC.B 0
 
 cmd_ry_help:
-  DC.B  "RY (Receive ymodem)",13
+  DC.B  "RY (Receive memory via serial - ymodem)",13
   DC.B  "  RY <dest-addr>",13
   DC.B 0
 
@@ -7064,7 +7083,7 @@ cmd_sexc_help:
   DC.B 0
 
 cmd_sfy_help:
-  DC.B  "SFY (Send file ymodem)",13
+  DC.B  "SFY (Send file via serial - ymodem)",13
   DC.B  "  SFY (<path>)<filename>",13
   DC.B 0
 
@@ -7154,7 +7173,7 @@ cmd_st_help:
   DC.B 0
 
 cmd_sy_help:
-  DC.B  "SY (Send ymodem)",13
+  DC.B  "SY (Send memory via serial - ymodem)",13
   DC.B  "  SY <start-addr> <end-addr>",13
   DC.B 0
 
@@ -7346,8 +7365,10 @@ LAB_A12A58:
 resetTBufferText:
   DC.B  "Sure to exit without resetting trackbuffer?",$D,0
 
+  if arsoft=1
 killArText:
-  DC.B  "Do you really want to kill AR-PRO?",$D,0,0
+  DC.B  "Do you really want to remove Action Replay 5 from memory?",$D,0
+  even
 
 CMD_KILL:
   LEA killArText(PC),A0
@@ -7357,6 +7378,22 @@ CMD_KILL:
   RTS
 LAB_A12ABE:
   JMP CMD_RESET
+  endc
+  
+  even
+CMD_KILLMEM:
+  LEA killMemText(PC),A0
+  JSR AskYN
+  TST.W D0
+  BEQ.S .2
+  JSR getKillBuffer
+  JMP LAB_A25C66
+.2
+  JMP PrintReady
+  
+killMemText: DC.B "Are you sure you wish to kill the running program?",$D,0
+  even
+
 CMD_CACHE:
   MOVEM.L D0-D3/A0-A2,-(A7)
   BSR.W ReadParameter
@@ -7408,6 +7445,7 @@ LAB_A12B5E:
   MOVEM.L (A7)+,D0-D3/A0-A2
   BSR.W PrintReady
   RTS
+  if arsoft=1
 CMD_ALLEXC:
   MOVEM.L D0-D3/A0-A2,-(A7)
   LEA AllExceptionsActiveText,A0
@@ -7419,6 +7457,7 @@ LAB_A12B84:
   MOVEM.L (A7)+,D0-D3/A0-A2
   BSR.W PrintReady
   RTS
+  endc
 CMD_P:
   BSR.W memPeeker
   BRA.W PrintReady
@@ -9805,7 +9844,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.25022025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.27022025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -20773,7 +20812,7 @@ LAB_A1C480:
   CMPI.W  #$0052,D0
   BNE.S LAB_A1C4AA
   BSR.W readCmdChar
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   MOVE.W  #$000c,(A1)
   BRA.W LAB_A1C424
 LAB_A1C4AA:
@@ -28732,7 +28771,7 @@ CMD_DIR:
   JSR readCmdChar
   MOVEQ #-1,D6
 LAB_A20906:
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   LEA stringWorkspace,A2
   MOVE.B  currDriveNo,-(A7)
   LEA EXT_7000.W,A0
@@ -28914,7 +28953,7 @@ CMD_FORMAT:
   CMPI.B  #$56,D0
   SEQ VerifyFormat
   SF  forceUpper
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   ST  forceUpper
   MOVE.W  D0,FilenameLen
   JSR readCmdChar
@@ -30778,7 +30817,7 @@ LAB_A22044:
   MOVEM.L (A7)+,D1-D3/A0
   RTS
 CMD_CD:
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   LEA EXT_70000,A0
   BSR.W backupMfmBuffer
   TST.W D0
@@ -30955,7 +30994,7 @@ LAB_A221FE:
   RTS
 CMD_MAKEDIR:
   SF  forceUpper
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   ST  forceUpper
   TST.W D0
   BEQ.W LAB_A21070
@@ -31042,7 +31081,7 @@ LAB_A22304:
 GetFilename:
   ST  LAB_A4839A
   BRA.S LAB_A22320
-SUB_A2231A:
+GetFilenameNoFsel:
   SF  LAB_A4839A
 LAB_A22320:
   JSR readCmdCharSkipSpaces
@@ -32040,7 +32079,7 @@ LAB_A2326C:
   TST.B LAB_A480CA
   BEQ.S LAB_A23286
   SF  forceUpper
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   ST  forceUpper
   BRA.S LAB_A23296
 LAB_A23286:
@@ -33575,7 +33614,7 @@ SUB_41A28A:
   JSR PrintInputChar
   SF  cursorEnabled
   SF  forceUpper
-  BSR.W SUB_A2231A
+  BSR.W GetFilenameNoFsel
   ST  forceUpper
   MOVE.L  D0,D1
   MOVEQ #-14,D0
@@ -34584,22 +34623,44 @@ currentSpeedText: DC.B "Serial port speed: !",0
   even
 
 CMD_RFY:
+  MOVE.L A0,A1
   BSR getSerTempAddr
   CMP.L #0,A0
   BNE.S .nz
   RTS
   
 .nz
+  MOVE.L A1,A0
   ST  serFileTransfer
 
+  BSR GetFilenameNoFsel  ;get pathname
+  
   LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
+
   MOVE.B  currDriveNo,-(A7)
+  MOVE.L  currentDirBlock,-(A7)
+  TST.W D0
+  BEQ.S .skipdir
+  
+  LEA stringWorkspace,A2
+  BSR.W SUB_A22080    ;change dir
+  BMI.S .doDiskOpRes
+.skipdir
 
   SUB.L A1,A1
   JSR doYmodemReceive
 
+  MOVE.L  (A7)+,currentDirBlock
   MOVE.B  (A7)+,currDriveNo
+  LEA EXT_7000.W,A0
+  BSR.W restoreMfmBuffer
+  SF  serFileTransfer
+  RTS
+.doDiskOpRes
+  MOVE.L  (A7)+,currentDirBlock
+  MOVE.B  (A7)+,currDriveNo
+  BSR PrintDiskOpResult
   LEA EXT_7000.W,A0
   BSR.W restoreMfmBuffer
   SF  serFileTransfer
@@ -34629,18 +34690,31 @@ nextfile:
   MOVEQ #9,D1
 ryloop1
   MOVE.W D1,-(A7)
+  BSR getSerTempAddr
+
   MOVE.L #"C",D0
   JSR RawPutChar
+  TST.B serIO
+  BEQ.S .fail1
 
-  BSR getSerTempAddr
   MOVEQ #0,D0 ;expected block
   JSR GetBlock
 
   TST.B EscapePressed
-  BNE.W ryfail
+  BEQ.S .notesc
 
+.fail1
+  MOVE.W (A7)+,D1  
+  BRA.W ryfail
+
+.notesc
   TST.B serBuffOverrun
-  BNE.W rybuffOverrun
+  BEQ.S .notovr
+  MOVE.W (A7)+,D1  
+  BRA.W rybuffOverrun
+  
+.notovr
+  
   CMP.B #X_SUCCESS,D0
   BNE.S notsuccess
 
@@ -36097,7 +36171,7 @@ LAB_A24B52:
   TST.W D0
   BNE.S LAB_A24BA0
   MOVEQ #-8,D0
-  BRA.W PrintDiskOpResult
+  JMP PrintDiskOpResult
 LAB_A24BA0:
   JSR getKillBuffer
   MOVE.L  DiskMonBufferSize,D0
@@ -36518,7 +36592,7 @@ LAB_A24F30:
   CLR.W cursorX
   JSR UpdateSerCursor
   MOVEM.L (A7)+,D0/A0
-  BSR.W SUB_A207FC
+  JSR SUB_A207FC
   BPL.S LAB_A24F7A
   MOVE.L  D0,-(A7)
   MOVEQ #0,D0
@@ -37098,7 +37172,7 @@ YNText2:
 CMD_TYPE:
   BSR.W GetFilename
   TST.W D0
-  BEQ.W LAB_A21070
+  BEQ.W typeWTF
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
@@ -37151,6 +37225,8 @@ filecrcdone:
   SF  scrollLock
   MOVE.B  (A7)+,currDriveNo
   RTS
+typeWTF:
+  JMP PrintWTF
 SUB_A258C0:
   MOVEM.L D0/A0-A1,-(A7)
   MOVEQ #0,D0
@@ -38485,6 +38561,8 @@ UpdateRawIO:
 
 
 RawMayGetChar:
+  TST.B serIO
+  BEQ.S .1
   TST.W serBufUsed
   BEQ.S .1
   MOVE.L A0,-(A7)
@@ -38530,6 +38608,8 @@ WaitSerChar:
 ;  rts
 
 WaitSerCharTimeout2:
+  TST.B serIO
+  BEQ.S .5
   MOVE.B  #0,ciaatodlo
   MOVE.L A0,-(A7)
 .4
@@ -38556,6 +38636,7 @@ WaitSerCharTimeout2:
   CMP.B #100,ciaatodlo
   BNE.S .4
   MOVE.L (A7)+,a0
+.5
   moveq     #-1,D0
   rts         
 
@@ -38592,17 +38673,18 @@ RawPutChar:
   or.w      #$0100,D0             ;Set the stop bit.
   move.w    D0,$DFF030             ;Write to SERDAT.
 .noser
+.timeout
   MOVE.L (A7)+,D1
   rts
-.timeout
-  SF.B serIO
-  JSR UpdateRawIO
-  LEA serSendTimeoutText(PC),A0
-  JSR PrintText
-  MOVE.L (A7)+,D1
-  RTS
+;.timeout
+;  SF.B serIO
+;  JSR UpdateRawIO
+;  LEA serSendTimeoutText(PC),A0
+;  JSR PrintText
+;  MOVE.L (A7)+,D1
+;  RTS
 
-serSendTimeoutText: DC.B "Timeout while sending. Serial disabled.",13,0
+;serSendTimeoutText: DC.B "Timeout while sending. Serial disabled.",13,0
 serRecvTimeoutText: DC.B "timeout while receiving. Serial disabled.",13,0
   even
 CMD_DBG:
@@ -42772,7 +42854,7 @@ ConsoleDev:
 
 CMD_RELABEL:
   SF  forceUpper
-  JSR SUB_A2231A
+  JSR GetFilenameNoFsel
   ST  forceUpper
   MOVE.W  D0,D1
   MOVEQ #-14,D0
@@ -42842,7 +42924,7 @@ CMD_RENAME:
   MOVE.L  $1F4(A1),D5
   EXG A6,A0
   SF  forceUpper
-  JSR SUB_A2231A
+  JSR GetFilenameNoFsel
   ST  forceUpper
   EXG A6,A0
   MOVE.W  D0,LAB_A480CA
@@ -43865,26 +43947,37 @@ HelpText:
   DC.B  "    setcop: Copper specify for Exit of AR-PRO    - setcop (address)",$D
   DC.B  "     ascii: Show ASCII-Table                     - ascii",$D
   DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
-  DC.B  "    diskio: install rob northen diskio routines  - diskio (address)",$D
-  DC.B  "     dosio: install rob northen dosio routines   - dosio (address)",$D
+  DC.B  "    diskio: Install rob northen diskio routines  - diskio (address)",$D
+  DC.B  "     dosio: Install rob northen dosio routines   - dosio (address)",$D
   if (arhardware+pistorm=1)
-  DC.B  "     arram: display the amount of memory on cart - arram",$D
+  DC.B  "     arram: Display the amount of memory on cart - arram",$D
   endc
   if arhardware=1
-  DC.B  "     flash: flash a new rom (requires flash hw)  - flash (path)name",$D
-  DC.B  "   savecfg: save current cfg (requires flash hw) - savecfg",$D
+  DC.B  "     flash: Flash a new rom (requires flash hw)  - flash (path)name",$D
+  DC.B  "   savecfg: Save current cfg (requires flash hw) - savecfg",$D
   endc
-  DC.B  "    sysram: display the system ram memory blocks - sysram",$D
-  DC.B  "     crc16: calculate a crc16 checksum           - crc16 start end",$D
-  DC.B  "     crc32: calculate a crc32 checksum           - crc32 start end",$D
+  DC.B  "    sysram: Display the system ram memory blocks - sysram",$D
+  DC.B  "        sy: Send memory via serial (ymodem)      - sy start end",$D
+  DC.B  "       sfy: Send file via serial (ymodem)        - sfy (path)name",$D
+  DC.B  "        ry: Receive memory via serial (ymodem)   - ry address",$D
+  DC.B  "       rfy: Receive files via serial (ymodem)    - rfy (path)",$D
+  DC.B  "  serspeed: Set serial speed                     - serspeed baud",$D
+  DC.B  "       ser: Enable/Disable serial console        - ser",$D
+  DC.B  "     crc16: Calculate a crc16 checksum           - crc16 start end",$D
+  DC.B  "     crc32: Calculate a crc32 checksum           - crc32 start end",$D
   DC.B  "     axfer: Setup system for AmigaXfer           - axfer",$D
-  DC.B  "       led: toggle led status                    - led",$D
-  DC.B  "     imode: Entering AR-PRO mode                 - imode 0|1|2|3",$D
+  DC.B  "       led: Toggle led status                    - led",$D
+  DC.B  "   killmem: Kill running program+allocate buffer - killmem",$D
+  if arsoft=1
+  DC.B  "     imode: Select activation mode               - imode 0|1|2|3",$D
   DC.B  "      kill: Removes action replay from memory    - kill",$D
-  DC.B  "    allexc: Enable/Disable exception activation  - allexc",$D
+  DC.B  "    allexc: Enable/Disable exception activation  - allexc",$D 
+  endc
   DC.B  "    deepmw: Enable/Disable deep memwatcher       - deepmw",$D
+  if arsoft=1
   DC.B  "  romavoid: Enable/Disable triggering from ROM   - romavoid",$D
   DC.B  "kickromadr: Change kickstart placement adr       - kickromadr",$D
+  endc
   DC.B  "     cache: Change cache status (020/030 only)   - cache 0|1",$A
   DC.B  $D
   DC.B  "Printer commands:",$D
@@ -43951,9 +44044,9 @@ HelpText:
   DC.B  "         o: Fill memoryblock with string         - o string, start end",$D
   DC.B  "      robd: Enable/Disable Rob Northen MODE      - robd",$D
   DC.B  "         r: Show/edit processor registers        - r (reg value)",$D
-  DC.B  "         rc: Show 020+ control registers         - rc",$D
-  DC.B  "         rf: Show fpu registers                  - rf",$D
-  DC.B  "         rm: Show mmu registers                  - rm",$D
+  DC.B  "        rc: Show 020+ control registers          - rc",$D
+  DC.B  "        rf: Show fpu registers                   - rf",$D
+  DC.B  "        rm: Show mmu registers                   - rm",$D
   DC.B  "         w: Show/edit cia's                      - w (register)",$D
   DC.B  "         y: Show/edit memory as binary           - y address",$D
   DC.B  "        yy: Show/edit memory as binary (8 lines) - yy address",$D
@@ -47498,6 +47591,7 @@ LAB_A31052:
   MOVEA.L (A7)+,A0
   MOVE.L  (A7)+,D0
   RTS
+  if arsoft=1
 CMD_ROMAVOID:
   MOVEM.L D0-D3/A0-A2,-(A7)
   LEA AvoidRomDisabledText,A0
@@ -47509,19 +47603,11 @@ LAB_A31070:
   JSR calcArChecksum
   MOVEM.L (A7)+,D0-D3/A0-A2
   JMP PrintReady
+  endc
 
 
+ if arsoft=1
 CMD_KICKROMADR:
- if arsoft=0
- LEA nokickromadrtext(PC),A0
- JSR PrintText
- JMP PrintReady
-
-nokickromadrtext:
- DC.B "KICKROMADR is not available in hardware",$D,0
- even
- else
-
   MOVEM.L D0-D3/A0-A2,-(A7)
   LEA AvoidRomF8Text,A0
   MOVEA.L #$00f80000,A1
@@ -48583,7 +48669,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $ea82c591 ; v0.9.0
+  DC.L $40c18f6c ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
