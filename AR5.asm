@@ -23949,6 +23949,8 @@ LAB_A1E6BC:
 LAB_A1E6CC:
   CMPI.W  #6,D0
   BNE.S LAB_A1E6DC
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E6DC
   NOT.B ExtMemAddPrefsFlag
   BRA.W LAB_A1E646
 LAB_A1E6DC:
@@ -24031,6 +24033,8 @@ LAB_A1E79A:
 LAB_A1E7B2:
   CMPI.W  #2,D0
   BHI.S LAB_A1E7D4
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E7D4
 ; memory control settings
   BTST  D0,memConfigFlags
   BEQ.W LAB_A1E646
@@ -24040,12 +24044,16 @@ LAB_A1E7B2:
 LAB_A1E7D4:
   CMPI.W  #3,D0
   BNE.S LAB_A1E7E6
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E7E6
 ; chipram control settings
   BCLR  #3,memoryControlPrefsValueLo
   BRA.W LAB_A1E646
 LAB_A1E7E6:
   CMPI.W  #4,D0
   BNE.S LAB_A1E804
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E804
   BTST  #3,memConfigFlags
   BEQ.W LAB_A1E646
   BSET  #3,memoryControlPrefsValueLo
@@ -24057,6 +24065,8 @@ LAB_A1E804:
 LAB_A1E810:
   CMPI.W  #$0056,D0
   BNE.S LAB_A1E834
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E834
   JSR drawPrefsHighlightsPage1
   MOVE.L  LAB_A483AA,D0
   MOVEQ #6,D1
@@ -24067,6 +24077,8 @@ LAB_A1E810:
 LAB_A1E834:
   CMPI.W  #$0057,D0
   BNE.S LAB_A1E88C
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E88C
   JSR drawPrefsHighlightsPage1
   MOVE.L  LAB_A483AA,D2
 LAB_A1E846:
@@ -24149,13 +24161,17 @@ LAB_A1E91A:
   CMPI.W  #6,D0
   BNE.S LAB_A1E934
 ; bootblock coder setting
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E934
   NOT.B BootblockCoderPrefsFlag
-  BEQ.S LAB_A1E8B8
+  BEQ.W LAB_A1E8B8
   BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1E934:
   CMPI.W  #7,D0
   BNE.S LAB_A1E972
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E972
 ; Bootblock coder value
   JSR drawPrefsHighlightsPage2
   MOVE.L  BootblockCoderValue,D0
@@ -24172,6 +24188,9 @@ LAB_A1E972:
   BLS.S LAB_A1E98C
   CMPI.W  #$000b,D0
   BHI.S LAB_A1E98C
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1E98C
+
 ; Disk coder settings
   LEA DiskCoderFlags,A1
   NOT.B -8(A1,D0.W)
@@ -24180,6 +24199,8 @@ LAB_A1E98C:
   CMPI.W  #$000b,D0
   BLS.S LAB_A1E9F0
   CMPI.W  #$000f,D0
+  BHI.S LAB_A1E9F0
+  CMPI.B  #$13,kickstartVersion
   BHI.S LAB_A1E9F0
 ; Disk coder value
   SUBI.W  #$000c,D0
@@ -24215,6 +24236,8 @@ LAB_A1E9F0:
   BLS.S LAB_A1EA14
   CMPI.W  #$0013,D0
   BHI.S LAB_A1EA14
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1EA14
 ; Drive control setting
   SUBI.W  #$0010,D0
   BTST  D0,DrivesConnectedLo
@@ -24226,6 +24249,15 @@ LAB_A1EA14:
   BLS.S LAB_A1EA72
   CMPI.W  #$0016,D0
   BHI.S LAB_A1EA72
+
+  CMPI.W  #$0016,D0
+  BNE.S .1
+
+  CMPI.B  #$13,kickstartVersion
+  BHI.S LAB_A1EA72
+  
+.1
+  
 ; Virus checker settings
   SUBI.W  #$0014,D0
   BCHG  D0,VirusCheckerSettingsPrefs
@@ -24458,9 +24490,6 @@ drawPrefsHighlightsPage1:
   BNE.S .dis
 
   MOVEQ #6,D0    ;disable memory add
-  JSR disablePrefsBox(PC)
-
-  MOVEQ #88,D0    ;disable autoconfig button
   JSR disablePrefsBox(PC)
 
 .is13:
@@ -48685,7 +48714,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $59f0fdbf ; v0.9.0
+  DC.L $ad6591d3 ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
