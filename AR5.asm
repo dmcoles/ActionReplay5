@@ -2000,6 +2000,9 @@ AREntry2:
   MOVE.W  #$0c40,bplcon3+hardware
   MOVE.W  #$019f,dmacon+hardware
 
+  MOVE.L EXT_200.W,Save200
+  MOVE.L EXT_204.W,Save204
+
   MOVEM.L D0-D7/A0-A7,SaveCpuRegs
 
   ;MOVE.L  2(A7),SaveOldStk1
@@ -2146,6 +2149,10 @@ LAB_A10A88:
 
   MOVE.L  SAVE_CACR,D0
   JSR setCACR
+
+  MOVE.L Int5Save,AUTO_INT5.W
+  MOVE.L Save200,EXT_200.W
+  MOVE.L Save204,EXT_204.W
 
   MOVEM.L SaveCpuRegs,D0-D7/A0-A7
   MOVE.W  SaveOldSr,0(A7)
@@ -9844,7 +9851,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.27022025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.28022025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -14467,7 +14474,8 @@ ArEntry1:
   CLR.W arramstart+16384
 
   MOVE.L EXT_200.W,Save200
-  MOVEM.L D0-D7/A0-A6,SaveEntryRegs
+  MOVE.L EXT_204.W,Save204
+  MOVEM.L D0-D7/A0-A6,SaveCpuRegs
   JSR FirstInit
   MOVE.L  D0,tempD0
   MOVE.L  EXT_F80004,D0
@@ -14507,8 +14515,9 @@ LAB_A17C96:
   BNE.S LAB_A17DDE
   BSR.W calcArChecksum
 LAB_A17DDE:
-  MOVEM.L SaveEntryRegs,D0-D7/A0-A6
+  MOVEM.L SaveCpuRegs,D0-D7/A0-A6
   MOVE.L Save200,EXT_200.W
+  MOVE.L Save204,EXT_204.W
   JMP AREntry2
 
 FirstInit:
@@ -20800,7 +20809,7 @@ LAB_A1C45C:
   CMPI.W  #$0050,D0
   BNE.W PrintWTF
   MOVE.W  #$000f,(A1)
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
   BRA.S LAB_A1C424
 LAB_A1C480:
   CMPI.W  #$0043,D0
@@ -36261,6 +36270,7 @@ LAB_A24CD8:
   RTS
 getKillBuffer:
   ST  LAB_A48393
+  MOVEM.L D0/A0,-(A7)
   MOVE.L  ChipMemEnd,D0
   ADDI.L  #$00c00000,D0
   CMP.L SlowMemEnd,D0
@@ -36282,6 +36292,7 @@ LAB_A24C04:
   CLR.L (A0)+
   SUBQ.L  #1,D0
   BNE.S LAB_A24C04
+  MOVEM.L (A7)+,D0/A0
   RTS
 
 
@@ -43757,6 +43768,7 @@ LAB_A2A32C:
   MOVE.B  (A7)+,currDriveNo
   RTS
 LAB_A2A340:
+  MOVEM.L A0/D7,-(A7)
   LEA FileTooLargeText(PC),A0
   JSR PrintText
   TST.B  LAB_A48393  
@@ -43766,10 +43778,12 @@ LAB_A2A340:
   TST.W D0
   BEQ.S .2
   JSR getKillBuffer
+  MOVEM.L (A7)+,A0/D7
   BRA.W redo
 .1
   JSR PrintCR
 .2
+  MOVE.L (A7)+,A0
   MOVEQ #0,D0
   BRA.S LAB_A2A31C
   
@@ -43861,6 +43875,7 @@ HelpText:
   DC.B  "    fcrc32: Calculate crc32 of a file            - fcrc32 (path)filename",$D
   DC.B  "      type: Type file on screen                  - type (path)filename",$D
   DC.B  "      dump: Show a file as hex                   - dump (path)filename",$D
+  DC.B  "        ed: Edit a text file                     - ed (path)filename",$D
   DC.B  "    rename: Rename file                          - rename (path)oldname,newname",$D
   DC.B  "   relabel: Change/set diskname                  - relabel diskname",$A
   DC.B  $D
@@ -43996,6 +44011,7 @@ HelpText:
   DC.B  " setexcept: Set exception handler (no more guru) - setexcept",$D
   DC.B  "    setapi: Set api handler (see api document)   - setapi",$D
   DC.B  "    clrapi: Remove api handler (see api document)- clrapi",$D
+  DC.B  "       dbg: Start interactive debugger           - dbg",$D
   DC.B  "      comp: Compare memoryblocks                 - comp start end dest",$D
   DC.B  "        lm: Load file to memory                  - lm (path)name,dest",$D
   DC.B  "        sm: Save memoryblock to disk             - sm (path)name,start end",$D
@@ -48669,7 +48685,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $40c18f6c ; v0.9.0
+  DC.L $59f0fdbf ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -48764,6 +48780,8 @@ vbrflag
   DS.W  1
 Save200:
   DS.L  1
+Save204:
+  DS.L  1
 EscapeDisabled:
   DS.B  1
 IgnoreShift
@@ -48796,8 +48814,8 @@ LAB_A35698:
   DS.W  1
 SAVE_CACR:
   DS.L  1
-SaveEntryRegs:
-  DS.L  $10
+;SaveEntryRegs:
+;  DS.L  $10
 SAVE_CIABPRB:
   DS.L  1
   DS.W  1

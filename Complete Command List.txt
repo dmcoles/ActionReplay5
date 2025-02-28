@@ -22,6 +22,9 @@ Action Replay 5 Complete Command List
   AVAIL (Display available memory)
     AVAIL
 
+  AXFER (Setup for AmigaXfer)
+    AXFER
+
   B (Show breakpoints)
     B
 
@@ -280,6 +283,9 @@ Action Replay 5 Complete Command List
   KILL (Remove AR from memory)
     KILL
 
+  KILLMEM (Kill running program and allocate trackbuffer)
+    KILLMEM
+
   KILLVIRUS (Search and remove virus)
     KILLVIRUS
 
@@ -446,6 +452,9 @@ Action Replay 5 Complete Command List
   RESET (Exit AR and reset Amiga)
     RESET
 
+  RESETCFG (Reset configuration to default)
+    RESETCFG
+
   RESOURCES (Show execbase resource-list)
     RESOURCES
 
@@ -494,6 +503,9 @@ Action Replay 5 Complete Command List
   SAFEDISK
     SAFEDISK (a/b/s/n/u/v/q)
 
+  SAVECFG (Save config to flash memory)
+    SAVECFG
+
   SCAN (Scan memory for samples)
     SCAN
 
@@ -502,6 +514,9 @@ Action Replay 5 Complete Command List
 
   SDISK (Alias for SAFEDISK)
     SDISK (a/b/s/n/u/v/q)
+
+  SER (Toggle serial IO)
+    SER
 
   SERSPEED (Set serial baud rate)
     SERSPEED <baud>
