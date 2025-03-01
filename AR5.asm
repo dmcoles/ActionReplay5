@@ -1,7 +1,7 @@
 ;Action Replay 5
-dbg=0
+dbg=1
 pistorm=0
-arhardware=1
+arhardware=0
 arsoft=0
 
 ;$1000-$4e80 (NTSC) $1000-$6000(PAL)  screen memory (copied to ChipramSave1)
@@ -9066,19 +9066,30 @@ srch:
   BEQ.S LAB_A133F6
   MOVEA.L D0,A2
   MOVE.W  (A7)+,D0
-  BSR.S PrintSearchInfo
+  BSR.W PrintSearchInfo
   BSR.W SUB_A174E0
   SF  copyLockSearch
   BRA.W PrintReady
 LAB_A133F0:
   MOVEA.L lowestMem,A1
 LAB_A133F6:
+  CMP.L highestMem,A1
+  BLT.s .ok
+  MOVE.W  (A7)+,D0
+  SF  copyLockSearch
+  LEA needSearchEndText(PC),A0
+  JMP PrintText
+.ok:
   MOVEA.L highestMem,A2
   MOVE.W  (A7)+,D0
-  BSR.S PrintSearchInfo
+  BSR.W PrintSearchInfo
   BSR.W SUB_A174E0
   SF  copyLockSearch
   BRA.W PrintReady
+
+needSearchEndText: DC.B "Search start is not in known memory areas.",$D
+  DC.B "Please specify both start and end addresses in this case.",$D,0
+  
 SearchFromText:
   DC.B  "Search from: ",0
 
@@ -9851,7 +9862,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.28022025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.01032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -13063,6 +13074,14 @@ PrintF10:
   BEQ LAB_A170DC
   MOVE.W  #30,PageHeight
 LAB_A170DC:
+  MOVE.W cursorY,D0
+  CMP.W PageHeight,D0
+  BLT.S .1
+  MOVE.W PageHeight,D0
+  SUBQ.W #1,D0
+  MOVE.W D0,cursorY
+.1
+  
   MOVEA.L CurrentPage,A0
   BRA.W LAB_A1712E
 LAB_A170E6:
@@ -13361,6 +13380,15 @@ StringSearchRelative:
 LAB_A17446:
   MOVEA.L A2,A1
   MOVEA.L A3,A2
+  CMP.L highestMem,A1
+  BLT.s .ok
+  CMP.L A2,A1
+  BLT.s .ok
+  LEA needSearchEndText,A0
+  JSR PrintText
+  BRA.W LAB_A174CE
+.ok:
+
   BSR.W PrintSearchInfo
   MOVEA.L A2,A3
   MOVEA.L A1,A2
@@ -19627,6 +19655,14 @@ FindAddrOpcodeQuick:
   BCLR  #0,D0
   MOVEA.L D0,A2
 LAB_A1B490:
+  CMP.L highestMem,A1
+  BLT.s .ok
+  CMP.L A2,A1
+  BLT.s .ok
+  SF  copyLockSearch
+  LEA needSearchEndText,A0
+  JMP PrintText
+.ok:
   CMPA.L  A2,A1
   BGT.W PrintWTF
   JSR PrintSearchInfo
@@ -40917,6 +40953,10 @@ CMD_PAL:
   CLR.W VgaModeFlag
   ST.B palMode
 
+  TST.B fullPal
+  BEQ.S .1
+  MOVE.W  #30,PageHeight
+.1
   JSR PrintReady
   RTS
 CMD_NTSC:
@@ -40924,6 +40964,15 @@ CMD_NTSC:
   MOVE.W  #0,SaveBeamCon0
   CLR.W VgaModeFlag
   SF.B palMode
+  MOVE.W  #$0018,PageHeight
+
+  MOVE.W cursorY,D0
+  CMP.W PageHeight,D0
+  BLT.S .1
+  MOVE.W PageHeight,D0
+  SUBQ.W #1,D0
+  MOVE.W D0,cursorY
+.1
 
   JSR PrintReady
   RTS
