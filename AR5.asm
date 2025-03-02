@@ -1,7 +1,7 @@
 ;Action Replay 5
-dbg=1
+dbg=0
 pistorm=0
-arhardware=0
+arhardware=1
 arsoft=0
 
 ;$1000-$4e80 (NTSC) $1000-$6000(PAL)  screen memory (copied to ChipramSave1)
@@ -9862,7 +9862,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.01032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.02032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -20794,7 +20794,7 @@ SUB_A1C3C8:
   MOVE.W  D0,D1
   BSR.W readCmdChar
   CMPI.W  #$0037,D0
-  BHI.S LAB_A1C45C
+  BHI.W LAB_A1C45C
   CMPI.W  #$002f,D0
   BLS.S LAB_A1C45C
   CMPI.W  #$0041,D1
@@ -20816,7 +20816,7 @@ SUB_A1C3C8:
 LAB_A1C41A:
   CMPI.W  #$0020,D0
   BNE.S LAB_A1C424
-  BSR.W readCmdCharSkipSpaces
+  JSR readCmdCharSkipSpaces
 LAB_A1C424:
   MOVEM.L (A7)+,D1-D6/A1-A6
   RTS
@@ -35339,7 +35339,7 @@ CMD_SY:
   MOVE.L D0,A2
 
   CMP.L A2,A1
-  BHI.S syWTF
+  BHI.W syWTF
 
   LEA sendingDataText,A0
   JSR PrintText
@@ -35355,7 +35355,10 @@ CMD_SY:
   MOVE.L A1,D0
   MOVE.L #8,D1
   JSR ValueToString
-  MOVE.L #".dat",(A0)+
+  MOVE.B #".",(A0)+
+  MOVE.B #"d",(A0)+
+  MOVE.B #"a",(A0)+
+  MOVE.B #"t",(A0)+
   MOVE.L A0,D6
   SUB.L #stringWorkspace,D6  ;file name length
   CLR.B (A0)+
