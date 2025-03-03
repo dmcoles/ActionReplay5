@@ -176,7 +176,7 @@ Action Replay 5 Complete Command List
     DOSIO <addr>
 
   DUMP (Hex dump of a file)
-    DUMP <drive>
+    DUMP (<path>)<file>
 
   DWIPE (Alias for DISKWIPE)
     DWIPE <drive>
