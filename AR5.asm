@@ -49058,7 +49058,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $890a968a ; v0.9.0
+  DC.L $60c26287 ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
