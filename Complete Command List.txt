@@ -477,16 +477,16 @@ Action Replay 5 Complete Command List
     ROMAVOID
 
   RP (Read pdos tracks from active drive)
-    RP <start-track> (<num-tracks> <dest-addr>)
+    RP <start-track> (<num-tracks> <dest-addr> <pdoskey>)
 
   RPB (Read pdos bytes from active drive)
-    RPB <start-offset> (<num-bytes> <dest-addr>)
+    RPB <start-offset> (<num-bytes> <dest-addr> <pdoskey>)
 
   RPS (Read pdos sectors from active drive)
-    RPS <start-sector> (<num-sectors> <dest-addr>)
+    RPS <start-sector> (<num-sectors> <dest-addr> <pdoskey>)
 
   RR (Read raw mfm tracks from active drive)
-    RR <start-track>
+    RR RR <start-track> (<num-tracks> <mfm-sync> <readlen> <dest-addr>)
 
   RS (Read sectors from active drive)
     RS <start-sector> (<num-sectors> <dest-addr>)

@@ -17,6 +17,8 @@ arsoft=0
   exactly one of dbg, pistorm, arhardware, arsoft must be set to 1
   endc
 
+  OPT p=68000
+
   if arsoft=1
     opt d-,s-
   endc
@@ -6989,12 +6991,12 @@ cmd_romavoid_help:
 
 cmd_rp_help:
   DC.B  "RP (Read pdos tracks from active drive)",13
-  DC.B  "  RP <start-track> (<num-tracks> <dest-addr>)",13
+  DC.B  "  RP <start-track> (<num-tracks> <dest-addr> <pdoskey>)",13
   DC.B 0
 
 cmd_rpb_help:
   DC.B  "RPB (Read pdos bytes from active drive)",13
-  DC.B  "  RPB <start-offset> (<num-bytes> <dest-addr>)",13
+  DC.B  "  RPB <start-offset> (<num-bytes> <dest-addr> <pdoskey>))",13
   DC.B 0
 
 cmd_resetcfg_help:
@@ -7004,12 +7006,12 @@ cmd_resetcfg_help:
 
 cmd_rps_help:
   DC.B  "RPS (Read pdos sectors from active drive)",13
-  DC.B  "  RPS <start-sector> (<num-sectors> <dest-addr>)",13
+  DC.B  "  RPS <start-sector> (<num-sectors> <dest-addr> <pdoskey>))",13
   DC.B 0
 
 cmd_rr_help:
   DC.B  "RR (Read raw mfm tracks from active drive)",13
-  DC.B  "  RR <start-track>",13
+  DC.B  "  RR <start-track> (<num-tracks> <mfm-sync> <readlen> <dest-addr>)",13
   DC.B 0
 
 cmd_rs_help:
@@ -37311,7 +37313,7 @@ BBCoderDisabledText:
   DC.B  "Bootblockcoder disabled",$D,0
 
 BBCoderNotKS3Text: DC.B "Bootblockcoder is not compatible with Kickstart 3.x or higher",13,0
-
+  even
 CMD_BOOTPROT:
   JSR ReadParameter
   MOVE.L  BootblockCoderValue,LAB_A480CA
@@ -44082,7 +44084,7 @@ redo:
   EXG A6,A0
   MOVE.W  D0,D6
   MOVEQ #-14,D0
-  TST.W D1
+  TST.W D6
   BEQ.W LAB_A2A31C
   MOVE.W  D6,D0
   LEA stringWorkspace,A2
@@ -49271,6 +49273,7 @@ bpl8Work:
   DS.L  1
 LAB_A480C6
   DS.L  1
+;dont split
 LAB_A480CA:
   DS.B  1
 LAB_A480CB:
@@ -49288,6 +49291,8 @@ LAB_A480D0:
   DS.W  1
 LAB_A480D2:
   DS.L  1
+;end
+
 ;dont split
 LAB_A480D6:
   DS.B  1
