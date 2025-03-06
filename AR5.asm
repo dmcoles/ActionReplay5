@@ -109,13 +109,14 @@ EXT_DC0000  EQU $DC0000
 
 EXT_E80000  EQU $E80000
 EXT_F80004  EQU $F80004
-EXT_F80005  EQU $F80005
+EXT_F8000D  EQU $F8000D
 EXT_F8000E  EQU $F8000E
 EXT_F8031C  EQU $F8031C
 EXT_F800D0  EQU $F800D0
 EXT_F81F84  EQU $F81F84
 EXT_F802C2  EQU $F802C2
-EXT_FC0005  EQU $FC0005
+EXT_FC0008  EQU $FC0008
+EXT_FC000D  EQU $FC000D
 EXT_FC0240  EQU $FC0240
 EXT_FC06DC  EQU $FC06DC
 EXT_74650000  EQU $74650000
@@ -915,13 +916,11 @@ NMI_Entry:
   endc
 
   if (arhardware+pistorm=1)
-  MOVE.B  #$13,kickstartVersion
-  CMPI.B  #$f8,EXT_F80005
-  BEQ.S .k2
-  CMPI.B  #$f8,EXT_FC0005
-  BNE.W .k3
-.k2
-  MOVE.B  #$20,kickstartVersion
+  MOVE.B  EXT_FC000D,kickstartVersion
+  CMP.L #$ffff,EXT_FC0008
+  BEQ.S .k3
+
+  MOVE.B  EXT_F8000D,kickstartVersion
 .k3
   endc
 
@@ -1058,7 +1057,7 @@ SoftBoot:
   BSR.W SUB_4005EE
 LAB_400314:
   MOVEA.L (A7)+,A0
-  TST.B LAB_A483CC
+  TST.B safeDiskInstallingFlag
   BEQ.W LAB_40032C
   CMPI.L  #$00000120,2(A7)
   BNE.S LAB_40032C
@@ -1078,13 +1077,13 @@ LAB_400348:
   BEQ.W LAB_40036E
   JSR SUB_400622
 LAB_40036E:
-  TST.B LAB_A4838D
+  TST.B doPatchingFlag
   BNE.W LAB_400810
-  TST.B LAB_A483DA
+  TST.B NotExtMemAddPrefsFlag
   BEQ.W LAB_400810
   TST.B LAB_A4839A
   BNE.W LAB_400810
-  TST.B LAB_A483D8
+  TST.B OSPatchesInstalledFlag
   BNE.W LAB_4007D6
 LAB_400396:
   MOVEM.L D0-D1/A0-A1,SaveCpuRegs
@@ -1248,7 +1247,7 @@ LAB_400606:
   MOVE.W  #0,D1
   CMPI.W  #$00bf,D3
   BNE.W LAB_400620
-  SF  LAB_A48394
+  SF  updateDrivesConnectedFlag
   JSR setActivateMode
 LAB_400620:
   RTS
@@ -1339,17 +1338,17 @@ LAB_400740:
   MOVEM.L (A7)+,D1/A0-A1
   MOVE.L  EXT_18C.W,2(A7)
   RTE
-LAB_40074C:
+installOSWaitPatch:
   MOVE.L  A0,-(A7)
   MOVEA.L EXT_20C.W,A0
-  LEA -204(A0),A0
+  LEA -204(A0),A0       ;restore openwindow() patch
   MOVE.L  EXT_210.W,2(A0)
   MOVE.L  EXT_210.W,6(A7)
   MOVEA.L EXT_4.W,A0
-  LEA -318(A0),A0
+  LEA -318(A0),A0       ;exec Wait() offset
   MOVE.L  2(A0),EXT_20C.W
   MOVE.L  #EXT_200,2(A0)
-  BSET  #1,LAB_A483D8
+  BSET  #1,OSPatchesInstalledFlag
   MOVEA.L (A7)+,A0
   TST.B SetmapDPrefsFlag
   BEQ.W LAB_40079A
@@ -1358,45 +1357,45 @@ LAB_40074C:
   MOVEM.L (A7)+,D0-D7/A0-A6
 LAB_40079A:
   RTE
-LAB_40079C:
+restoreOSWaitPatch:
   MOVEM.L D0-D7/A0-A6,-(A7)
   MOVEA.L EXT_4.W,A6
-  LEA -318(A6),A6
-  MOVE.L  EXT_20C.W,2(A6)
-  TST.B SaveDiskResidentPrefsFlag
+  LEA -318(A6),A6            ;exec Wait() offset
+  MOVE.L  EXT_20C.W,2(A6)     ;restore
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_4007BE
   JSR LAB_A27112
 LAB_4007BE:
   MOVEM.L (A7)+,D0-D7/A0-A6
   MOVE.L  EXT_20C.W,2(A7)
-  SF  LAB_A483D8
+  SF  OSPatchesInstalledFlag
   JSR setActivateMode
   RTE
 LAB_4007D6:
   TST.B SetmapDPrefsFlag
   BNE.W LAB_4007EA
-  TST.B SaveDiskResidentPrefsFlag
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_400396
 LAB_4007EA:
   CMPI.L  #EXT_200,2(A7)
   BNE.W LAB_400396
-  BTST  #1,LAB_A483D8
-  BNE.S LAB_40079C
-  BTST  #0,LAB_A483D8
-  BNE.W LAB_40074C
+  BTST  #1,OSPatchesInstalledFlag
+  BNE.S restoreOSWaitPatch
+  BTST  #0,OSPatchesInstalledFlag
+  BNE.W installOSWaitPatch
   BRA.W LAB_400396
 LAB_400810:
   TST.B SetmapDPrefsFlag
   BNE.W LAB_400824
-  TST.B SaveDiskResidentPrefsFlag
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_400848
 LAB_400824:
   CMPI.L  #EXT_200,2(A7)
   BNE.W LAB_400848
-  BTST  #1,LAB_A483D8
-  BNE.W LAB_40079C
-  BTST  #0,LAB_A483D8
-  BNE.W LAB_40074C
+  BTST  #1,OSPatchesInstalledFlag
+  BNE.W restoreOSWaitPatch
+  BTST  #0,OSPatchesInstalledFlag
+  BNE.W installOSWaitPatch
 LAB_400848:
   TST.B LAB_A4838F
   BNE.W LAB_4008B2
@@ -1420,11 +1419,11 @@ LAB_400848:
 LAB_4008B2:
   CMPI.L  #$00000080,2(A7)
   BNE.W LAB_400396
-  TST.B LAB_A483DA
+  TST.B NotExtMemAddPrefsFlag
   BNE.W LAB_40091A
   JSR SUB_425C62
-  ST  LAB_A483DA
-  TST.B LAB_A4838D
+  ST  NotExtMemAddPrefsFlag
+  TST.B doPatchingFlag
   BNE.W LAB_40091A
   MOVE.L  LAB_A480CA,TRAP_00.W
   MOVE.L  LAB_A480CE,TRAP_01.W
@@ -1517,8 +1516,8 @@ LAB_400A2E:
   TST.W D0
   BNE.W LAB_4009BC
 LAB_400A4C:
-  CMPI.B  #$13,kickstartVersion
-  BHI.W LAB_400C48
+  CMPI.B  #34,kickstartVersion      ;check kickstart version
+  BHI.W LAB_400C48                  ;jump to ks2 version
   TST.B BootblockCoderPrefsFlag
   BEQ.W LAB_400A8C
   TST.B LAB_A4839A
@@ -1570,7 +1569,7 @@ LAB_400AE8:
   DBF D0,LAB_400AE8
   LEA $2C(A5),A1
   PEA $C(A4)
-  SF  LAB_A4838D
+  SF  doPatchingFlag
   JSR SUB_A253C4
   LEA LAB_A4550E,A2
   SUBA.L  A1,A1
@@ -1601,7 +1600,7 @@ LAB_400B48:
 LAB_400B5C:
   TST.B SetmapDPrefsFlag
   BNE.W LAB_400B70
-  TST.B SaveDiskResidentPrefsFlag
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_400BB6
 LAB_400B70:
   MOVEM.L D0-D7/A0-A6,-(A7)
@@ -1611,7 +1610,7 @@ LAB_400B70:
   JSR LAB_41D986
   MOVE.L  D0,EXT_20C.W
   MOVEA.L D0,A0
-  LEA -204(A0),A0
+  LEA -204(A0),A0       ;intuition OpenWindow() offset
   MOVE.L  2(A0),EXT_210.W
   LEA EXT_200.W,A1
   MOVE.L  A1,2(A0)
@@ -1619,7 +1618,7 @@ LAB_400B70:
   MOVE.L  (A0)+,(A1)+
   MOVE.L  (A0)+,(A1)+
   MOVE.L  (A0)+,(A1)+
-  BSET  #0,LAB_A483D8
+  BSET  #0,OSPatchesInstalledFlag
   MOVEM.L (A7)+,D0-D7/A0-A6
 LAB_400BB6:
   MOVE.L  USP,A3
@@ -1666,6 +1665,8 @@ LAB_400C40:
   DC.L  $00bfd100
 LAB_400C44:
   DC.L  $60f660f4
+
+;kickstart 2.x boot coder and patching
 LAB_400C48:
   TST.B BootblockCoderPrefsFlag
   BEQ.W LAB_400C96
@@ -1734,7 +1735,7 @@ LAB_400D0E:
   MOVEM.L (A7)+,A0-A1
   MOVEM.L D2-D7/A2-A6,-(A7)
   PEA $C(A0)
-  SF  LAB_A4838D
+  SF  doPatchingFlag
   JSR SUB_A253C4
   MOVEM.L (A7)+,D2-D7/A2-A6
   MOVEM.L D0-D2/A0-A3,CopySpr0Pt
@@ -1779,7 +1780,7 @@ LAB_400DB6:
   MOVEM.L CopySpr0Pt,D0-D2/A0-A3
   TST.B SetmapDPrefsFlag
   BNE.W LAB_400DD2
-  TST.B SaveDiskResidentPrefsFlag
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_400E18
 LAB_400DD2:
   MOVEM.L D0-D7/A0-A6,-(A7)
@@ -1789,7 +1790,7 @@ LAB_400DD2:
   JSR LAB_41D986
   MOVE.L  D0,EXT_20C.W
   MOVEA.L D0,A0
-  LEA -204(A0),A0
+  LEA -204(A0),A0       ;intuition OpenWindow() offset
   MOVE.L  2(A0),EXT_210.W
   LEA EXT_200.W,A1
   MOVE.L  A1,2(A0)
@@ -1797,7 +1798,7 @@ LAB_400DD2:
   MOVE.L  (A0)+,(A1)+
   MOVE.L  (A0)+,(A1)+
   MOVE.L  (A0)+,(A1)+
-  BSET  #0,LAB_A483D8
+  BSET  #0,OSPatchesInstalledFlag
   MOVEM.L (A7)+,D0-D7/A0-A6
 LAB_400E18:
   MOVEM.L A0-A1,LAB_A480CA
@@ -2011,8 +2012,8 @@ AREntry2:
   MOVE  #$2000,SR
   LEA StackEnd,A7
   
-  CMP.B #$13,kickstartVersion
-  BEQ.S .1
+  CMP.B #34,kickstartVersion
+  BLS.S .1
   
   TST.B ks2memTested
   BNE.S .1
@@ -2317,8 +2318,8 @@ setActivateMode:
   MOVE.W  D0,-(A7)
   CLR.W newActivateMode
   MOVEQ #0,D0
-  CMP.B #$13,kickstartVersion
-  BNE.S ks2_skip
+  CMP.B #34,kickstartVersion    ;boot select 1.x only
+  BHI.S LAB_A10D94
 
   TST.B BootSelectPrefs
   BMI.S LAB_A10D94
@@ -2326,15 +2327,17 @@ setActivateMode:
 LAB_A10D94:
   TST.L DiskCoderFlags
   BNE.S LAB_A10DCA
-  MOVE.B  LAB_A483DA,D0
+  CMP.B #34,kickstartVersion
+  BHI.S ks2_skip
+  MOVE.B  NotExtMemAddPrefsFlag,D0
   NOT.B D0
-  OR.B  BootblockCoderPrefsFlag,D0
-  OR.B  LAB_A4838D,D0
   OR.B  LAB_A48391,D0
-  OR.B  LAB_A48394,D0
-  OR.B  LAB_A483D8,D0
+  OR.B  updateDrivesConnectedFlag,D0
+  OR.B  OSPatchesInstalledFlag,D0
+  OR.B  safeDiskInstallingFlag,D0
 ks2_skip:
-  OR.B  LAB_A483CC,D0
+  OR.B  BootblockCoderPrefsFlag,D0
+  OR.B  doPatchingFlag,D0
   BEQ.S LAB_A10DD2
 LAB_A10DCA:
   BSET  #0,newActivateModeLo
@@ -4090,7 +4093,7 @@ LAB_A12108:
   RTS
 ArMain:
   MOVE.L  A7,saveSp
-  TST.B LAB_A483CC
+  TST.B safeDiskInstallingFlag
   BEQ.S LAB_A1211E
   JMP LAB_A27018
 LAB_A1211E:
@@ -9727,7 +9730,7 @@ LAB_A13B62:
   if arsoft=1
   JSR  checkRamAlloc
   endc
-  TST.B LAB_A483CC
+  TST.B safeDiskInstallingFlag
   BNE.S LAB_A13B7C
   SF  LAB_A483CD
 LAB_A13B7C:
@@ -14153,7 +14156,7 @@ LAB_407C98:
   LEA StackEnd,A7
   MOVE.L  D0,-(A7)
   MOVE.L  A3,D0
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.W LAB_407CD0
   ORI.L #$00fc0000,D0
 LAB_407CD0:
@@ -14196,8 +14199,8 @@ LAB_407D40:
   MOVEA.L EXT_F80004,A7
   JMP (A7)
 LAB_407E64:
-  MOVE.B  ExtMemAddPrefsFlag,LAB_A483DA
-  NOT.B LAB_A483DA
+  MOVE.B  ExtMemAddPrefsFlag,NotExtMemAddPrefsFlag
+  NOT.B NotExtMemAddPrefsFlag
   CLR.W BlankerCount
   CLR.L LAB_A483A2
   CLR.L LAB_A483A6
@@ -14219,8 +14222,8 @@ LAB_407EE0:
   AND.W D0,DriveControlPrefsValue
 
   SF  DeepTrainerActive
-  SF  LAB_A483CC
-  SF  LAB_A483D8
+  SF  safeDiskInstallingFlag
+  SF  OSPatchesInstalledFlag
   SF  exceptionsActive
   SF  MemwatchActive
   SF  TraceActive
@@ -14235,13 +14238,19 @@ LAB_407EE0:
   SF  LAB_A4838F
   MOVE.W  DriveControlPrefsValue,D0
   CMP.W DrivesConnected,D0
-  SNE LAB_A48394
+  SNE updateDrivesConnectedFlag
   MOVE.W  BootSelectPrefs,LAB_A4822A
   TST.W BootSelectPrefs
   SPL LAB_A481E5
   SPL LAB_A48336
+  MOVEQ #0,D0
   BTST  #2,VirusCheckerSettingsPrefs
-  SNE LAB_A4838D
+  SNE D0
+  OR.B BootblockCoderPrefsFlag,D0
+  OR.B SafeDiskResidentPrefsFlag,D0
+  OR.B SetmapDPrefsFlag,D0
+  MOVE.B D0,doPatchingFlag
+
   SF  LAB_A4839A
   SF  virusFound
   JSR setActivateMode
@@ -14338,8 +14347,8 @@ LAB_4080B8:
   MOVEM.L (A7),D0-D7/A0-A6
   MOVE.L  A1,BUS_ERROR.W
 LAB_4080C6:
-  CMP.B #$13,kickstartVersion
-  BNE.S LAB_408104
+  CMP.B #34,kickstartVersion
+  BHI.S LAB_408104
   MOVE.W  LAB_A4822E,D0
   MOVE.W  memoryControlPrefsValue,D1
   ANDI.W  #8,D0
@@ -14410,27 +14419,26 @@ dovpos0
   RTS
 
 ARInit:
-  MOVE.B  #$13,kickstartVersion
-  CMPI.B  #$f8,EXT_F80005
-  BEQ.S .k2
-  CMPI.B  #$f8,EXT_FC0005
-  BNE.W .k3
-.k2
-  MOVE.B  #$20,kickstartVersion
+  MOVE.B  EXT_FC000D,kickstartVersion
+  CMP.L #$ffff,EXT_FC0008
+  BEQ.S .k3
+
+  MOVE.B  EXT_F8000D,kickstartVersion
+
 .k3
     
 
     
   JSR SUB_41BB88
   JSR SUB_A17DF4
-  MOVE.B  ExtMemAddPrefsFlag,LAB_A483DA
-  NOT.B LAB_A483DA
+  MOVE.B  ExtMemAddPrefsFlag,NotExtMemAddPrefsFlag
+  NOT.B NotExtMemAddPrefsFlag
   MOVE.W  DrivesConnected,DriveControlPrefsValue
   MOVE.W  #$ffff,BootSelectPrefs
   MOVE.W  #8,cpuAddrSize
   MOVE.W  #6,cpuAddrSize+$ff000000
-  SF  LAB_A483CC
-  SF  LAB_A483D8
+  SF  safeDiskInstallingFlag
+  SF  OSPatchesInstalledFlag
   SF  exceptionsActive
   SF  MemwatchActive
   SF  TraceActive
@@ -14451,7 +14459,7 @@ LAB_A17D26:
   MOVE.W  #0,ArFgCol
   CLR.W BlankerCount
   MOVE.L  #$5052494e,PrinFlag
-  SF  LAB_A483CC
+  SF  safeDiskInstallingFlag
   SF  BootblockCoderPrefsFlag
   if arsoft=0
   ST  keymap
@@ -14469,9 +14477,9 @@ LAB_A17D26:
   SF  NoresPrefsFlag
   SF  MegaStickPrefsFlag
   ST  BlankerPrefsFlag
-  SF  SaveDiskResidentPrefsFlag
+  SF  SafeDiskResidentPrefsFlag
   SF  SetmapDPrefsFlag
-  SF  LAB_A483D6
+  SF  SafediskNoclickFlag
   SF  DeepTrainerActive
   MOVE.L #9600,serSpeed
 
@@ -14895,8 +14903,8 @@ CMD_RESETCFG:
   CLR.B TestPrefsFlag
 
   ST  BlankerPrefsFlag
-  SF  SaveDiskResidentPrefsFlag
-  SF  LAB_A483D6
+  SF  SafeDiskResidentPrefsFlag
+  SF  SafediskNoclickFlag
   SF  LAB_A481E5
 
   SF  BootblockCoderPrefsFlag
@@ -19461,7 +19469,7 @@ PrintInterrupts:
   BRA.S LAB_A1B2FC
 
 LAB_40B89E:
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BLS.W LAB_40B9CE
   BRA.W LAB_40B8B0
 LAB_40B8AE:
@@ -23985,7 +23993,7 @@ LAB_A1E6BC:
 LAB_A1E6CC:
   CMPI.W  #6,D0
   BNE.S LAB_A1E6DC
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E6DC
   NOT.B ExtMemAddPrefsFlag
   BRA.W LAB_A1E646
@@ -24069,7 +24077,7 @@ LAB_A1E79A:
 LAB_A1E7B2:
   CMPI.W  #2,D0
   BHI.S LAB_A1E7D4
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E7D4
 ; memory control settings
   BTST  D0,memConfigFlags
@@ -24080,7 +24088,7 @@ LAB_A1E7B2:
 LAB_A1E7D4:
   CMPI.W  #3,D0
   BNE.S LAB_A1E7E6
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E7E6
 ; chipram control settings
   BCLR  #3,memoryControlPrefsValueLo
@@ -24088,7 +24096,7 @@ LAB_A1E7D4:
 LAB_A1E7E6:
   CMPI.W  #4,D0
   BNE.S LAB_A1E804
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E804
   BTST  #3,memConfigFlags
   BEQ.W LAB_A1E646
@@ -24101,7 +24109,7 @@ LAB_A1E804:
 LAB_A1E810:
   CMPI.W  #$0056,D0
   BNE.S LAB_A1E834
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E834
   JSR drawPrefsHighlightsPage1
   MOVE.L  LAB_A483AA,D0
@@ -24113,7 +24121,7 @@ LAB_A1E810:
 LAB_A1E834:
   CMPI.W  #$0057,D0
   BNE.S LAB_A1E88C
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E88C
   JSR drawPrefsHighlightsPage1
   MOVE.L  LAB_A483AA,D2
@@ -24181,8 +24189,14 @@ LAB_A1E8F6:
   JSR clearScreenArea
   JMP PrefsPage1(PC)
 LAB_A1E8FA:
+
+  ;boot control hardware only
+  if arhardware=1
   CMPI.W  #5,D0
   BHI.S LAB_A1E91A
+  CMPI.B  #34,kickstartVersion    ;boot control 1.x only
+  BHI.S LAB_A1E91A
+
   SUBQ.W  #1,D0
   BMI.S LAB_A1E912
   CMPI.W  #3,D0
@@ -24194,19 +24208,23 @@ LAB_A1E912:
   MOVE.W  D0,BootSelectPrefs
   BRA.S LAB_A1E8B8
 LAB_A1E91A:
+  endc
+  
+  ;bootblock coder hardware only
+  if arhardware=1
   CMPI.W  #6,D0
   BNE.S LAB_A1E934
 ; bootblock coder setting
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #38,kickstartVersion
   BHI.S LAB_A1E934
   NOT.B BootblockCoderPrefsFlag
-  BEQ.W LAB_A1E8B8
-  BSET  #2,VirusCheckerSettingsPrefs
+  ;BEQ.W LAB_A1E8B8
+  ;BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1E934:
   CMPI.W  #7,D0
   BNE.S LAB_A1E972
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #38,kickstartVersion    ;bootblock coder 1.x, 2.x only
   BHI.S LAB_A1E972
 ; Bootblock coder value
   JSR drawPrefsHighlightsPage2
@@ -24217,14 +24235,16 @@ LAB_A1E934:
   MOVE.L  D0,BootblockCoderValue
   JSR drawPrefsHighlightsPage2
   ST  BootblockCoderPrefsFlag
-  BSET  #2,VirusCheckerSettingsPrefs
+  ;BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1E972:
+  endc
+  
+  ;disk coder hardware only
+  if arhardware=1
   CMPI.W  #7,D0
   BLS.S LAB_A1E98C
   CMPI.W  #$000b,D0
-  BHI.S LAB_A1E98C
-  CMPI.B  #$13,kickstartVersion
   BHI.S LAB_A1E98C
 
 ; Disk coder settings
@@ -24235,8 +24255,6 @@ LAB_A1E98C:
   CMPI.W  #$000b,D0
   BLS.S LAB_A1E9F0
   CMPI.W  #$000f,D0
-  BHI.S LAB_A1E9F0
-  CMPI.B  #$13,kickstartVersion
   BHI.S LAB_A1E9F0
 ; Disk coder value
   SUBI.W  #$000c,D0
@@ -24268,11 +24286,15 @@ LAB_A1E9DA:
   MOVE.L  D0,0(A1,D2.W)
   BRA.W LAB_A1E8B8
 LAB_A1E9F0:
+  endc
+
+  ;drive control hardware only
+  if arhardware=1
   CMPI.W  #$000f,D0
   BLS.S LAB_A1EA14
   CMPI.W  #$0013,D0
   BHI.S LAB_A1EA14
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion      ;drive control 1.x only
   BHI.S LAB_A1EA14
 ; Drive control setting
   SUBI.W  #$0010,D0
@@ -24281,6 +24303,7 @@ LAB_A1E9F0:
   BCHG  D0,DriveControlPrefsValueLo
   BRA.W LAB_A1E8B8
 LAB_A1EA14:
+  endc
   CMPI.W  #$0013,D0
   BLS.S LAB_A1EA72
   CMPI.W  #$0016,D0
@@ -24289,8 +24312,13 @@ LAB_A1EA14:
   CMPI.W  #$0016,D0
   BNE.S .1
 
-  CMPI.B  #$13,kickstartVersion
+  ;virus boot hardware only
+  if arhardware=1
+  CMPI.B  #38,kickstartVersion    ;virus boot ks 1.x and 2.x only
   BHI.S LAB_A1EA72
+  else
+  BRA.S LAB_A1EA72
+  endc
   
 .1
   
@@ -24306,12 +24334,12 @@ LAB_A1EA14:
 LAB_A1EA42:
   BSET  #0,VirusCheckerSettingsPrefs
 LAB_A1EA4A:
-  BTST  #2,VirusCheckerSettingsPrefs
-  BNE.W LAB_A1E8B8
-  SF  BootblockCoderPrefsFlag
-  SF  SaveDiskResidentPrefsFlag
-  SF  LAB_A483D6
-  SF  SetmapDPrefsFlag
+  ;BTST  #2,VirusCheckerSettingsPrefs
+  ;BNE.W LAB_A1E8B8
+  ;SF  BootblockCoderPrefsFlag
+  ;SF  SafeDiskResidentPrefsFlag
+  ;SF  SafediskNoclickFlag
+  ;SF  SetmapDPrefsFlag
   BRA.W LAB_A1E8B8
 LAB_A1EA72:
   CMPI.W  #$0018,D0
@@ -24330,39 +24358,50 @@ LAB_A1EA84:
   JSR DrawPrefsPage(PC)
   BRA.W LAB_A1E8B8
 LAB_A1EA96:
+  ;safedisk resident hardare only
+  if arhardware=1
   CMPI.W  #$0017,D0
   BNE.S LAB_A1EACA
 ; Safe disk - resident
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion    ;safedisk 1.x only
   BHI.S LAB_A1EACA
-  SF  LAB_A483D6
-  NOT.B SaveDiskResidentPrefsFlag
+  SF  SafediskNoclickFlag
+  NOT.B SafeDiskResidentPrefsFlag
   BEQ.W LAB_A1E8B8
-  BSET  #3,LAB_A483D6
-  BSET  #2,VirusCheckerSettingsPrefs
+  BSET  #3,SafediskNoclickFlag
+  ;BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1EACA:
+  endc
+
+  ;safedisk noclick hardware only
+  if arhardware=1
   CMPI.W  #$001c,D0
   BNE.S LAB_A1EAF8
 ; safe disk - noclick
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion      ;safedisk 1.x only
   BHI.S LAB_A1EAF8
-  BCHG  #3,LAB_A483D6
+  BCHG  #3,SafediskNoclickFlag
   BNE.W LAB_A1E8B8
-  ST  SaveDiskResidentPrefsFlag
-  BSET  #2,VirusCheckerSettingsPrefs
+  ST  SafeDiskResidentPrefsFlag
+  ;BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1EAF8:
+  endc
+
+  ;setmapd hardware only
+  if arhardware=1
   CMPI.W  #$001d,D0
   BNE.S LAB_A1EB1E
 ; setmap d - resident
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion      ;setmapd 1.x only
   BHI.S LAB_A1EB1E
   NOT.B SetmapDPrefsFlag
-  BEQ.W LAB_A1E8B8
-  BSET  #2,VirusCheckerSettingsPrefs
+  ;BEQ.W LAB_A1E8B8
+  ;BSET  #2,VirusCheckerSettingsPrefs
   BRA.W LAB_A1E8B8
 LAB_A1EB1E:
+  endc
   CMPI.W  #$001e,D0
   BNE.S LAB_A1EB2E
 ; burst nibbler fast start
@@ -24374,14 +24413,30 @@ drawPrefsHighlightsPage2:
   MOVEM.L D0-D7/A0-A6,-(A7)
   LEA PrefsSettingPage2(PC),A0
 
-  CMP.B #$13,kickstartVersion
-  BEQ.S .is13
+  ;0-5 boot selector (1.x only)
+  ;6-7 boot coder (1.x, 2.x only)
+  ;8-15 disk coder 
+  ;16-19 drive control (1.x only)
 
+  ;20 - virus check
+  ;21 - virus kill
+  ;22 - virus boot (1.x, 2.x only)
+  ;23 - safedisk resident (1.x only)
+  
+  ;24 - load
+  ;25 - save
+  ;26 - next page
+  ;27 - ok
+  
+  ;28 - safedisk noclick (1.x only)
+  ;29 - setmap resident (1.x only)
+  
+  if arhardware=0
   MOVEQ #0,D0
 .dis
-  JSR disablePrefsBox(PC)   ;disable boot selector, drive control & coder
+  JSR disablePrefsBox(PC)   ;disable boot selector, boot coder, disk coder, drive control
   ADDQ #1,D0
-  CMP.L #20,D0
+  CMP.W #20,D0
   BNE.S .dis
 
   MOVEQ #22,D0    ;disable virus boot
@@ -24395,6 +24450,49 @@ drawPrefsHighlightsPage2:
 
   MOVEQ #29,D0    ;disable setmap resident
   JSR disablePrefsBox(PC)
+
+  else
+
+  CMP.B #34,kickstartVersion
+  BLS.S .is13
+
+  MOVEQ #0,D0
+.dis
+  JSR disablePrefsBox(PC)   ;disable boot selector
+  ADDQ #1,D0
+  CMP.W #6,D0
+  BNE.S .dis
+
+  MOVEQ #16,D0
+.dis2
+  JSR disablePrefsBox(PC)   ;disable drive control
+  ADDQ #1,D0
+  CMP.W #20,D0
+  BNE.S .dis2
+
+
+  MOVEQ #23,D0    ;disable safedisk resident
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #28,D0    ;disable safedisk noclick
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #29,D0    ;disable setmap resident
+  JSR disablePrefsBox(PC)
+
+  CMP.B #39,kickstartVersion
+  BLO.S .dis3
+
+  MOVEQ #22,D0              ;disable virus boot
+  JSR disablePrefsBox(PC)
+
+  MOVEQ #6,D0
+  JSR disablePrefsBox(PC)   ;disable boot coder
+
+  MOVEQ #7,D0
+  JSR disablePrefsBox(PC)   ;disable boot coder
+.dis3
+
 
 .is13:
   MOVE.W  DrivesConnected,D2
@@ -24412,7 +24510,7 @@ LAB_A1EB54:
   ADDQ.W  #1,D1
   CMPI.W  #4,D0
   BLS.S LAB_A1EB44
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BLS.S LAB_A1EB78
   MOVEQ #0,D0
 LAB_A1EB6A:
@@ -24420,6 +24518,7 @@ LAB_A1EB6A:
   ADDQ.W  #1,D0
   CMPI.W  #5,D0
   BLS.S LAB_A1EB6A
+  endc
   BRA.S LAB_A1EB84
 LAB_A1EB78:
   MOVEQ #1,D0
@@ -24451,12 +24550,12 @@ LAB_A1EBBC:
   MOVEQ #$16,D0
   JSR highlightPrefsBox(PC)
 LAB_A1EBCC:
-  CMPI.B  #$13,kickstartVersion
-  BLS.S LAB_A1EBDC
-  MOVEQ #$17,D0
-  JSR disablePrefsBox(PC)
+  ;CMPI.B  #34,kickstartVersion
+  ;BLS.S LAB_A1EBDC
+  ;MOVEQ #$17,D0
+  ;JSR disablePrefsBox(PC)
 LAB_A1EBDC:
-  TST.B SaveDiskResidentPrefsFlag
+  TST.B SafeDiskResidentPrefsFlag
   BEQ.S LAB_A1EBEA
   MOVEQ #$17,D0
   JSR highlightPrefsBox(PC)
@@ -24487,18 +24586,18 @@ LAB_A1EC2A:
   CMPI.W  #$000b,D1
   BLS.S LAB_A1EC20
   MOVEQ #$1C,D0
-  CMPI.B  #$13,kickstartVersion
-  BLS.S LAB_A1EC50
-  JSR disablePrefsBox(PC)
+  ;CMPI.B  #34,kickstartVersion
+  ;BLS.S LAB_A1EC50
+  ;JSR disablePrefsBox(PC)
 LAB_A1EC50:
-  BTST  #3,LAB_A483D6
+  BTST  #3,SafediskNoclickFlag
   BEQ.S LAB_A1EC5E
   JSR highlightPrefsBox(PC)
 LAB_A1EC5E:
   MOVEQ #$1D,D0
-  CMPI.B  #$13,kickstartVersion
-  BLS.S LAB_A1EC6E
-  JSR disablePrefsBox(PC)
+  ;CMPI.B  #34,kickstartVersion
+  ;BLS.S LAB_A1EC6E
+  ;JSR disablePrefsBox(PC)
 LAB_A1EC6E:
   TST.B SetmapDPrefsFlag
   BEQ.S LAB_A1EC7A
@@ -24515,8 +24614,8 @@ drawPrefsHighlightsPage1:
   MOVEM.L D0-D7/A0-A6,-(A7)
   LEA PrefsSettingPage1(PC),A0
 
-  CMP.B #$13,kickstartVersion
-  BEQ.S .is13
+  CMP.B #34,kickstartVersion
+  BLS.S .is13
 
   MOVEQ #0,D0
 .dis
@@ -28659,6 +28758,7 @@ DiskOpResultTable:
   DC.B  "Not enough Exp.Mem available ",0     ;-33
   DC.B  "Not a DOS-disk               ",0     ;-34
   DC.B  "Ramdisk not active           ",0     ;-35
+  DC.B  "Invalid filename             ",0     ;-36
 
   even
 
@@ -31153,10 +31253,10 @@ LAB_A22304:
   TST.W D0
   RTS
 GetFilename:
-  ST  LAB_A4839A
+  ST  FileSelectorFlag
   BRA.S LAB_A22320
 GetFilenameNoFsel:
-  SF  LAB_A4839A
+  SF  FileSelectorFlag
 LAB_A22320:
   JSR readCmdCharSkipSpaces
   JSR SUB_A1827E
@@ -31191,9 +31291,9 @@ LAB_A22376:
 LAB_A2237E:
   MOVEQ #0,D0
 LAB_A22380:
-  TST.B LAB_A4839A
+  TST.B FileSelectorFlag
   BEQ.S LAB_A22394
-  SF  LAB_A4839A
+  SF  FileSelectorFlag
   TST.W D0
   BEQ.S fsel
 LAB_A22394:
@@ -37177,6 +37277,8 @@ LAB_A256BA:
   JSR PrintText
   BRA.W LAB_A2547E
 CMD_BOOTCODE:
+  CMP.B #39,kickstartVersion
+  BHS.S BBNoKS3
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S LAB_A256E4
@@ -37187,9 +37289,9 @@ LAB_A256E4:
   TST.L BootblockCoderPrefsFlag
   BNE.S LAB_A256F6
   LEA BBCoderDisabledText(PC),A0
-  BRA.S LAB_A256FE
+  ;BRA.S LAB_A256FE
 LAB_A256F6:
-  BSET  #2,VirusCheckerSettingsPrefs
+  ;BSET  #2,VirusCheckerSettingsPrefs
 LAB_A256FE:
   JSR PrintText
   TST.L BootblockCoderPrefsFlag
@@ -37199,11 +37301,16 @@ LAB_A256FE:
 LAB_A25718:
   JSR PrintReady
   RTS
+BBNoKS3:
+  LEA BBCoderNotKS3Text(PC),A0
+  JMP PrintText
 BBCodeText:
   DC.B  "Bootblockcode is now: ",0
 
 BBCoderDisabledText:
   DC.B  "Bootblockcoder disabled",$D,0
+
+BBCoderNotKS3Text: DC.B "Bootblockcoder is not compatible with Kickstart 3.x or higher",13,0
 
 CMD_BOOTPROT:
   JSR ReadParameter
@@ -37785,8 +37892,8 @@ TestMemKS2:
   
   if arhardware=1
 SUB_41BB88:
-  CMPI.B  #$13,kickstartVersion
-  BEQ.S .1
+  CMPI.B  #34,kickstartVersion
+  BLS.S .1
   RTS
 
 .1  
@@ -37850,8 +37957,8 @@ LAB_41BC78:
   RTS
 
 SUB_41BC8A:
-  CMPI.B  #$13,kickstartVersion
-  BEQ.S .1
+  CMPI.B  #34,kickstartVersion
+  BLS.S .1
   RTS
 .1
   LEA LAB_A483AA,A0
@@ -39630,7 +39737,7 @@ LAB_A26FC4:
   MOVE.L  (A7)+,(A1)+
   MOVE.L  #$00000120,D0
   JSR memSafeWriteLong
-  ST  LAB_A483CC
+  ST  safeDiskInstallingFlag
   ST  restartFlag
   MOVEA.L saveSp,A7
   JMP arCommandLoop
@@ -39640,7 +39747,7 @@ LAB_A27014:
   BRA.S LAB_A2700C
   BRA.S LAB_A2700C
 LAB_A27018:
-  SF  LAB_A483CC
+  SF  safeDiskInstallingFlag
   MOVEA.L EXT_4,A0
   LEA -54(A0),A0
   LEA EXT_120,A1
@@ -39672,7 +39779,7 @@ SUB_A27084:
   MOVE.W  #$8100,dmacon+hardware
   RTS
 CMD_SAFEDISK:
-  CMPI.B  #$13,kickstartVersion
+  CMPI.B  #34,kickstartVersion
   BLS.S LAB_A270AE
   LEA WrongTDiskText(PC),A0
   JSR PrintText
@@ -39710,7 +39817,7 @@ LAB_A2710A:
   BSET  D1,LAB_A480CE
   BRA.S LAB_A270BA
 LAB_A27112:
-  MOVE.B  LAB_A483D6,LAB_A480CE
+  MOVE.B  SafediskNoclickFlag,LAB_A480CE
   ADDI.B  #$27,LAB_A480CE
   SF  LAB_A4807E
 LAB_A2712A:
@@ -40268,8 +40375,165 @@ SUB_A2798C:
   LEA $214(A6),A0
   JMP LAB_A27934(PC)
 LAB_A27994:
-  BSET  #1,$41(A3)
-  RTS
+	DC.L	$08eb0001,$00414e75,$522b0042,$102b0042 ;41d9ee
+	DC.L	$b02b0034,$6f0019f4,$48e7000c,$286b0186 ;41d9fe
+	DC.L	$2a546100,$04622a48,$70ff6100,$145641ed ;41da0e
+	DC.L	$00102b48,$000441e8,$5fbc2b48,$0008397c ;41da1e
+	DC.L	$07ff0010,$397c07ff,$00127c03,$41ed0010 ;41da2e
+	DC.L	$203c0000,$63fc6100,$14ec4a80,$67061540 ;41da3e
+	DC.L	$00036032,$426d000c,$426d000e,$61000034 ;41da4e
+	DC.L	$6724302d,$000cb06d,$000e6a16,$53866f16 ;41da5e
+	DC.L	$377cffff,$004c7000,$302b004a,$6100136c ;41da6e
+	DC.L	$60ba5586,$62b66100,$04284cdf,$30006000 ;41da7e
+	DC.L	$197848e7,$2700598f,$2c2d0004,$51865086 ;41da8e
+	DC.L	$202d0008,$90866f00,$01822046,$61000232 ;41da9e
+	DC.L	$6b000178,$5d882c08,$6100018a,$6fe02e80 ;41daae
+	DC.L	$700b902f,$0003912f,$00026a06,$062f000b ;41dabe
+	DC.L	$00021f7c,$000b0003,$c0fc0440,$2a069a80 ;41dace
+	DC.L	$baad0004,$6b000120,$baad0008,$6ab0102f ;41dade
+	DC.L	$0002222c,$00106700,$01320101,$66084841 ;41daee
+	DC.L	$01016700,$01022045,$6100013a,$6b0000f8 ;41dafe
+	DC.L	$6770b097,$66000122,$204541e8,$00386100 ;41db0e
+	DC.L	$01602400,$203c0000,$01006100,$0186b082 ;41db1e
+	DC.L	$6710102f,$0002322c,$00120101,$6700009a ;41db2e
+	DC.L	$600e102f,$0002322c,$00120181,$39410012 ;41db3e
+	DC.L	$102f0002,$322c0010,$01813941,$00104880 ;41db4e
+	DC.L	$c0fc0440,$43ea0680,$43f10810,$204541e8 ;41db5e
+	DC.L	$0010303c,$8601343c,$04306100,$02106000 ;41db6e
+	DC.L	$0086102f,$0002322c,$00120101,$67782045 ;41db7e
+	DC.L	$41e80038,$610000ea,$2400203c,$00000100 ;41db8e
+	DC.L	$61000110,$b082665e,$7000102f,$0002322c ;41db9e
+	DC.L	$00120181,$39410012,$c0fc0440,$43ea0680 ;41dbae
+	DC.L	$43f10838,$204541e8,$0038303c,$8101343c ;41dbbe
+	DC.L	$04086100,$01b8602e,$222c0010,$01816726 ;41dbce
+	DC.L	$29410010,$4880c0fc,$044043ea,$068043f1 ;41dbde
+	DC.L	$08102045,$41e80010,$303c0401,$74206100 ;41dbee
+	DC.L	$018c6000,$0002102f,$00025200,$0c00000b ;41dbfe
+	DC.L	$65027000,$1f400002,$06850000,$0440532f ;41dc0e
+	DC.L	$00036200,$febc6000,$fe76202c,$0010588f ;41dc1e
+	DC.L	$4a804cdf,$00e44e75,$203c07ff,$07ff2940 ;41dc2e
+	DC.L	$001060ea,$5088700a,$61000068,$2f006100 ;41dc3e
+	DC.L	$0030b09f,$6626d0fc,$ffd06100,$00242a80 ;41dc4e
+	DC.L	$0c1500ff,$66163212,$b22d0001,$6606526d ;41dc5e
+	DC.L	$000c4e75,$526d000e,$70ff4e75,$70004e75 ;41dc6e
+	DC.L	$48e73000,$76109687,$20183410,$efa8e66a ;41dc7e
+	DC.L	$80422218,$3410efa9,$e66a8242,$02805555 ;41dc8e
+	DC.L	$55550281,$55555555,$e3888081,$4cdf000c ;41dc9e
+	DC.L	$4e7548e7,$300072ff,$eea92418,$c4815580 ;41dcae
+	DC.L	$2618b782,$51c8fffa,$26104681,$c681b782 ;41dcbe
+	DC.L	$efba0282,$55555555,$20024cdf,$000c4e75 ;41dcce
+	DC.L	$32180c41,$44896764,$0c41a244,$67620c41 ;41dcde
+	DC.L	$51226760,$0c412891,$675e0c41,$9448675c ;41dcee
+	DC.L	$0c414a24,$675a0c41,$25126758,$0c411289 ;41dcfe
+	DC.L	$67560c41,$89446754,$0c4144a2,$67520c41 ;41dd0e
+	DC.L	$22516750,$0c419128,$674e0c41,$4894674c ;41dd1e
+	DC.L	$0c41244a,$674a0c41,$12256748,$0c418912 ;41dd2e
+	DC.L	$674651c8,$ff9c7eff,$55884e75,$7e0060fa ;41dd3e
+	DC.L	$7e0160f4,$7e0260f0,$7e0360ec,$7e0460e8 ;41dd4e
+	DC.L	$7e0560e4,$7e0660e0,$7e0760dc,$7e0860d8 ;41dd5e
+	DC.L	$7e0960d4,$7e0a60d0,$7e0b60cc,$7e0c60c8 ;41dd6e
+	DC.L	$7e0d60c4,$7e0e60c0,$7e0f60bc,$48e71c00 ;41dd7e
+	DC.L	$9efc0020,$78002e84,$3f440008,$2f44000e ;41dd8e
+	DC.L	$28074444,$670c5589,$36112a30,$20feefad ;41dd9e
+	DC.L	$48453f40,$000a700c,$e16c3f44,$001e2f48 ;41ddae
+	DC.L	$00122f49,$00162f4b,$001a41fa,$00322f48 ;41ddbe
+	DC.L	$0004224f,$2f0e2c6e,$00384eae,$feec2c5f ;41ddce
+	DC.L	$61001338,$4a6f001e,$670a206f,$00163083 ;41ddde
+	DC.L	$31852000,$defc0020,$4cdf0038,$4e757000 ;41ddee
+	DC.L	$31400062,$31400066,$317c05cc,$00403169 ;41ddfe
+	DC.L	$001e0042,$21690012,$004c2169,$00160054 ;41de0e
+	DC.L	$3169000a,$005841fa,$000a2348,$000470ff ;41de1e
+	DC.L	$4e752269,$001a6100,$12ca7000,$4e750c28 ;41de2e
+	DC.L	$000b0003,$6b00145a,$226b0186,$22290010 ;41de3e
+	DC.L	$7000102b,$00490101,$6612082b,$00000040 ;41de4e
+	DC.L	$6700144e,$48410101,$67001446,$15680003 ;41de5e
+	DC.L	$001f6000,$143c2f0a,$246b0186,$245241ea ;41de6e
+	DC.L	$00862f0e,$2c6e0034,$4eaefdc0,$2c5f4a80 ;41de7e
+	DC.L	$66167000,$61000fdc,$41ea0086,$2f0e2c6e ;41de8e
+	DC.L	$00344eae,$fdcc2c5f,$206a0082,$245f4e75 ;41de9e
+	DC.L	$206b0186,$205041e8,$00862f0e,$2c6e0034 ;41deae
+	DC.L	$4eaefdb4,$2c5f4e75,$4aaf0018,$67001900 ;41debe
+	DC.L	$60001d12,$2f02082b,$00070041,$660a206b ;41dece
+	DC.L	$0186317c,$000a0014,$241f4e75,$2c5f48e7 ;41dede
+	DC.L	$0028286b,$0186302c,$0014672a,$53406622 ;41deee
+	DC.L	$246b004e,$082a0000,$0002670e,$6100004e ;41defe
+	DC.L	$4a806606,$08aa0000,$00027000,$61000f54 ;41df0e
+	DC.L	$70003940,$00144cdf,$14004e75,$4a29001f ;41df1e
+	DC.L	$670e4a82,$6b000c8a,$23420020,$60000c82 ;41df2e
+	DC.L	$0c290003,$001d6600,$0c78206b,$0186317c ;41df3e
+	DC.L	$000a0014,$60000c6a,$42280003,$6100140a ;41df4e
+	DC.L	$48e70020,$246b0186,$2452082a,$0001006c ;41df5e
+	DC.L	$4cdf0400,$66000004,$4e754a80,$66fa48e7 ;41df6e
+	DC.L	$20286100,$fef22448,$286b004e,$274a004e ;41df7e
+	DC.L	$34947001,$61000edc,$70003012,$61000e4c ;41df8e
+	DC.L	$41ea0684,$303c397c,$61000f8a,$4a80662a ;41df9e
+	DC.L	$342b004a,$3754004a,$70ff6100,$1a363742 ;41dfae
+	DC.L	$004a274c,$004e0c00,$000b640e,$15400003 ;41dfbe
+	DC.L	$204a224c,$6100002a,$67147000,$61000e94 ;41dfce
+	DC.L	$d4fc2710,$c54f3014,$61000068,$2e4a2400 ;41dfde
+	DC.L	$6100febe,$20024cdf,$14046600,$ff604e75 ;41dfee
+	DC.L	$700bd028,$00039029,$000380fc,$000b4840 ;41dffe
+	DC.L	$c0fc0440,$323c2ec0,$924041e8,$068043e9 ;41e00e
+	DC.L	$0680d2c0,$e448e449,$b0406002,$b38856c9 ;41e01e
+	DC.L	$fffc6616,$53406b16,$588843e9,$d144b040 ;41e02e
+	DC.L	$6002b388,$56c8fffc,$670470ff,$60027000 ;41e03e
+	DC.L	$4e7548e7,$382c7218,$e208e311,$41fa0280 ;41e04e
+	DC.L	$1081244f,$42677207,$204a224a,$e308c308 ;41e05e
+	DC.L	$51c9fff6,$321f41fa,$025d1001,$e8090001 ;41e06e
+	DC.L	$003010c1,$0200000f,$00000030,$10807030 ;41e07e
+	DC.L	$d02b0043,$41fa0236,$108074ff,$206b0186 ;41e08e
+	DC.L	$20502f0e,$2a6e0034,$2c6800b4,$4eaefeaa ;41e09e
+	DC.L	$206e003c,$3028014a,$41faf936,$31400868 ;41e0ae
+	DC.L	$3140087c,$11400827,$e1583140,$08403140 ;41e0be
+	DC.L	$08541140,$083b41fa,$00a84eae,$ff342840 ;41e0ce
+	DC.L	$6768cb4e,$206c0056,$4eaefe80,$206c0056 ;41e0de
+	DC.L	$4eaefe8c,$22402629,$00142429,$001c2829 ;41e0ee
+	DC.L	$00184eae,$fe860c83,$00000040,$660c41fa ;41e0fe
+	DC.L	$00cc9488,$67247401,$60200c83,$00000400 ;41e10e
+	DC.L	$66c20244,$004067bc,$48447400,$0c440035 ;41e11e
+	DC.L	$67087401,$0c440034,$66aacb4e,$41fa0042 ;41e12e
+	DC.L	$20ac0004,$204c4eae,$ffb82a4e,$2c5f2002 ;41e13e
+	DC.L	$6a28cb4e,$91c84eae,$ffa0cb4e,$74062002 ;41e14e
+	DC.L	$02800000,$00016100,$0d0a203c,$00030d40 ;41e15e
+	DC.L	$61000d8e,$51caffe8,$70ff4cdf,$341c4e75 ;41e16e
+	DS.L	1			;41e17e
+	DC.L	$00f8003d,$ffff0000,$04400002,$104f0000 ;41e182
+	DC.L	$07c00000		;41e192
+	DS.L	1			;41e196
+	DC.L	$08980000		;41e19a
+	DS.L	3			;41e19e
+	DC.L	$00000001,$000007ec,$00140023,$00600010 ;41e1aa
+	DC.L	$00040005,$10010000,$082c0000 ;41e1ba
+	DS.L	1			;41e1c6
+	DC.L	$08400000		;41e1ca
+	DS.L	4			;41e1ce
+	DC.L	$00800023,$00600010,$00040005,$10010000 ;41e1de
+	DC.L	$08180000		;41e1ee
+	DS.L	1			;41e1f2
+	DC.L	$08540000		;41e1f6
+	DS.L	3			;41e1fa
+	DC.L	$ff7effe9,$00ea0029	;41e206
+	DS.L	2			;41e20e
+	DC.L	$0000082c		;41e216
+	DS.L	1			;41e21a
+	DC.L	$00600010		;41e21e
+	DS.L	3			;41e222
+	DC.L	$00000100,$000d0004,$00000890,$000008f0 ;41e22e
+	DC.L	$00000868,$00000100,$00110004,$00000890 ;41e23e
+	DC.L	$000008fa		;41e24e
+	DS.L	1			;41e252
+	DC.L	$00000100,$fff2ffec,$00000890,$000008b7 ;41e256
+	DC.L	$0000087c,$00000100,$fff2fff5,$00000890 ;41e266
+	DC.L	$000008d4		;41e276
+	DS.L	1			;41e27a
+	DC.L	$000008ac,$00080000,$41637469,$6f6e2052 ;41e27e
+	DC.L	$65706c61,$7920416d,$69676100,$746f7061 ;41e28e
+	DC.L	$7a2e666f,$6e740054,$7261636b,$6469736b ;41e29e
+	DC.L	$2e646576,$69636520,$676f7420,$74726f75 ;41e2ae
+	DC.L	$626c6500,$6f6e2075,$6e697420,$202c2074 ;41e2be
+	DC.L	$7261636b,$2020202c,$20686561,$64202000 ;41e2ce
+	DC.L	$54727920,$61676169,$6e00536f,$20776861 ;41e2de
+	DC.L	$743f0000		;41e2ee
 LAB_A2799C:
   DC.L  $1a380003,$0c800000,$800000e6,$00010016
   DC.L  $10400002,$6100ebf6
@@ -41267,7 +41531,7 @@ LAB_A289EE:
   BNE.S LAB_A28A04
   LEA ScanningMemText(PC),A0
   JSR PrintText
-  JSR AllocTBuff(PC)
+  JSR AllocTBuff
 LAB_A28A04:
   LEA NoMemText2(PC),A1
   CMPI.L  #EXT_7000,DiskMonBufferSize
@@ -42893,8 +43157,8 @@ LAB_A29E16:
   RTS
 SUB_A29E2E:
   MOVEM.L A0/A2-A3/A6,-(A7)
-  CMPI.B  #$13,kickstartVersion
-  BEQ.S LAB_A29E42
+  CMPI.B  #34,kickstartVersion
+  BLS.S LAB_A29E42
   LEA KickVerText(PC),A1
   BRA.S LAB_A29E50
 LAB_A29E42:
@@ -43021,6 +43285,8 @@ CMD_RENAME:
   EXG A6,A0
   MOVE.W  D0,LAB_A480CA
   MOVE.W  D0,D1
+  JSR CheckFilename
+  BNE.W LAB_A2A0DE
   MOVEQ #-14,D0
   TST.W D1
   BEQ.W LAB_A2A0DE
@@ -43105,6 +43371,30 @@ LAB_A2A0E8:
   JSR PrintDiskOpResult
   MOVE.B  (A7)+,currDriveNo
   RTS
+
+CheckFilename:
+  MOVE.W D1,D0
+  MOVE.L A1,-(A7)
+  LEA stringWorkspace,A1
+.loop
+  TST.W D0
+  BEQ.S .end
+  CMP.B #"/",(A1)
+  BEQ.S .bad
+  CMP.B #":",(A1)+
+  BEQ.S .bad
+  SUBQ.W #1,D0
+  BRA.S .loop
+.bad
+  MOVE.L (A7)+,A1
+  MOVEQ #-36,D0   ;invalid filename
+  RTS
+.end
+  MOVE.L (A7)+,A1
+  MOVEQ #0,D0
+  RTS
+  
+
 SUB_A2A0F6:
   MOVE.B  printerDumpToggle,-(A7)
   MOVE.W  cursorX,-(A7)
@@ -48766,7 +49056,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $ad6591d3 ; v0.9.0
+  DC.L $d9927d5e ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -48998,12 +49288,13 @@ LAB_A480D0:
   DS.W  1
 LAB_A480D2:
   DS.L  1
+;dont split
 LAB_A480D6:
   DS.B  1
 LAB_A480D7:
   DS.B  1
-  ;DS.W 1
-  even
+  DS.W 1
+;end
 LAB_A480DA:
   DS.L  1
 LAB_A480DE:
@@ -49399,7 +49690,7 @@ LAB_A4838B:
   DS.B  1
 TBufferAllocated:
   DS.B  1
-LAB_A4838D:
+doPatchingFlag:
   DS.B  1
 LAB_A4838E:
   DS.B  1
@@ -49413,13 +49704,15 @@ LAB_A48392:
   DS.B  1
 LAB_A48393:
   DS.B  1
-LAB_A48394:
+updateDrivesConnectedFlag:
   DS.B  1
 UnpackFlashy:
   DS.B  1
 AutoConfigPrefsFlag:
   DS.B  1
 LAB_A48397:
+  DS.B  1
+FileSelectorFlag:
   DS.B  1
   even
 NoresPrefsFlag:
@@ -49465,7 +49758,7 @@ scrollLock:
   DS.B  1
 LAB_A483CB:
   DS.B  1
-LAB_A483CC:
+safeDiskInstallingFlag:
   DS.B  1
 LAB_A483CD:
   DS.B  1
@@ -49484,18 +49777,18 @@ LAB_A483D3:
 ;dont split
 BlankerPrefsFlag:
   DS.B  1
-SaveDiskResidentPrefsFlag:
+SafeDiskResidentPrefsFlag:
   DS.B  1
-LAB_A483D6:
+SafediskNoclickFlag:
   DS.B  1
 ;end
 SetmapDPrefsFlag:
   DS.B  1
-LAB_A483D8:
+OSPatchesInstalledFlag:
   DS.B  1
 ExtMemAddPrefsFlag:
   DS.B  1
-LAB_A483DA:
+NotExtMemAddPrefsFlag:
   DS.B  1
 LAB_A483DB:
   DS.B  1
