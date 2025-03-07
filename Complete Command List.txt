@@ -462,7 +462,7 @@ Action Replay 5 Complete Command List
     RF
 
   RFY (Receive files via serial ymodem)
-    RFY
+    RFY (path)
 
   RM (Show MMU registers)
     RM
@@ -523,9 +523,6 @@ Action Replay 5 Complete Command List
 
   SETAPI (Set api handler)
     SETAPI
-
-  SETCOP (Specify copper for exit)
-    SETCOP <copper-addr>
 
   SETEXCEPT (Set exception handler)
     SETEXCEPT

@@ -4080,7 +4080,7 @@ LAB_A120BC:
   CMPI.B  #$9f,D0
   BLS.S LAB_A120E8
 LAB_A120E4:
-  BSR.W InsertSpaceChar
+  JSR InsertSpaceChar
 LAB_A120E8:
   JSR PrintChar
   CMPI.W  #$000d,D0
@@ -4262,33 +4262,12 @@ LAB_A121C4:
 ; execute command
   JSR (A1)
   BRA.W arCommandLoop
-CMD_SETCOP:
-  JSR ReadParameter
-  TST.B ParamFound
-  BEQ.S LAB_A12216
-  MOVEA.L D0,A1
-  MOVEA.L #$00000e80,A1
-  CMPI.L  #$0000149c,EXT_4.W
-  BEQ.S LAB_A12210
-  MOVEA.L #$00000420,A1
-LAB_A12210:
-  MOVE.L  A1,currCopper
-LAB_A12216:
-  LEA currentCopperText(PC),A0
-  BSR.W PrintText
-  MOVE.L  currCopper,D0
-  BSR.W Print6DigitHex
-  JSR PrintReady
-  RTS
 
 noHelpText
   DC.B 13,"There is no help available for this command.",13,13,0
 
 helpHeaderText
   DC.B 13,"Command help:",13,13,0
-
-currentCopperText:
-  DC.B  $D,"Current Copper 0: ",0
 
   even
 maxApiCall EQU 16
@@ -5225,11 +5204,6 @@ commandTable:
   even
   DC.L  CMD_SETMAP
   DC.L cmd_setmap_help
-
-  DC.B  "SETCOP",0
-  even
-  DC.L  CMD_SETCOP
-  DC.L cmd_setcop_help
 
   DC.B  "DEEPMW",0
   even
@@ -7072,11 +7046,6 @@ cmd_serspeed_help:
 cmd_setapi_help:
   DC.B  "SETAPI (Set api handler)",13
   DC.B  "  SETAPI",13
-  DC.B 0
-
-cmd_setcop_help:
-  DC.B  "SETCOP (Specify copper for exit)",13
-  DC.B  "  SETCOP <copper-addr>",13
   DC.B 0
 
 cmd_setexcept_help:
@@ -9867,7 +9836,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.06032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.07032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -44332,7 +44301,6 @@ HelpText:
   DC.B  "      ntsc: Switch to ECS NTSC mode              - ntsc",$D
   DC.B  "    setmap: Keymap editor                        - setmap",$D
   DC.B  "    keymap: Switch keymap                        - keymap code",$D
-  DC.B  "    setcop: Copper specify for Exit of AR-PRO    - setcop (address)",$D
   DC.B  "     ascii: Show ASCII-Table                     - ascii",$D
   DC.B  "     alert: Display alert (guru) list            - alert (guru-number)",$D
   DC.B  "    diskio: Install rob northen diskio routines  - diskio (address)",$D
@@ -49139,9 +49107,6 @@ TextPage1:
   DS.L  80*25/4
 TextPage2:
   DS.L  80*25/4
-
-currCopper:
-  DS.L  1
 robdmode:
   DS.B  1
 decryptins:
