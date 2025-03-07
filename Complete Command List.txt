@@ -645,7 +645,7 @@ Action Replay 5 Complete Command List
     TRANS <start-addr> <end-addr> <dest-addr>
 
   TS (Start trainer/trainermode)
-    TS <start-lives> <start-address>
+    TS <start-lives> (<start-address>)
 
   TX (Exit trainermode)
     TX

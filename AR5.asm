@@ -7276,7 +7276,7 @@ cmd_trans_help:
 
 cmd_ts_help:
   DC.B  "TS (Start trainer/trainermode)",13
-  DC.B  "  TS <start-lives> <start-address>",13
+  DC.B  "  TS <start-lives> (<start-address>)",13
   DC.B 0
 
 cmd_tx_help:
