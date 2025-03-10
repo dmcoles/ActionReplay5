@@ -8,7 +8,7 @@ Action Replay 5 Complete Command List
     ADD <start-address> <end-address> <value>
 
   ALERT (Display alert info)
-    ALERT <guru-number>
+    ALERT (<guru-number>)
 
   ALLEXC (Enable/disable all exceptions)
     ALLEXC
@@ -50,7 +50,7 @@ Action Replay 5 Complete Command List
     BOOTPROT (<codenumber)
 
   BPROT (Alias for BOOTPROT)
-    BPROT <codenumber)
+    BPROT (<codenumber)
 
   BS (Set breakpoint)
     BS <addr>
@@ -242,7 +242,7 @@ Action Replay 5 Complete Command List
     FR <string>(,<start-addr> <end-addr>)
 
   FS (Search for string case insensitive)
-    FR <string>(,<start-addr> <end-addr>)
+    FS <string>(,<start-addr> <end-addr>)
 
   G (Restart program at address)
     G (<addr>)
@@ -257,7 +257,7 @@ Action Replay 5 Complete Command List
     IMODE <0|1|2|3>
 
   INFO (Show system parameters)
-    INFO <picnr>
+    INFO (<picnr>)
 
   INST (Alias for INSTALL)
     INST (<bootblock-nr>)
@@ -379,7 +379,7 @@ Action Replay 5 Complete Command List
     NN <address>
 
   NO (Show/set ascii-dump offset)
-    NO <offset>
+    NO (<offset>)
 
   NORMALCHAR (Normal printerchars)
     NORMALCHAR
@@ -400,7 +400,7 @@ Action Replay 5 Complete Command List
     O <string>, <start-addr> <end-addr>
 
   P (Show current picture/mempeeker)
-    P <picnr>
+    P (<picnr>)
 
   PACK (Pack memory)
     PACK <start-addr> <end-addr> <dest-addr> <rate>
@@ -409,7 +409,7 @@ Action Replay 5 Complete Command List
     PAL
 
   PC (Show current picture + energy count)
-    PC <picnr>
+    PC (<picnr>)
 
   PORTS (Show execbase port-list)
     PORTS
@@ -436,7 +436,8 @@ Action Replay 5 Complete Command List
     RCOLOUR
 
   REL (Alias for RELABEL)
-
+    REL <diskname>
+    
   RELABEL (Change disk label)
     RELABEL <diskname>
 
@@ -486,7 +487,7 @@ Action Replay 5 Complete Command List
     RPS <start-sector> (<num-sectors> <dest-addr> <pdoskey>)
 
   RR (Read raw mfm tracks from active drive)
-    RR RR <start-track> (<num-tracks> <mfm-sync> <readlen> <dest-addr>)
+    RR <start-track> (<num-tracks> <mfm-sync> <readlen> <dest-addr>)
 
   RS (Read sectors from active drive)
     RS <start-sector> (<num-sectors> <dest-addr>)
@@ -519,7 +520,7 @@ Action Replay 5 Complete Command List
     SER
 
   SERSPEED (Set serial baud rate)
-    SERSPEED <baud>
+    SERSPEED (<baud>)
 
   SETAPI (Set api handler)
     SETAPI
@@ -576,7 +577,7 @@ Action Replay 5 Complete Command List
     SRIP (<start-addr>)
 
   SSPD (Alias for SERSPEED)
-    SSPD <baud>
+    SSPD (<baud>)
 
   SST  (Alias for SSTICK)
     SST (<path>)<file>
