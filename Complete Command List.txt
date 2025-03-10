@@ -32,7 +32,7 @@ Action Replay 5 Complete Command List
     BAMCHK <addr>
 
   BCODE (Alias for BOOTCODE)
-    BCODE <codenumber>
+    BCODE (<codenumber>)
 
   BD (Delete breakpoint)
     BD <addr>
@@ -44,10 +44,10 @@ Action Replay 5 Complete Command List
     BOOTCHK <addr>
 
   BOOTCODE (Set bootcode)
-    BOOTCODE <codenumber>
+    BOOTCODE (<codenumber>)
 
   BOOTPROT (Protect the bootblock)
-    BOOTPROT <codenumber)
+    BOOTPROT (<codenumber)
 
   BPROT (Alias for BOOTPROT)
     BPROT <codenumber)
@@ -62,7 +62,7 @@ Action Replay 5 Complete Command List
     C <1|2|address>
 
   CACHE (Enable/disable cache)
-    CACHE <0|1>
+    CACHE (<0|1>)
 
   CCOPY (Alias for CODECOPY)
     CCOPY <source-drive> <dest-drive>
@@ -86,16 +86,16 @@ Action Replay 5 Complete Command List
     CLRSTICK
 
   CODE (Set drive encoding)
-    CODE <drive> <code-number>
+    CODE (<drive> <code-number>)
 
   CODECOPY (Encodes or decodes a disk)
     CODECOPY <source-drive> <dest-drive>
 
   COLOR (Set screen colours)
-    COLOR <back-color> <pen-color>
+    COLOR (<back-color> <pen-color>)
 
   COLOUR (Alias for COLOR)
-    COLOUR <back-color> <pen-color>
+    COLOUR (<back-color> <pen-color>)
 
   COMP (Compare memory)
     COMP <start-addr> <end-addr> <dest-addr>
@@ -128,7 +128,7 @@ Action Replay 5 Complete Command List
     DCHIP <registername>
 
   DCHK (Alias for DISKCHECK)
-    DCHK <drive>
+    DCHK (<drive>)
 
   DCOPY (Copy an AmigaDOS disk)
     DCOPY <source-drive> <dest-drive>
@@ -161,13 +161,13 @@ Action Replay 5 Complete Command List
     DIRA (<path>)
 
   DISKCHECK (Checks disk for errors)
-    DISKCHECK <drive>
+    DISKCHECK (<drive>)
 
   DISKIO (Copy Rob Northen DISKIO package to RAM)
     DISKIO <addr>
 
   DISKWIPE (Quick wipe disk contents)
-    DISKWIPE <drive>
+    DISKWIPE (<drive>)
 
   DMON (Get/display disk-mon buffer)
     DMON
@@ -179,7 +179,7 @@ Action Replay 5 Complete Command List
     DUMP (<path>)<file>
 
   DWIPE (Alias for DISKWIPE)
-    DWIPE <drive>
+    DWIPE (<drive>)
 
   E (Show/edit chip registers)
     E (<offset>)
@@ -260,10 +260,10 @@ Action Replay 5 Complete Command List
     INFO <picnr>
 
   INST (Alias for INSTALL)
-    INST <bootblock-nr>
+    INST (<bootblock-nr>)
 
   INSTALL (Install bootblock to current drive)
-    INSTALL <bootblock-nr>
+    INSTALL (<bootblock-nr>)
 
   INT (Alias for INTERRUPTS)
     INT
@@ -585,7 +585,7 @@ Action Replay 5 Complete Command List
     SSTICK (<path>)<file>
 
   ST (Trace current program (also subs))
-    ST <steps>
+    ST (<steps>)
 
   SY (Send memory via serial ymodem)
     SY <start-addr> <end-addr>
@@ -633,7 +633,7 @@ Action Replay 5 Complete Command List
     TMS <address>
 
   TR (Trace current program (not subs))
-    TR <steps>
+    TR (<steps>)
 
   TRACKER (Rips soundtracker-modules in memory)
     TRACKER (<start-addr>)
@@ -663,7 +663,7 @@ Action Replay 5 Complete Command List
     VIRUS
 
   W (Show/edit CIA data)
-    W <register>
+    W (<register>)
 
   WP (Write pdos tracks to active drive)
     WP <start-track> <num-tracks> <src-addr> <pdos-key>
