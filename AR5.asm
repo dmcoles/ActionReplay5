@@ -91,8 +91,8 @@ EXT_100E  EQU $100E
 EXT_4E80  EQU $4E80
 
 EXT_7000  EQU $7000
-EXT_A400  EQU $a700
-EXT_A500  EQU $a800
+EXT_A700  EQU $a700
+EXT_A800  EQU $a800
 
 EXT_B000  EQU $B000
 EXT_20000 EQU $20000
@@ -2232,6 +2232,11 @@ getVBR:
   RTS
 vbrtrap:
   MOVE.W #0,vbrflag
+  ADD.L  #4,2(a7)
+  RTE
+
+vbrtrap2:
+  ST.B tempD0
   ADD.L  #4,2(a7)
   RTE
 
@@ -6186,7 +6191,7 @@ cmd_add_help:
 
 cmd_alert_help:
   DC.B  "ALERT (Display alert info)",13
-  DC.B  "  ALERT <guru-number>",13
+  DC.B  "  ALERT (<guru-number>)",13
   DC.B 0
 
   if arsoft=1
@@ -6588,7 +6593,7 @@ cmd_fr_help:
 
 cmd_fs_help:
   DC.B  "FS (Search for string case insensitive)",13
-  DC.B  "  FR <string>(,<start-addr> <end-addr>)",13
+  DC.B  "  FS <string>(,<start-addr> <end-addr>)",13
   DC.B 0
 
 cmd_g_help:
@@ -6615,7 +6620,7 @@ cmd_imode_help:
 
 cmd_info_help:
   DC.B  "INFO (Show system parameters)",13
-  DC.B  "  INFO <picnr>",13
+  DC.B  "  INFO (<picnr>)",13
   DC.B 0
 
 cmd_inst_help:
@@ -6823,7 +6828,7 @@ cmd_nnn_help:
 
 cmd_no_help:
   DC.B  "NO (Show/set ascii-dump offset)",13
-  DC.B  "  NO <offset>",13
+  DC.B  "  NO (<offset>)",13
   DC.B 0
 
 cmd_normalchar_help:
@@ -6858,7 +6863,7 @@ cmd_o_help:
 
 cmd_p_help:
   DC.B  "P (Show current picture/mempeeker)",13
-  DC.B  "  P <picnr>",13
+  DC.B  "  P (<picnr>)",13
   DC.B 0
 
 cmd_pack_help:
@@ -6873,7 +6878,7 @@ cmd_pal_help:
 
 cmd_pc_help:
   DC.B  "PC (Show current picture + energy count)",13
-  DC.B  "  PC <picnr>",13
+  DC.B  "  PC (<picnr>)",13
   DC.B 0
 
 cmd_ports_help:
@@ -6918,6 +6923,7 @@ cmd_rcolour_help:
 
 cmd_rel_help:
   DC.B  "REL (Alias for RELABEL)",13
+  DC.B  "  REL <diskname>",13
   DC.B 0
 
 cmd_relabel_help:
@@ -7862,9 +7868,9 @@ CMD_G:
   CMPI.B  #"K",D0
   BNE.S .notkill
   
-  MOVE.W #$7fff,SaveDmaCon
-  MOVE.W #$7fff,SaveIntena
-  MOVE.W #$7fff,SaveIntreq
+  CLR.W SaveDmaCon
+  CLR.W SaveIntena
+  CLR.W SaveIntreq
   
 .notkill
   BSR.W ReadParameter
@@ -7896,7 +7902,14 @@ CMD_O:
 CMD_RC:
   JSR getVBR
   MOVE.L ILLEG_OPC(a0),-(A7)
-  MOVE.L #vbrtrap,ILLEG_OPC(A0)
+  CLR.L tempD0
+  MOVE.L #vbrtrap2,ILLEG_OPC(A0)
+
+  OPT p=68040
+  MOVEC VBR,A0
+  OPT p=68000
+  TST.B tempD0
+  BNE.W novbr
 
   LEA vbrText(PC),A0
   JSR PrintText
@@ -7945,9 +7958,17 @@ CMD_RC:
   MOVE.L SAVE_CACR,D0
   BSR PrintAddressHex
   BSR PrintCR
+vbrclean:
   JSR getVBR
   MOVE.L (A7)+,ILLEG_OPC(A0)
   RTS
+
+novbr:
+  LEA novbrText(PC),A0
+  JSR PrintText
+  BRA.W vbrclean
+
+novbrText: DC.B "No 68010+ Contol registers present",13,0
 vbrText DC.B "VBR=",0
 sfcText DC.B " SFC=",0
 dfcText DC.B " DFC=",0
@@ -7959,7 +7980,15 @@ cacrText DC.B " CACR=",0
 CMD_RF:
   JSR getVBR
   MOVE.L LINEF_EMU(A0),-(A7)
+  CLR.L tempD0
   MOVE.L #fmovetrap,LINEF_EMU(A0)
+
+  OPT p=68040
+  FMOVE.X FP0,(A1)
+  OPT p=68000
+  TST.B tempD0
+  BNE.W nofpu
+
 
   LEA fp0Text(PC),A0
   JSR PrintText
@@ -8096,9 +8125,15 @@ CMD_RF:
   OPT p=68000
   JSR Print8DigitHex
   BSR PrintCR
+restorelinef:
   JSR getVBR
   MOVE.L (A7)+,LINEF_EMU(A0)
   RTS
+
+nofpu:
+  LEA nofpuText(PC),A0
+  JSR PrintText
+  BRA.W restorelinef
 
 initFloatData:
   LEA mt_samplestarts,A1
@@ -8109,7 +8144,10 @@ initFloatData:
 
 fmovetrap:
   ADD.L  #4,2(a7)
+  ST.B tempD0
   RTE
+nofpuText DC.B "No FPU present",13,0
+
 fp0Text DC.B "FP0=",0
 fp1Text DC.B "FP1=",0
 fp2Text DC.B "FP2=",0
@@ -8122,6 +8160,7 @@ fpiarText DC.B "FPIAR=",0
 fpcrText DC.B " FPCR=",0
 fpsrText DC.B " FPSR=",0
   even
+
 
 printExtendedFloat:
   MOVEM.L D0-D2/A1/a2,-(A7)
@@ -8532,8 +8571,15 @@ LAB_16738:
 CMD_RM:
   JSR getVBR
   MOVE.L ILLEG_OPC(A0),-(A7)
-  MOVE.L #vbrtrap,ILLEG_OPC(A0)
+  CLR.L tempD0
+  MOVE.L #vbrtrap2,ILLEG_OPC(A0)
 
+  OPT p=68040
+  MOVEC ITT0,A0
+  OPT p=68000
+  TST.B tempD0
+  BNE.W nommu
+  
   LEA itt0Text(PC),A0
   JSR PrintText
   SUB.L A0,A0
@@ -8602,9 +8648,17 @@ CMD_RM:
   MOVE.L A0,D0
   BSR PrintAddressHex
   BSR PrintCR
+mmuclean:
   JSR getVBR
   MOVE.L (A7)+,ILLEG_OPC(A0)
   RTS
+
+nommu:
+  LEA nommuText(PC),a0
+  JSR PrintText
+  BRA.W mmuclean
+
+nommuText DC.B "No MMU present",13,0
 itt0Text DC.B "ITT0=",0
 itt1Text DC.B " ITT1=",0
 dtt0Text DC.B "DTT0=",0
@@ -9855,7 +9909,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.06032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.10032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -26790,7 +26844,7 @@ LAB_413ED0:
   BSR.W SUB_414096
   BRA.W LAB_413D8A
 ScanSaveSample:
-  JSR SUB_41A28A
+  JSR SaveSampleMem
   BRA.W ScanRestart
 LAB_413F1E:
   ADDQ.W  #2,LAB_A480D2
@@ -30602,11 +30656,11 @@ LoadingToText:
 readFileData:
   MOVEM.L D1-D2/A1,-(A7)
   MOVE.L  D0,D1
-  CMPA.L  #EXT_A400,A2
+  CMPA.L  #EXT_A700,A2
   BHI.S LAB_A21C48
   MOVEA.L A2,A1
   ADDA.L  D0,A1
-  CMPA.L  #EXT_A500,A1
+  CMPA.L  #EXT_A800,A1
   BHI.S LAB_A21C20
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
@@ -30618,7 +30672,7 @@ readFileData:
   BRA.S LAB_A21C58
 LAB_A21C20:
   MOVE.L  D0,D1
-  MOVE.L  #EXT_A500,D0
+  MOVE.L  #EXT_A800,D0
   SUB.L A2,D0
   SUB.L D0,D1
   MOVE.L  D0,D2
@@ -30649,11 +30703,11 @@ SaveFileData:
   BMI.W LAB_A21D08
 LAB_A21C7C:
   MOVE.L  D1,D0
-  CMPA.L  #EXT_A400,A2
+  CMPA.L  #EXT_A700,A2
   BHI.S LAB_A21CD6
   MOVEA.L A2,A1
   ADDA.L  D0,A1
-  CMPA.L  #EXT_A500,A1
+  CMPA.L  #EXT_A800,A1
   BHI.S LAB_A21CAE
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
@@ -30665,7 +30719,7 @@ LAB_A21C7C:
   BRA.S LAB_A21D08
 LAB_A21CAE:
   MOVE.L  D0,D1
-  MOVE.L  #EXT_A500,D0
+  MOVE.L  #EXT_A800,D0
   SUB.L A2,D0
   SUB.L D0,D1
   MOVE.L  D0,D2
@@ -31448,6 +31502,7 @@ LAB_A2262C:
   DBF D0,LAB_A2262C
 LAB_A22634:
   JSR SwapChipRam1
+  MOVE.L AUTO_INT5.W,Int5Save
   MOVE.L  #KeyboardIntHandler,AUTO_INT2.W
   MOVE.L  #VBlankIntHandler,AUTO_INT3.W
   MOVE.L  #SerialIntHandler,AUTO_INT5.W
@@ -31878,6 +31933,7 @@ LAB_A22CBE:
 LAB_A22CD6:
   JSR SwapChipRam1
 LAB_A22CDC:
+  MOVE.L AUTO_INT5.W,Int5Save
   MOVE.L  #KeyboardIntHandler,AUTO_INT2.W
   MOVE.L  #VBlankIntHandler,AUTO_INT3.W
   MOVE.L  #SerialIntHandler,AUTO_INT5.W
@@ -31900,7 +31956,7 @@ LAB_A22D06:
   MOVE.L  (A7)+,SlowMemEnd
   MOVE.L  (A7)+,ChipMemEnd
   MOVEQ #0,D0
-  BRA.S LAB_A22CDC
+  BRA.W LAB_A22CDC
 InsertdiskNrText:
   DC.B  "Insert disk with save-file nr ",0
 
@@ -32084,9 +32140,6 @@ LAB_A22FD2:
   MOVEA.L A1,A0
   JSR LAB_A18966
   MOVEA.L A0,A1
-
-  MOVE.L AUTO_INT5.W,Int5Save
-  MOVE.L  #SerialIntHandler,AUTO_INT5.W
 
   MOVEQ #0,D0
   MOVE.W  DrivesConnected,D1
@@ -32298,7 +32351,7 @@ LAB_A232F4:
   RTS
 LAB_A23312:
   MOVEA.L ChipMemEnd,A0
-  SUBA.L  #$00003400,A0
+  SUBA.L  #$3608,A0
   BSR.W backupMfmBuffer
   BSR.S SUB_A23348
   BSR.W PrintDiskOpResult
@@ -33707,7 +33760,7 @@ ExecbaseOffsetsTable:
 
 AllocTBuff:
   MOVEM.L D0-D2/A0,-(A7)
-  LEA EXT_A400,A0
+  LEA EXT_A700,A0
   MOVE.L  ChipMemEnd,D2
   SUB.L A0,D2
   BSR.W SUB_A1F99A
@@ -33784,10 +33837,10 @@ LAB_41A27E:
 ALoadName:
   DC.B  "Aload",0
 
-SUB_41A28A:
+SaveSampleMem:
   CLR.L cursorX
   MOVE.W  #$00f0,D0
-  JSR PrintCrIfNotBlankLine
+  JSR PrintSpaces
   CLR.L cursorX
   LEA LAB_41307D(PC),A0
   JSR PrintText
@@ -35377,7 +35430,7 @@ getSerTempAddr:
   RTS
 .kill:
   MOVE.L (A7)+,D0
-  MOVE.L  #EXT_A400,DiskMonBuffer
+  MOVE.L  #EXT_A700,DiskMonBuffer
   MOVE.L  #2100,DiskMonBufferSize
   CLR.L LAB_A48386
   RTS
@@ -36225,6 +36278,8 @@ LAB_A24B1A:
   CMP.W  D0,D3
   BHI.W LAB_A21070
 
+  MOVE.W D3,D4
+
   SWAP D0
   MOVE.W D0,D3
 
@@ -36252,8 +36307,10 @@ LAB_A24B1A:
   SUB.W #1,D0
   DIVU D3,D0
   MOVE.W D0,D2
-
-  BRA.S .tr3
+ 
+  DIVU D3,D4
+  MOVE.W D4,D3
+  BRA.S .tr2
 
 .tr
   TST.B byteRead
@@ -36265,6 +36322,8 @@ LAB_A24B1A:
 .s1
   CMP.L  D0,D3
   BHI.W LAB_A21070
+
+  MOVE.L D3,D4
 
   MOVE.W #$1600,D3
   TST.B pdosRead
@@ -36293,7 +36352,8 @@ LAB_A24B1A:
   DIVU D3,D0
   MOVE.W D0,D2
 
-  BRA.S .tr3
+  DIVU D3,D4
+  MOVE.W D4,D3
 .tr2
   CMPI.W  #$009f,D3
   BHI.W LAB_A21070
@@ -36476,7 +36536,7 @@ getKillBuffer:
   MOVE.L  SlowMemEnd,DiskMonBufferSize
   BRA.S LAB_A24BE4
 LAB_A24BD0:
-  MOVE.L  #EXT_A400,DiskMonBuffer
+  MOVE.L  #EXT_A700,DiskMonBuffer
   MOVE.L  ChipMemEnd,DiskMonBufferSize
 LAB_A24BE4:
   MOVE.L  DiskMonBuffer,D0
@@ -36710,7 +36770,7 @@ LAB_A24EC4:
   ADD.W D1,D3
   CMPI.W  #$009f,D3
   BHI.W LAB_A21070
-  CMP.L #EXT_A400-1,A1
+  CMP.L #EXT_A700-1,A1
   BHI.W .1
   LEA saveErr(PC),A0
   JSR PrintText
@@ -36840,7 +36900,7 @@ LAB_A24F9A:
   RTS
 
 saveErr:
-  DC.B  "Saving address must be greater than $A400",$D,0
+  DC.B  "Saving address must be greater than $A700",$D,0
 
 WritingText2:
   DC.B  "Writing ",0
@@ -36969,7 +37029,7 @@ LAB_A25132:
   TST.W D0
   BEQ.S LAB_A25164
 LAB_A25148:
-  MOVE.L  #EXT_A400,DiskMonBuffer
+  MOVE.L  #EXT_A700,DiskMonBuffer
   MOVE.L  #$00001600,DiskMonBufferSize
   CLR.L LAB_A48386
   BRA.S LAB_A250F0
@@ -37002,7 +37062,7 @@ LAB_A251BA:
   LEA InsertSourceText(PC),A0
   JSR PrintText
   BSR.W WaitKeypress
-  LEA EXT_A400,A1
+  LEA EXT_A700,A1
   LEA EXT_7000.W,A0
   BSR.W ReadTracks
   BMI.W LAB_A25282
@@ -37027,13 +37087,13 @@ LAB_A25204:
   LEA EXT_7000.W,A0
   MOVEQ #0,D1
   MOVEQ #$4F,D2
-  LEA EXT_A400,A1
+  LEA EXT_A700,A1
   BSR.W ReadTracks
   BMI.S LAB_A25282
   LEA EXT_80000,A1
   TST.L foundSlowMemEnd
   BEQ.S LAB_A2523A
-  LEA EXT_200000,A1
+  LEA EXT_C00000,A1
 LAB_A2523A:
   MOVEQ #$50,D1
   MOVEQ #$4F,D2
@@ -37043,7 +37103,7 @@ LAB_A2523A:
   JSR PrintText
   BSR.W WaitKeypress
   LEA EXT_7000.W,A0
-  LEA EXT_A400,A1
+  LEA EXT_A700,A1
   MOVEQ #0,D1
   MOVEQ #$4F,D2
   BSR.W SUB_A24EF0
@@ -37051,7 +37111,7 @@ LAB_A2523A:
   LEA EXT_80000,A1
   TST.L foundSlowMemEnd
   BEQ.S LAB_A2527A
-  LEA EXT_200000,A1
+  LEA EXT_C00000,A1
 LAB_A2527A:
   MOVEQ #$50,D1
   MOVEQ #$4F,D2
@@ -37593,7 +37653,7 @@ CMD_MEMCODE:
   BEQ.W add_wtf
   MOVE.L  D0,D3
   CMP.L D1,D2
-  BCS.W add_wtf
+  BLS.W add_wtf
   MOVEA.L D1,A1
   MOVEA.L D2,A1
 LAB_A25A8A:
@@ -37620,7 +37680,7 @@ CMD_ADD:
   BEQ.S add_wtf
   MOVE.L  D0,D3
   CMP.L D1,D2
-  BCS.S add_wtf
+  BLS.S add_wtf
   MOVEA.L D1,A1
   MOVEA.L D2,A1
 LAB_A25AE8:
@@ -49118,7 +49178,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $60c26287 ; v0.9.0
+  DC.L $bc201e1a ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
