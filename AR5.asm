@@ -5001,6 +5001,7 @@ commandTable:
   DC.L  CMD_EXECBASE
   DC.L cmd_execbase_help
 
+  if arhardware=1
   DC.B  "BOOTCODE",0
   even
   DC.L  CMD_BOOTCODE
@@ -5010,6 +5011,7 @@ commandTable:
   even
   DC.L  CMD_BOOTPROT
   DC.L cmd_bootprot_help
+  endc
 
   DC.B  "RESETCFG",0
   even
@@ -5028,10 +5030,12 @@ commandTable:
   DC.L  CMD_DISKWIPE
   DC.L cmd_diskwipe_help
 
+  if arhardware=1
   DC.B  "CODECOPY",0
   even
   DC.L  CMD_CODECOPY
   DC.L cmd_codecopy_help
+  endc
 
   DC.B  "CLRSTICK",0
   even
@@ -5332,6 +5336,7 @@ commandTable:
   DC.L  CMD_SMALLCHAR
   DC.L cmd_schar_help
 
+  if arhardware=1
   DC.B  "BCODE",0
   even
   DC.L  CMD_BOOTCODE
@@ -5341,16 +5346,19 @@ commandTable:
   even
   DC.L  CMD_BOOTPROT
   DC.L cmd_bprot_help
+  endc
 
   DC.B  "DWIPE",0
   even
   DC.L  CMD_DISKWIPE
   DC.L cmd_dwipe_help
 
+  if arhardware=1
   DC.B  "CCOPY",0
   even
   DC.L  CMD_CODECOPY
   DC.L cmd_ccopy_help
+  endc
 
   DC.B  "SDISK",0
   even
@@ -5404,10 +5412,12 @@ commandTable:
   DC.L  CMD_PACK
   DC.L cmd_pack_help
 
+  if arhardware=1
   DC.B  "CODE",0
   even
   DC.L  CMD_CODE
   DC.L cmd_code_help
+  endc
 
   DC.B  "SCAN",0
   even
@@ -5725,7 +5735,6 @@ commandTable:
   even
   DC.L  CMD_RFY
   DC.L cmd_rfy_help
-
 
   DC.B  "RPS",0
   even
@@ -6217,10 +6226,12 @@ cmd_bamchk_help:
   DC.B  "  BAMCHK <addr>",13
   DC.B 0
 
+  if arhardware=1
 cmd_bcode_help:
   DC.B  "BCODE (Alias for BOOTCODE)",13
-  DC.B  "  BCODE <codenumber>",13
+  DC.B  "  BCODE (<codenumber>)",13
   DC.B 0
+  endc
 
 cmd_bd_help:
   DC.B  "BD (Delete breakpoint)",13
@@ -6237,20 +6248,22 @@ cmd_bootchk_help:
   DC.B  "  BOOTCHK <addr>",13
   DC.B 0
 
+  if arhardware=1
 cmd_bootcode_help:
   DC.B  "BOOTCODE (Set bootcode)",13
-  DC.B  "  BOOTCODE <codenumber>",13
+  DC.B  "  BOOTCODE (<codenumber>)",13
   DC.B 0
 
 cmd_bootprot_help:
   DC.B  "BOOTPROT (Protect the bootblock)",13
-  DC.B  "  BOOTPROT <codenumber)",13
+  DC.B  "  BOOTPROT (<codenumber)",13
   DC.B 0
 
 cmd_bprot_help:
   DC.B  "BPROT (Alias for BOOTPROT)",13
-  DC.B  "  BPROT <codenumber)",13
+  DC.B  "  BPROT (<codenumber)",13
   DC.B 0
+  endc
 
 cmd_bs_help:
   DC.B  "BS (Set breakpoint)",13
@@ -6269,13 +6282,15 @@ cmd_c_help:
 
 cmd_cache_help:
   DC.B  "CACHE (Enable/disable cache)",13
-  DC.B  "  CACHE <0|1>",13
+  DC.B  "  CACHE (<0|1>)",13
   DC.B 0
 
+  if arhardware=1
 cmd_ccopy_help:
   DC.B  "CCOPY (Alias for CODECOPY)",13
   DC.B  "  CCOPY <source-drive> <dest-drive>",13
   DC.B 0
+  endc
 
 cmd_cd_help:
   DC.B  "CD (Change directory)",13
@@ -6307,24 +6322,26 @@ cmd_clrstick_help:
   DC.B  "  CLRSTICK",13
   DC.B 0
 
+  if arhardware=1
 cmd_code_help:
   DC.B  "CODE (Set drive encoding)",13
-  DC.B  "  CODE <drive> <code-number>",13
+  DC.B  "  CODE (<drive> <code-number>)",13
   DC.B 0
 
 cmd_codecopy_help:
   DC.B  "CODECOPY (Encodes or decodes a disk)",13
   DC.B  "  CODECOPY <source-drive> <dest-drive>",13
   DC.B 0
+  endc
 
 cmd_color_help:
   DC.B  "COLOR (Set screen colours)",13
-  DC.B  "  COLOR <back-color> <pen-color>",13
+  DC.B  "  COLOR (<back-color> <pen-color>)",13
   DC.B 0
 
 cmd_colour_help:
   DC.B  "COLOUR (Alias for COLOR)",13
-  DC.B  "  COLOUR <back-color> <pen-color>",13
+  DC.B  "  COLOUR (<back-color> <pen-color>)",13
   DC.B 0
 
 cmd_comp_help:
@@ -6379,7 +6396,7 @@ cmd_dchip_help:
 
 cmd_dchk_help:
   DC.B  "DCHK (Alias for DISKCHECK)",13
-  DC.B  "  DCHK <drive>",13
+  DC.B  "  DCHK (<drive>)",13
   DC.B 0
 
 cmd_dcopy_help:
@@ -6434,7 +6451,7 @@ cmd_dira_help:
 
 cmd_diskcheck_help:
   DC.B  "DISKCHECK (Checks disk for errors)",13
-  DC.B  "  DISKCHECK <drive>",13
+  DC.B  "  DISKCHECK (<drive>)",13
   DC.B 0
 
 cmd_diskio_help:
@@ -6444,7 +6461,7 @@ cmd_diskio_help:
 
 cmd_diskwipe_help:
   DC.B  "DISKWIPE (Quick wipe disk contents)",13
-  DC.B  "  DISKWIPE <drive>",13
+  DC.B  "  DISKWIPE (<drive>)",13
   DC.B 0
 
 cmd_dmon_help:
@@ -6459,7 +6476,7 @@ cmd_dosio_help:
 
 cmd_dwipe_help:
   DC.B  "DWIPE (Alias for DISKWIPE)",13
-  DC.B  "  DWIPE <drive>",13
+  DC.B  "  DWIPE (<drive>)",13
   DC.B 0
 
 cmd_dump_help:
@@ -6589,10 +6606,12 @@ cmd_i_help:
   DC.B  "  I <start-addr> <end-addr> <dest-addr>",13
   DC.B 0
 
+  if arsoft=1
 cmd_imode_help:
   DC.B  "IMODE (Set interrupt mode)",13
   DC.B  "  IMODE <0|1|2|3>",13
   DC.B 0
+  endc
 
 cmd_info_help:
   DC.B  "INFO (Show system parameters)",13
@@ -6601,12 +6620,12 @@ cmd_info_help:
 
 cmd_inst_help:
   DC.B  "INST (Alias for INSTALL)",13
-  DC.B  "  INST <bootblock-nr>",13
+  DC.B  "  INST (<bootblock-nr>)",13
   DC.B 0
 
 cmd_install_help:
   DC.B  "INSTALL (Install bootblock to current drive)",13
-  DC.B  "  INSTALL <bootblock-nr>",13
+  DC.B  "  INSTALL (<bootblock-nr>)",13
   DC.B 0
 
 cmd_int_help:
@@ -7040,7 +7059,7 @@ cmd_ser_help:
 
 cmd_serspeed_help:
   DC.B  "SERSPEED (Set serial speed)",13
-  DC.B  "  SERSPEED <baud>",13
+  DC.B  "  SERSPEED (<baud>)",13
   DC.B 0
 
 cmd_setapi_help:
@@ -7135,7 +7154,7 @@ cmd_srip_help:
 
 cmd_sspd_help:
   DC.B  "SSPD (Alias for SERSPEED)",13
-  DC.B  "  SSPD <baud>",13
+  DC.B  "  SSPD (<baud>)",13
   DC.B 0
 
 cmd_sst_help:
@@ -7150,7 +7169,7 @@ cmd_sstick_help:
 
 cmd_st_help:
   DC.B  "ST (Trace current program (also subs))",13
-  DC.B  "  ST <steps>",13
+  DC.B  "  ST (<steps>)",13
   DC.B 0
 
 cmd_sy_help:
@@ -7230,7 +7249,7 @@ cmd_tms_help:
 
 cmd_tr_help:
   DC.B  "TR (Trace current program (not subs))",13
-  DC.B  "  TR <steps>",13
+  DC.B  "  TR (<steps>)",13
   DC.B 0
 
 cmd_tracker_help:
@@ -7280,7 +7299,7 @@ cmd_virus_help:
 
 cmd_w_help:
   DC.B  "W (Show/edit CIA data)",13
-  DC.B  "  W <register>",13
+  DC.B  "  W (<register>)",13
   DC.B 0
 
 cmd_wp_help:
@@ -9836,7 +9855,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.07032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.06032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -13367,7 +13386,7 @@ LAB_A17446:
   MOVEA.L A2,A3
   MOVEA.L A1,A2
   CMPA.L  A2,A3
-  BCS.W PrintWTF
+  BLS.W PrintWTF
   MOVEA.L A5,A0
   MOVE.B  (A0),D0
   MOVEQ #0,D5
@@ -13414,7 +13433,7 @@ LAB_A174BA:
   BEQ.S LAB_A174CA
   CMPA.L  D6,A2
   BNE.S LAB_A1746C
-  MOVEA.L #$00c00000,A2
+  MOVEA.L #EXT_C00000,A2
   BRA.S LAB_A174BA
 LAB_A174CA:
   BSR.W PrintCrIfNotBlankLine
@@ -13450,7 +13469,7 @@ LAB_A1750C:
   MOVEA.L autoConfigMemStart,A1
   BRA.S LAB_A1750C
 LAB_A17530:
-  MOVEA.L #$00c00000,A1
+  MOVEA.L #EXT_C00000,A1
   BRA.S LAB_A1750C
 LAB_A17538:
   MOVE.W  D6,D0
@@ -14084,7 +14103,7 @@ MemFill:
   MOVE.L  D0,D1
   MOVEA.L D0,A1
   CMP.L D2,D1
-  BCS.W PrintWTF
+  BLS.W PrintWTF
   SUB.L D2,D1
   MOVEA.L D2,A0
   LEA stringWorkspace,A2
@@ -15423,10 +15442,10 @@ LAB_A183C2:
   MOVE.L  autoConfigMemEnd,D7
   BNE.S LAB_A183AE
   MOVE.L  SlowMemEnd,D7
-  MOVEA.L #$00c00000,A0
+  MOVEA.L #EXT_C00000,A0
   BRA.S LAB_A183AE
 LAB_A183F6:
-  MOVEA.L #$00c00000,A0
+  MOVEA.L #EXT_C00000,A0
   MOVE.L  SlowMemEnd,D7
   BRA.S LAB_A183AE
 LAB_A18404:
@@ -18524,7 +18543,7 @@ LAB_A1AA74:
 LAB_A1AAA4:
   TST.L SlowMemEnd
   BEQ.S LAB_A1AB18
-  MOVEA.L #$00c00000,A0
+  MOVEA.L #EXT_C00000,A0
   MOVE.L  SlowMemEnd,D6
 LAB_A1AAB8:
   SUBQ.L  #2,D6
@@ -18723,7 +18742,7 @@ SubsEliminatedText:
 FindMemoryRanges:
   MOVEM.L D0-D4/A0-A4,-(A7)
   if arhardware=1
-  MOVEA.L #$00c00000,A0
+  MOVEA.L #EXT_C00000,A0
   MOVEA.L #$00dc0000,A1
   MOVEA.L A0,A4
   ADDA.L  #$00040000,A0
@@ -19673,7 +19692,7 @@ LAB_A1B4DE:
   MOVE.L  SlowMemEnd,D0
   CMP.L A0,D0
   BLS.S LAB_A1B506
-  MOVE.L  #$00c00000,D0
+  MOVE.L  #EXT_C00000,D0
   CMP.L A0,D0
   BGT.S LAB_A1B506
   MOVE.L  SlowMemEnd,D0
@@ -19703,7 +19722,7 @@ LAB_A1B53C:
 LAB_A1B53E:
   TST.L SlowMemEnd
   BEQ.W LAB_A1B5D0
-  MOVEA.L #$00c00000,A0
+  MOVEA.L #EXT_C00000,A0
   MOVE.L  SlowMemEnd,D0
   MOVEA.L A6,A2
   CMP.L A6,D0
@@ -19755,7 +19774,7 @@ LAB_A1B5D0:
   LEA SearchedUptoAddrText(PC),A0
   JSR PrintText
   MOVE.L  A4,D0
-  CMPI.L  #$00c00000,D0
+  CMPI.L  #EXT_C00000,D0
   BNE.S LAB_A1B5EA
   MOVE.L  ChipMemEnd,D0
 LAB_A1B5EA:
@@ -21977,7 +21996,7 @@ CMD_SQ:
   MOVEQ #0,D5
   MOVE.L  SlowMemEnd,D5
   BEQ.S LAB_A1D374
-  SUBI.L  #$00c00000,D5
+  SUBI.L  #EXT_C00000,D5
 LAB_A1D374:
   ADD.L ChipMemEnd,D5
   ADD.L autoConfigMemEnd,D5
@@ -21994,11 +22013,11 @@ LAB_A1D3A0:
   SUB.L SlowMemEnd,D0
   TST.L SlowMemEnd
   BNE.S LAB_A1D3BC
-  SUBI.L  #$00c00000,D0
+  SUBI.L  #EXT_C00000,D0
 LAB_A1D3BC:
   CMP.L D0,D5
   BHI.S LAB_A1D3D0
-  MOVE.L  #$00c00000,D0
+  MOVE.L  #EXT_C00000,D0
   OR.L  SlowMemEnd,D0
   MOVEA.L D0,A1
   BRA.S LAB_A1D3E4
@@ -22018,7 +22037,7 @@ LAB_A1D3E4:
   MOVE.L  #$00080000,ramDiskMem2
   CMPI.L  #$00100000,ChipMemEnd
   BGE.S LAB_A1D44E
-  MOVE.L  #$00c00000,ramDiskMem2
+  MOVE.L  #EXT_C00000,ramDiskMem2
   TST.L SlowMemEnd
   BNE.S LAB_A1D44E
   MOVE.L  autoConfigMemStart,ramDiskMem2
@@ -22188,6 +22207,7 @@ LAB_A1D714:
   LEA NoSaveQuickText(PC),A0
   JSR PrintText
   BSR.W PrintReady
+  SF restartFlag
   ST  cursorEnabled
   RTS
 NoSaveQuickText:
@@ -24585,6 +24605,19 @@ drawPrefsHighlightsPage1:
   MOVEM.L D0-D7/A0-A6,-(A7)
   LEA PrefsSettingPage1(PC),A0
 
+  if arhardware=0
+  MOVEQ #0,D0
+.dis
+  JSR disablePrefsBox(PC)   ;disable memory controls
+  ADDQ #1,D0
+  CMP.L #5,D0
+  BNE.S .dis
+
+  MOVEQ #6,D0    ;disable memory add
+  JSR disablePrefsBox(PC)
+
+  else
+
   CMP.B #34,kickstartVersion
   BLS.S .is13
 
@@ -24599,6 +24632,7 @@ drawPrefsHighlightsPage1:
   JSR disablePrefsBox(PC)
 
 .is13:
+  endc
   MOVEQ #0,D0
   MOVE.W  LAB_A4822E,D1
   MOVEQ #2,D2
@@ -31298,7 +31332,7 @@ SUB_A223DC:
   TST.L SlowMemEnd
   BEQ.S LAB_A223FC
   ADD.L SlowMemEnd,D0
-  SUBI.L  #$00c00000,D0
+  SUBI.L  #EXT_C00000,D0
 LAB_A223FC:
   ADD.L autoConfigMemEnd,D0
   SUB.L autoConfigMemStart,D0
@@ -31351,7 +31385,7 @@ LAB_A224DA:
   CLR.L LAB_A48350
   TST.L SlowMemEnd
   BEQ.S LAB_A2253C
-  MOVE.L  #$00c00000,PackStart
+  MOVE.L  #EXT_C00000,PackStart
   MOVE.L  SlowMemEnd,PackEnd
   MOVE.L  PackStart,PackDest
   BSR.W SUB_A1EFB0
@@ -31376,7 +31410,7 @@ SUB_A2256E:
   TST.L SlowMemEnd
   BEQ.S LAB_A2258E
   ADD.L SlowMemEnd,D0
-  SUBI.L  #$00c00000,D0
+  SUBI.L  #EXT_C00000,D0
 LAB_A2258E:
   ADD.L autoConfigMemEnd,D0
   SUB.L autoConfigMemStart,D0
@@ -31397,7 +31431,7 @@ LAB_A225D2:
   BSR.W UnpackFlash
   TST.L LAB_A48350
   BEQ.S LAB_A22606
-  MOVE.L  #$00c00000,UnpackDest
+  MOVE.L  #EXT_C00000,UnpackDest
   MOVE.L  LAB_A48350,UnpackSourceEnd
   BSR.W UnpackFlash
 LAB_A22606:
@@ -31470,7 +31504,7 @@ LAB_A226CC:
   TST.L SlowMemEnd
   BEQ.S LAB_A226F2
   ADD.L SlowMemEnd,D0
-  SUBI.L  #$00c00000,D0
+  SUBI.L  #EXT_C00000,D0
 LAB_A226F2:
   CMPI.L  #$00100000,D0
   BLS.S LAB_A2270E
@@ -31808,7 +31842,7 @@ LAB_A22C36:
   TST.L LAB_A48350
   BEQ.S LAB_A22C6A
   SUB.L LAB_A48350,D0
-  ADDI.L  #$00c00000,D0
+  ADDI.L  #EXT_C00000,D0
 LAB_A22C6A:
   TST.L LAB_A484CA
   BEQ.S LAB_A22C7E
@@ -32131,7 +32165,7 @@ SUB_A230EA:
   JSR PrintText
   MOVE.L  SlowMemEnd,D0
   BEQ.S LAB_A23130
-  SUBI.L  #$00c00000,D0
+  SUBI.L  #EXT_C00000,D0
   BSR.W SUB_A23212
   LEA FastMemText(PC),A0
   JSR PrintText
@@ -33191,7 +33225,7 @@ checkForVirus:
   MOVEQ #0,D0
   CMPI.L  #$00001400,EXT_4.W
   BLS.S LAB_A23EB2
-  CMPI.L  #$00c00000,EXT_4.W
+  CMPI.L  #EXT_C00000,EXT_4.W
   BLS.S LAB_A23ED8
   CMPI.L  #$00c01000,EXT_4.W
   BLS.S LAB_A23EB2
@@ -33344,6 +33378,8 @@ PrintExecbase:
   LEA ExecbaseOffsetsTable(PC),A2
   MOVEA.L EXT_4,A6
 LAB_A24366:
+  TST.B EscapePressed
+  BNE.W LAB_A2442E
   JSR Delay
   MOVE.W  (A2)+,D2
   EXT.L D2
@@ -34328,14 +34364,23 @@ CMD_AXFER:
   JSR checkExecBaseValid
   BEQ.S .1
 
+  LEA AxferContinueText(PC),A0
+  JSR AskYN
+  TST.W D0
+  BEQ.S .cancel
+
   LEA $100.W,A0
   MOVE.L #$2c780004,(A0)+   ;move.l 4.w,a6
   MOVE.L #$4eaeff8e,(A0)+   ;jsr -$72(a6)
   MOVE.W #$60fa,(A0)+       ;bra $104
   MOVE.L #$100,SaveOldPc
   ST.B restartFlag
+.cancel
   RTS
 .1 JMP LAB_A1B1FC
+
+AxferContinueText: DC.B "Are you sure you wish to launch into ROMWACK/SAD(Y/N)?",13,0
+  even
 
 CMD_CRC16:
   JSR ReadParameter
@@ -34349,7 +34394,7 @@ CMD_CRC16:
   MOVE.L D0,A2
 
   CMP.L A2,A1
-  BHI crcWTF
+  BHS crcWTF
 
   LEA CalculatingCRC,A0
   JSR PrintText
@@ -34358,11 +34403,13 @@ CMD_CRC16:
   JSR PrintRangeInfo
 
   JSR doCrc16
+  TST.B EscapePressed
+  BNE.S .esc
 
   JSR Print4DigitHex
   JSR PrintCR
   JSR PrintCR
-
+.esc
   JMP PrintReady
 
 doCrc16:
@@ -34388,9 +34435,12 @@ doCrc16:
   LSL.W #8,D0
   EOR.W D2,D0
 
+  TST.B EscapePressed
+  BNE.S .esc
 
   CMP.L A1,A2
   BNE.S .crc16
+.esc
   MOVEM.L (A7)+,D1-D2/A1/A3
   RTS
 
@@ -34406,7 +34456,7 @@ CMD_CRC32:
   MOVE.L D0,A2
 
   CMP.L A2,A1
-  BHI.S crcWTF
+  BHS.S crcWTF
 
   LEA CalculatingCRC,A0
   JSR PrintText
@@ -34435,6 +34485,9 @@ CMD_CRC32:
   LSR.L #8,D0
   EOR.L D2,D0
 
+  TST.B EscapePressed
+  BNE.S .esc
+
   CMP.L A1,A2
   BNE.S .crc32
   NOT.L D0
@@ -34443,6 +34496,7 @@ CMD_CRC32:
   JSR PrintCR
   JSR PrintCR
 
+.esc
   JMP PrintReady
 crcWTF
   JMP PrintWTF
@@ -35410,7 +35464,7 @@ CMD_SY:
   MOVE.L D0,A2
 
   CMP.L A2,A1
-  BHI.W syWTF
+  BHS.W syWTF
 
   LEA sendingDataText,A0
   JSR PrintText
@@ -35822,6 +35876,11 @@ CMD_SER:
   BEQ.S .1
   
   JSR RawIOInit
+  MOVE.B #" ",D0
+  JSR RawPutChar
+  TST.L D0
+  BEQ.S .2
+  
   JSR UpdateSerCursor
   LEA serialEnabledText(PC),A0
   JMP PrintText
@@ -35830,7 +35889,14 @@ CMD_SER:
   JSR PrintText
   JSR UpdateRawIO
   RTS
+.2
+  SF.B serIO
+  LEA serialTimeoutText(PC),A0
+  JSR PrintText
+  JSR UpdateRawIO
+  RTS
 
+serialTimeoutText: DC.B "Serial IO timed out",13,0
 serialDisabledText: DC.B "Serial IO disabled",13,0
 serialEnabledText: DC.B "Serial IO enabled",13,0
 sendingBlockText: DC.B "Sending block ",0
@@ -36200,14 +36266,6 @@ LAB_A24B1A:
   CMP.L  D0,D3
   BHI.W LAB_A21070
 
-  TST.B mfmRead
-  BEQ.S .notmfm
-  MOVEQ #0,D1
-  MOVE.W mfmLength,D3
-  ADD.W D3,D3
-  BRA.S .2
-
-.notmfm
   MOVE.W #$1600,D3
   TST.B pdosRead
   BEQ.S .2
@@ -36411,7 +36469,7 @@ getKillBuffer:
   ST  LAB_A48393
   MOVEM.L D0/A0,-(A7)
   MOVE.L  ChipMemEnd,D0
-  ADDI.L  #$00c00000,D0
+  ADDI.L  #EXT_C00000,D0
   CMP.L SlowMemEnd,D0
   BHI.S LAB_A24BD0
   MOVE.L  #EXT_C08400,DiskMonBuffer
@@ -37744,6 +37802,22 @@ LAB_A25D18:
   BMI.W wipeWtf
   CMPI.W  #3,D0
   BHI.W wipeWtf
+
+  LEA wipeContinueText(PC),A0
+  JSR PrintText
+
+  MOVEQ #1,D1
+  JSR PrintValue
+
+  LEA AskYNText,A0
+  JSR AskYN
+  TST.W D0
+  BNE.S wipeCont
+
+  MOVEQ #-8,D0
+  JMP PrintDiskOpResult
+
+wipeCont:
   LEA hardware,A5
   MOVE.B  currDriveNo,-(A7)
   MOVE.B  D0,currDriveNo
@@ -37758,7 +37832,7 @@ LAB_A25D50:
   JSR StepToTrack
   JSR selectDrive
   BTST  #3,ciaapra
-  BEQ.S LAB_A25DD2
+  BEQ.W LAB_A25DD2
   MOVE.W  #$4000,$24(A5)
   MOVE.W  #$7f00,$9E(A5)
   MOVE.L  #EXT_7000,$20(A5)
@@ -37784,9 +37858,14 @@ LAB_A25DB6:
   JSR PrintDiskOpResult
   ST  cursorEnabled
   MOVE.W  #$0010,$96(A5)
-  RTS
+  RTS 
 wipeWtf:
   JMP PrintWTF
+
+wipeContinueText:
+  DC.B  "Ready to wipe disk in drive DF",0
+  even
+
 LAB_A25DD2:
   MOVEQ #-10,D0
   BRA.S LAB_A25DB6
@@ -38358,7 +38437,7 @@ LAB_A2638A:
   JSR backupMfmBuffer
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
-  BSR.W OpenFile
+  JSR OpenFile
   BMI.S LAB_A263DE
   CMPI.L  #$00000036,fileSize
   BNE.S LAB_A263D2
@@ -38829,8 +38908,12 @@ RawPutChar:
   and.w     #$FF,D0               ;Mask out all but bits 0-7.
   or.w      #$0100,D0             ;Set the stop bit.
   move.w    D0,$DFF030             ;Write to SERDAT.
+  MOVEQ #-1,D0
+  BRA.S .succ
 .noser
 .timeout
+  MOVEQ #0,D0
+.succ
   MOVE.L (A7)+,D1
   rts
 ;.timeout
@@ -40604,7 +40687,7 @@ LAB_A27B88:
   BEQ.S LAB_A27BAA
   MOVE.L  SlowMemEnd,D1
   BNE.S LAB_A27B9E
-  MOVE.L  #$00c00000,D1
+  MOVE.L  #EXT_C00000,D1
 LAB_A27B9E:
   SUB.L D1,D0
   BEQ.S LAB_A27BAA
@@ -44147,10 +44230,15 @@ ShortcutsText:
   DC.B  "smallchar  <--> schar",$D
   DC.B  "chipregs   <--> creg",$D
   DC.B  "execbase   <--> exec",$D
+  if arhardware=1
   DC.B  "bootcode   <--> bcode",$D
   DC.B  "bootprot   <--> bprot",$D
+  endc
   DC.B  "diskwipe   <--> dwipe",$D
+  
+  if arhardware=1
   DC.B  "codecopy   <--> ccopy",$D
+  endc
   DC.B  "clrstick   <--> cst",$D
   DC.B  "safedisk   <--> sdisk",$D
   DC.B  "serspeed   <--> sspd",$A
@@ -44194,12 +44282,16 @@ HelpText:
   DC.B  $D
   DC.B  "Disk and diskcoding commands:",$D
   DC.B  "-----------------------------",$D
+  if arhardware=1
   DC.B  "  bootcode: Show/set bootblock codenumber        - bootcode (codenumber)",$D
   DC.B  "  bootprot: Code bootblock of active drive       - bootprot (codenumber)",$D
   DC.B  "      code: Show/set disk codenumbers            - code (drive codenumber)",$D
+  endc
   DC.B  "     dcopy: Backup amigados disks                - dcopy source dest",$D
   DC.B  "     burst: Turbo-Burstnibbler                   - burst (drive)",$D
+  if arhardware=1
   DC.B  "  codecopy: Diskcopy + decode source + code dest - codecopy source dest",$D
+  endc
   DC.B  "  safedisk: Patch/show state of trackdisk.device - safedisk (a/b/s/n/u/v/q)",$D
   DC.B  "        cd: Show/change current module-path      - cd (path)",$D
   DC.B  "       dir: Show disk-directory                  - dir (path)",$D
@@ -44317,7 +44409,7 @@ HelpText:
   DC.B  "       sfy: Send file via serial (ymodem)        - sfy (path)name",$D
   DC.B  "        ry: Receive memory via serial (ymodem)   - ry address",$D
   DC.B  "       rfy: Receive files via serial (ymodem)    - rfy (path)",$D
-  DC.B  "  serspeed: Set serial speed                     - serspeed baud",$D
+  DC.B  "  serspeed: Set serial speed                     - serspeed (baud)",$D
   DC.B  "       ser: Enable/Disable serial console        - ser",$D
   DC.B  "     crc16: Calculate a crc16 checksum           - crc16 start end",$D
   DC.B  "     crc32: Calculate a crc32 checksum           - crc32 start end",$D
@@ -44334,7 +44426,7 @@ HelpText:
   DC.B  "  romavoid: Enable/Disable triggering from ROM   - romavoid",$D
   DC.B  "kickromadr: Change kickstart placement adr       - kickromadr",$D
   endc
-  DC.B  "     cache: Change cache status (020/030 only)   - cache 0|1",$A
+  DC.B  "     cache: Change cache status (020/030 only)   - cache (0|1)",$A
   DC.B  $D
   DC.B  "Printer commands:",$D
   DC.B  "-----------------",$D
