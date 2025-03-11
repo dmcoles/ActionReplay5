@@ -7469,7 +7469,7 @@ CMD_DEEPMW:
 LAB_A12B5E:
   BSR.W PrintText
   MOVEM.L (A7)+,D0-D3/A0-A2
-  BSR.W PrintReady
+  JSR PrintReady
   RTS
   if arsoft=1
 CMD_ALLEXC:
@@ -9929,7 +9929,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.10032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.11032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -14513,6 +14513,8 @@ ARInit:
   SF  LAB_A48397
   ST  BurstNibblerFastStartPrefsFlag
   ST  DisableVposWrite
+  CLR.L trackStartSkip
+  MOVE.L #-1,trackMaxByteCount
 
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
@@ -28123,7 +28125,6 @@ LAB_A1FE38:
 .2
   BTST  #1,$1F(A5)
   BEQ.S .2
-
   BRA.S LAB_A1FE94
 .1
   MOVE.W  #$4000,$24(A5)
@@ -28165,6 +28166,7 @@ LAB_A1FE90:
 LAB_A1FE94:
   MOVEQ #0,D0
 LAB_A1FE96:
+  MOVE.W  #$4000,$24(A5)
   TST.W D0
   MOVEM.L (A7)+,D1-D2/A0-A3/A5
   RTS
@@ -30755,7 +30757,7 @@ readFileData:
   BHI.S LAB_A21C20
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
-  SUBA.L  #$00003400,A1
+  SUBA.L  #$00003800,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D1,D0
@@ -30768,7 +30770,7 @@ LAB_A21C20:
   SUB.L D0,D1
   MOVE.L  D0,D2
   MOVEA.L ChipMemEnd,A1
-  SUBA.L  #$00003400,A1
+  SUBA.L  #$00003800,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D2,D0
@@ -30802,7 +30804,7 @@ LAB_A21C7C:
   BHI.S LAB_A21CAE
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A1
-  SUBA.L  #$00003400,A1
+  SUBA.L  #$00003800,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21D08
   MOVE.L  D1,D0
@@ -30815,7 +30817,7 @@ LAB_A21CAE:
   SUB.L D0,D1
   MOVE.L  D0,D2
   MOVEA.L ChipMemEnd,A1
-  SUBA.L  #$00003400,A1
+  SUBA.L  #$00003800,A1
   BSR.W SUB_A22006
   BMI.S LAB_A21D08
   MOVE.L  D2,D0
@@ -31666,7 +31668,7 @@ LAB_A2270E:
   BSR.W SUB_A223DC
   SMI LAB_A480CE
   MOVE.L  ChipMemEnd,D0
-  SUBI.L  #$00003608,D0
+  SUBI.L  #$00003800,D0
   CMP.L LAB_A48354,D0
   BHI.S LAB_A22746
   BSR.W SUB_A2256E
@@ -31912,7 +31914,7 @@ LAB_A22B04:
   BEQ.W LAB_A21070
   MOVE.L  D0,D1
   MOVEA.L ChipMemEnd,A0
-  SUBA.L  #$00003608,A0
+  SUBA.L  #$00003800,A0
   BSR.W backupMfmBuffer
   MOVE.L  D1,D0
   MOVE.W  D0,D4
@@ -50922,7 +50924,7 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $bc201e1a ; v0.9.0
+  DC.L $d05413ef ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
