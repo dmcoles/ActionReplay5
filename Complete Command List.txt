@@ -187,9 +187,6 @@ Action Replay 5 Complete Command List
   EA (Show full AGA pallete)
     EA
 
-  ED (Edit text file)
-    ED (<path>)<file>
-
   EXC (Alias for EXCEPTIONS)
     EXC
 
@@ -619,10 +616,10 @@ Action Replay 5 Complete Command List
     TDX
 
   TF (Search for decrementing opcodes)
-    TF <address>
+    TF <address> (<start-addr>) (<end-addr>)
 
   TFD (Search and remove decrement opcodes)
-    TFD <address>
+    TFD <address> (<start-addr>) (<end-addr>)
 
   TM (Show remarks about curr. program)
     TM
@@ -643,7 +640,7 @@ Action Replay 5 Complete Command List
     TRANS <start-addr> <end-addr> <dest-addr>
 
   TS (Start trainer/trainermode)
-    TS <start-lives> (<start-address>)
+    TS <start-lives> (<start-addr>) (<end-addr>)
 
   TX (Exit trainermode)
     TX
