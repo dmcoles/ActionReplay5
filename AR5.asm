@@ -9932,7 +9932,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.13032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.14032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -25022,18 +25022,50 @@ CMD_UNPACK:
   TST.B ParamFound
   BEQ.W LAB_A21070
   MOVE.L  D0,UnpackDest
+
+  CMP.L #EXT_A700-1,D0
+  BHI.W .1
+  LEA unpackErr1(PC),A0
+  JSR PrintText
+  LEA addressMinErr,A0
+  JMP PrintText
+.1
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
   MOVE.L  D0,UnpackSourceEnd
+
+  CMP.L #EXT_A700-1,D0
+  BHI.W .2
+  LEA unpackErr2(PC),A0
+  JSR PrintText
+  LEA addressMinErr,A0
+  JMP PrintText
+.2
+
   CLR.W LAB_A483BA
   BSR.W UnpackFlash
   JMP PrintReady
+
+unpackErr1:
+  DC.B "Unpack destination",0
+unpackErr2:
+  DC.B "Unpack end",0
+
+  even
 CMD_PACK:
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
   MOVE.L  D0,PackStart
+
+  CMP.L #EXT_A700-1,D0
+  BHI.S .1
+  LEA packErr1(PC),A0
+  JSR PrintText
+  LEA addressMinErr,A0
+  JMP PrintText
+.1
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
@@ -25044,18 +25076,34 @@ CMD_PACK:
   TST.B ParamFound
   BEQ.W LAB_A21070
   MOVE.L  D0,PackDest
+
+  CMP.L #EXT_A700-1,D0
+  BHI.S .2
+  LEA packErr2(PC),A0
+  JSR PrintText
+  LEA addressMinErr,A0
+  JMP PrintText
+.2
+
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A21070
   MOVE.L  D0,PackRate
   BSR.S SUB_A1EFB0
   CLR.W LAB_A483BA
-  BSR.S packMemory
+  BSR.W packMemory
   MOVE.L  A2,D0
   SUB.L PackDest,D0
   JSR Print8DigitHex
   JSR PrintReady
   RTS
+  
+packErr1:
+  DC.B "Pack start",0
+packErr2:
+  DC.B "Pack destination",0
+ 
+  even
 SUB_A1EFB0:
   MOVE.L  A0,-(A7)
   CLR.L LAB_A4829A
@@ -25262,10 +25310,10 @@ LAB_A1F1DA:
   RTS
 UnpackNoFlash:
   CLR.W LAB_A483BA
-  ST  UnpackFlashy
+  ST  UnpackNotFlashy
   BRA.S Unpack
 UnpackFlash:
-  SF  UnpackFlashy
+  SF  UnpackNotFlashy
 Unpack:
   MOVEA.L UnpackSourceEnd,A0
   MOVEA.L UnpackDest,A1
@@ -25283,7 +25331,7 @@ LAB_A1F216:
   SUB.L D0,LAB_A483BC
   MULU  LAB_A483BA,D0
   BNE.S LAB_A1F246
-  TST.B UnpackFlashy
+  TST.B UnpackNotFlashy
   BNE.S LAB_A1F264
   MOVE.W  vhposr+hardware,color00+hardware
   BRA.S LAB_A1F264
@@ -26807,8 +26855,7 @@ LAB_413B7C:
   JSR Print8DigitHex
   JSR PrintCrIfNotBlankLine
   BRA.W LAB_412EA4
-  JSR PrintWTF
-  RTS
+  JMP PrintWTF
 LAB_413C68:
   DC.B  $D,"Scanning sound-module at:",0
 
@@ -36466,7 +36513,7 @@ CMD_RT:
   SF  LAB_A480CA
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W dopWTF
   MOVE.L  D0,D1
   JSR ReadParameter
   MOVEQ #1,D2
@@ -36492,7 +36539,7 @@ LAB_A24B1A:
   MOVE.L #$18000000+1919,D0
 .1
   CMP.W  D0,D3
-  BHI.W LAB_A21070
+  BHI.W dopWTF
 
   SWAP D0
   MOVEQ #0,D3
@@ -36517,7 +36564,7 @@ LAB_A24B1A:
   MOVE.L #1920*512-1,D0
 .s1
   CMP.L  D0,D3      ;end past the max limit
-  BHI.W LAB_A21070
+  BHI.W dopWTF
 
   MOVE.L #$1600,D3
   TST.B pdosRead
@@ -36536,7 +36583,6 @@ LAB_A24B1A:
   MOVE.L D0,trackMaxByteCount
 
   ADD.L D1,D2
-  ADD.L D3,D2
   DIVU D3,D2
 
   MOVE.L D1,D0
@@ -36544,14 +36590,11 @@ LAB_A24B1A:
   MOVE.W D0,D1    ;start track
 
   MOVE.W D2,D3       ;end track
-
-  SUB.W  D1,D2
-  SUB.W #1,D2    ;number of tracks-1
+  SUB.W  D1,D2        ;number of tracks-1
 
 .tr2
   CMPI.W  #$009f,D3
-  BHI.W LAB_A21070
-
+  BHI.W dopWTF
 .tr3
   TST.B mfmRead
   BEQ.S .notmfm2
@@ -36559,18 +36602,18 @@ LAB_A24B1A:
   ;get sync parameter
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W dopWTF
   MOVE.W D0,mfmSync
   CMPI.L  #$9999,D0
-  BHI.W LAB_A21070
+  BHI.W dopWTF
 
   ;get length parameter
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W dopWTF
   MOVE.W D0,mfmLength
   CMPI.L  #$9999,D0
-  BHI.W LAB_A21070
+  BHI.W dopWTF
 
 .notmfm2
   JSR ReadParameter
@@ -36631,7 +36674,8 @@ LAB_A24B52:
   TST.W D0
   BNE.S LAB_A24BA0
   MOVEQ #-8,D0
-  JMP PrintDiskOpResult
+  JSR PrintDiskOpResult
+  BRA.W dopdone
 LAB_A24BA0:
   JSR getKillBuffer
   MOVE.L  DiskMonBufferSize,D0
@@ -36711,14 +36755,33 @@ LAB_A24CB2:
   ADD.W D2,D0
   MOVE.B  D0,LAB_A4838B
 LAB_A24CD8:
+
+  CMP.L #EXT_A700-1,A1
+  BHI.S addrok
+  MOVE.L A0,A1
+  LEA loadErr(PC),A0
+  JSR PrintText
+  LEA addressMinErr(PC),A0
+  JSR PrintText
+
+  MOVE.L A1,A0
+  BRA.S doprestore
+addrok:  
+
   BSR.W ReadTracks
   JSR PrintDiskOpResult
+doprestore:
   JSR restoreMfmBuffer
+dopdone:
   SF pdosRead
   SF mfmRead
   SF sectorRead
   SF byteRead
   RTS
+dopWTF:
+  JSR dopdone
+  JMP PrintWTF
+  
 getKillBuffer:
   ST  LAB_A48393
   MOVEM.L D0/A0,-(A7)
@@ -36812,7 +36875,7 @@ LAB_A24D58:
 LAB_A24D60:
   MOVEA.L (A1)+,A3
   MOVE.W #511,D3
-LAB_A24D64:
+sectorcopy:
   TST.L trackStartSkip
   BEQ.S .noskip1
   TST.B (A3)+
@@ -36822,17 +36885,13 @@ LAB_A24D64:
 .noskip1
   TST.L trackMaxByteCount
   BEQ.S .cont
-
-  MOVEM.L D0/A0,-(A7)
-  MOVE.B (A3)+,D0
-  MOVE.L A2,A0
-  JSR memSafeUpdateByte
-  ADD.L #1,A2
-  MOVEM.L (A7)+,D0/A0
+  
+  MOVE.B (A3)+,(A2)+
   
   SUB.L #1,trackMaxByteCount
 .cont
-  DBF D3,LAB_A24D64
+  DBF D3,sectorcopy
+
   DBF D0,LAB_A24D60
   BRA.W LAB_A24D48
 
@@ -36971,8 +37030,10 @@ LAB_A24EC4:
   CMPI.W  #$009f,D3
   BHI.W LAB_A21070
   CMP.L #EXT_A700-1,A1
-  BHI.W .1
+  BHI.S .1
   LEA saveErr(PC),A0
+  JSR PrintText
+  LEA addressMinErr(PC),A0
   JSR PrintText
   RTS
 .1
@@ -37080,7 +37141,7 @@ LAB_A24F7A:
   ;BNE.S LAB_A24F88
 
   EXG A1,A3
-  BSR.S SUB_A24FD6    ;verify data
+  BSR.W SUB_A24FD6    ;verify data
   EXG A1,A3
   BPL.S LAB_A24F88
   DBF D4,LAB_A24F30
@@ -37099,12 +37160,19 @@ LAB_A24F9A:
   TST.W D0
   RTS
 
+loadErr:
+  DC.B  "Loading",0
 saveErr:
-  DC.B  "Saving address must be greater than $A700",$D,0
+  DC.B  "Saving",0
+
+addressMinErr:
+  DC.B " address must be greater than $A700",13,13,0
+
 
 WritingText2:
   DC.B  "Writing ",0
-
+  even
+  
 SUB_A24FD6:
   MOVEM.L D1-D2/A1-A3,-(A7)
   MOVE.W  D1,D0
@@ -37861,6 +37929,8 @@ LAB_A25A8A:
   JSR memSafeReadByte
   EOR.B D3,D0
   JSR memSafeUpdateByte
+  TST.B EscapePressed
+  BNE.S add_esc
   ADDQ.L  #1,D1
   CMP.L D1,D2
   BGT.S LAB_A25A8A
@@ -37889,10 +37959,16 @@ LAB_A25AE8:
   ADD.B D3,D0
   JSR memSafeUpdateByte
   ADDQ.L  #1,D1
+  TST.B EscapePressed
+  BNE.S add_esc
   CMP.L D1,D2
   BGT.S LAB_A25AE8
   JSR PrintReady
   RTS
+add_esc:
+  MOVEQ #-8,D0
+  JMP PrintDiskOpResult
+
 add_wtf:
   JMP LAB_A21070
 
@@ -38786,7 +38862,7 @@ JoyCodesClrText:
   DC.B  "Joystickcodes cleared!",$D,0
 
 CMD_LSTICK:
-  BSR.W GetFilename
+  JSR GetFilename
   TST.W D0
   BNE.S LAB_A2638A
   MOVEQ #-14,D0
@@ -51075,7 +51151,8 @@ checksum:
   ;DC.L $5a46e2fc ;v0.6.1
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
-  DC.L $755fb5fb ; v0.9.0
+  ;      !
+  DC.L $ecd6757d ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -51726,7 +51803,7 @@ LAB_A48393:
   DS.B  1
 updateDrivesConnectedFlag:
   DS.B  1
-UnpackFlashy:
+UnpackNotFlashy:
   DS.B  1
 AutoConfigPrefsFlag:
   DS.B  1
