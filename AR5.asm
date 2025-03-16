@@ -7489,7 +7489,7 @@ CMD_P:
   JSR memPeeker
   JMP PrintReady
 CMD_COMP:
-  BSR.W memCompare
+  JSR memCompare
   JMP PrintReady
 CMD_EXCEPTIONS:
   JMP PrintExceptions
@@ -9932,7 +9932,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.14032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.16032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -12793,16 +12793,16 @@ LAB_A16C94:
   BRA.S LAB_A16C70
 
 GermanKeymapText:
-  DC.B  $D,"Keymap is now german",$D,0
+  DC.B  $D,"Keymap is set to german",$D,0
 
 UsaKeymapText:
-  DC.B  $D,"Keymap is now usa",$D,0
+  DC.B  $D,"Keymap is set to usa",$D,0
 
 UKKeymapText:
-  DC.B  $D,"Keymap is now uk",$D,0
+  DC.B  $D,"Keymap is set to uk",$D,0
 
 ITKeymapText:
-  DC.B  $D,"Keymap is now italian",$D,0
+  DC.B  $D,"Keymap is set to italian",$D,0
 
   even
 PrintF1:
@@ -13505,7 +13505,7 @@ LAB_A17484:
   BSR.W PrintCrIfNotBlankLine
 LAB_A174B6:
   TST.B (A6)
-  BNE.S LAB_A174CE
+  BNE.S FrEscape
 LAB_A174BA:
   CMP.L A2,D3
   BLS.S LAB_A174CA
@@ -13531,8 +13531,18 @@ LAB_A174CE:
   MOVEM.L (A7)+,D0-D7/A0-A6
   RTS
 
+FrEscape:
+  MOVE.L A0,D0
+  LEA SearchedUptoAddrText,A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintCR
+  BRA.S LAB_A174CE
+
 OffsetText:
-  DC.B  "  offset: ",0,0
+  DC.B  "  offset: ",0
+
+  even
 
 SUB_A174E0:
   MOVEM.L D0-D4/D6/A0-A6,-(A7)
@@ -13545,7 +13555,7 @@ SUB_A174E0:
   LEA stringWorkspace,A0
 LAB_A17506:
   TST.B (A5)
-  BNE.W LAB_A175C0
+  BNE.W SearchEsc
   MOVE.W  D6,D0
   MOVEA.L A1,A3
   MOVEA.L A0,A4
@@ -13644,6 +13654,15 @@ LAB_A175C0:
   BSR.W PrintCrIfNotBlankLine
   MOVEM.L (A7)+,D0-D4/D6/A0-A6
   RTS
+
+SearchEsc:
+  MOVE.L A1,D0
+  LEA SearchedUptoAddrText,A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintCR
+  BRA.S LAB_A175C0
+  
 ReadParameter:
   MOVEM.L D1-D6/A1,-(A7)
   MOVEQ #0,D1
@@ -14109,13 +14128,15 @@ MemTrans:
   MOVEA.L A3,A1
   SUBA.L  A2,A1
   MOVE.L  A1,D1
+  CMPA.L  A3,A4
+  BHS.S LAB_A17B2E
   CMPA.L  A2,A4
   BCS.S LAB_A17B2E
   ADDA.L  A1,A4
 LAB_A17B10:
   TST.B EscapePressed
-  BNE.S LAB_A17B4A
   MOVEA.L A3,A0
+  BNE.S transEsc2
   BSR.W memSafeReadByte
   MOVEA.L A4,A0
   BSR.W memSafeUpdateByte
@@ -14126,8 +14147,8 @@ LAB_A17B10:
   BRA.S LAB_A17B4A
 LAB_A17B2E:
   TST.B EscapePressed
-  BNE.S LAB_A17B4A
   MOVEA.L A2,A0
+  BNE.S transEsc1
   BSR.W memSafeReadByte
   MOVEA.L A4,A0
   BSR.W memSafeUpdateByte
@@ -14138,6 +14159,37 @@ LAB_A17B2E:
 LAB_A17B4A:
   MOVEM.L (A7)+,D0-D3/A0-A4
   RTS
+transEsc1:
+  MOVE.L A0,D0
+  LEA CopiedUptoAddrText(PC),A0
+  JSR PrintText
+  BRA.S transEsc
+
+transEsc2:
+  MOVE.L A0,D0
+  LEA CopiedDowntoAddrText(PC),A0
+  JSR PrintText
+
+transEsc:
+  JSR PrintAddressHex
+  JSR PrintSpace
+  MOVE.B #"(",D0
+  JSR PrintChar
+  MOVE.L A4,D0
+  JSR PrintAddressHex
+  MOVE.B #")",D0
+  JSR PrintChar
+  JSR PrintCR
+  BRA.S LAB_A17B4A
+
+CopiedUptoAddrText:
+  DC.B  "Copied up to adr: ",0
+
+CopiedDowntoAddrText:
+  DC.B  "Copied down to adr: ",0
+  
+  even
+
 ShowMemAsAscii:
   MOVEM.L D0-D1/A1,-(A7)
   MOVEA.L A0,A1
@@ -14202,7 +14254,7 @@ MemFill:
   MOVEQ #0,D4
 LAB_A17BF8:
   TST.B (A3)
-  BNE.S LAB_A17C12
+  BNE.S fillEsc
   MOVE.B  0(A2,D4.W),D0
   BSR.W memSafeUpdateByte
   ADDQ.W  #1,A0
@@ -14216,6 +14268,18 @@ LAB_A17C0E:
 LAB_A17C12:
   MOVEM.L (A7)+,D0-D4/A0-A3
   RTS
+fillEsc:
+  MOVE.L A0,D0
+  LEA FilledUptoAddrText(PC),A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintCR
+  BRA.S LAB_A17C12
+
+FilledUptoAddrText:
+  DC.B  "Filled up to adr: ",0
+  even
+  
   if arhardware=1
 HardBoot:
   CMPI.L  #BRON_TAG,bronFlag
@@ -16065,7 +16129,7 @@ LAB_A18A70:
 LAB_A18A7A:
   MOVE.L  D4,D0
   SUBQ.L  #1,D0
-  JSR Print8DigitHex
+  JSR PrintAddressHex
   MOVEQ #2,D0
   BSR.W PrintSpaces
   BRA.S LAB_A18A6C
@@ -17854,7 +17918,7 @@ LAB_A19CDE:
   CLR.L $30(A5)
   CLR.L $38(A5)
   LEA PicHeightText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   MOVEQ #0,D0
   MOVE.W  LAB_A480DE,D0
   BSR.W ConvertToBCD
@@ -17862,7 +17926,7 @@ LAB_A19CDE:
   BSR.W PrintValue
   BSR.W PrintCrIfNotBlankLine
   LEA CopperPosText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   MOVE.L  copperPos,D0
   JSR Print6DigitHex
   BRA.W PrintCrIfNotBlankLine
@@ -19114,7 +19178,7 @@ ShowMemQuick:
   BEQ.W PrintWTF
   MOVEA.L D0,A1
   MOVEQ #0,D2
-  MOVEQ #7,D1
+  ;MOVEQ #7,D1
   ST  D6
 LAB_A1AE3E:
   MOVEA.L A1,A0
@@ -19153,9 +19217,14 @@ LAB_A1AE94:
 LAB_A1AE96:
   SUBQ.W  #1,D2
   BPL.S LAB_A1AEA8
-  MOVEQ #$47,D2
+  MOVEQ #$46,D2
+  CMP.W #8,cpuAddrSize
+  BEQ.S .1
+  ADDQ #2,D2
+.1
+  
   EXG D0,A1
-  BSR.W PrintValue
+  JSR PrintAddressHex
   EXG D0,A1
   BSR.W PrintSpace
 LAB_A1AEA8:
@@ -20824,7 +20893,7 @@ LAB_A1C208:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D2,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
@@ -20847,7 +20916,7 @@ LAB_A1C234:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D2,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
@@ -20859,7 +20928,7 @@ LAB_A1C274:
   MOVEM.L D0/A0,-(A7)
   MOVE.W  4(A0),D0
   MOVEA.L A4,A0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
@@ -20871,7 +20940,7 @@ LAB_A1C29A:
   MOVEM.L D0/A0,-(A7)
   MOVE.L  2(A0),D0
   MOVEA.L A4,A0
-  BSR.W memSafeWriteLong
+  JSR memSafeWriteLong
   ADDQ.W  #4,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
@@ -20883,7 +20952,7 @@ LAB_A1C2C0:
   MOVEM.L D0/A0,-(A7)
   MOVE.W  4(A0),D0
   MOVEA.L A4,A0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
@@ -37320,6 +37389,10 @@ LAB_A25194:
   ST  LAB_A48393
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
+  MOVE.L foundAutoConfigMemEnd,D1
+  SUB.L foundAutoConfigMemStart,D1
+  CMPI.L  #$0080000,D1
+  BGE.S LAB_A25204
   TST.L foundSlowMemEnd
   BNE.S LAB_A25204
   CMPI.L  #$00100000,foundChipMemEnd
@@ -37347,7 +37420,7 @@ LAB_A251BA:
   BRA.S LAB_A251BA
 LAB_A25200:
   MOVEQ #0,D0
-  BRA.S LAB_A25282
+  BRA.W LAB_A25282
 LAB_A25204:
   LEA InsertSourceText(PC),A0
   JSR PrintText
@@ -37359,6 +37432,11 @@ LAB_A25204:
   BSR.W ReadTracks
   BMI.S LAB_A25282
   LEA EXT_80000,A1
+  TST.L foundAutoConfigMemEnd
+  BEQ.S .checkSlow
+  MOVE.L foundAutoConfigMemStart,A1
+  BRA.S LAB_A2523A
+.checkSlow
   TST.L foundSlowMemEnd
   BEQ.S LAB_A2523A
   LEA EXT_C00000,A1
@@ -44065,7 +44143,7 @@ ApiHandlerRemText:
 CMD_KEYMAP:
   JSR readCmdCharSkipSpaces
   TST.B endOfCmdString
-  BNE.S .keymapWTF
+  BNE.S .showKeymap
   JSR UpperCaseChar
   MOVE.B D0,D1
 
@@ -44091,6 +44169,21 @@ CMD_KEYMAP:
 
 .keymapWTF:
   JMP PrintWTF
+
+.showKeymap
+  CMP.B #-1,keymap
+  BEQ.S .keymapUK
+
+  CMP.B #0,keymap
+  BEQ.S .keymapDE
+
+  CMP.B #1,keymap
+  BEQ.S .keymapUS
+
+  CMP.B #2,keymap
+  BEQ.S .keymapIT
+  
+  RTS
 
 .keymapDE
   LEA GermanKeymapText,A0
