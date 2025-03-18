@@ -6300,7 +6300,7 @@ cmd_c_help:
 
 cmd_cache_help:
   DC.B  "CACHE (Enable/disable cache)",13
-  DC.B  "  CACHE (<0|1>)",13
+  DC.B  "  CACHE (newval)",13
   DC.B 0
 
   if arhardware=1
@@ -27303,12 +27303,12 @@ LAB_4140D8:
   ADD.L D0,(A0)
   MOVE.L  LAB_A480CA,D1
   CMP.L LAB_A480CE,D1
-  BCS.W LAB_4140EC
+  BLT.W LAB_4140EC
   SUB.L D0,(A0)
 LAB_4140EC:
   MOVE.L  LAB_A480CE,D1
   CMP.L LAB_44F698,D1
-  BLS.W LAB_4140FE
+  BLE.W LAB_4140FE
   SUB.L D0,(A0)
 LAB_4140FE:
   MOVEM.L (A7)+,D0-D1/A0
@@ -27324,12 +27324,12 @@ LAB_414120:
   SUB.L D0,(A0)
   MOVE.L  LAB_A480CE,D1
   CMP.L LAB_A480CA,D1
-  BHI.W LAB_414134
+  BGT.W LAB_414134
   ADD.L D0,(A0)
 LAB_414134:
   MOVE.L  LAB_A480CA,D1
   CMP.L LAB_44F694,D1
-  BCC.W LAB_414146
+  BGE.W LAB_414146
   ADD.L D0,(A0)
 LAB_414146:
   MOVEM.L (A7)+,D0-D1/A0
@@ -34256,7 +34256,7 @@ MakeSVXHeader:
   MOVE.W  D0,(A1)+
   MOVE.W  #$0100,(A1)+
   MOVE.L  #$00010000,(A1)+
-  ADDI.L  #$00000072,D1
+  ADDI.L  #$44+(ANNODataEnd-ANNOData),D1
   LEA LAB_A4520A,A2
   MOVE.L  D1,4(A2)
   MOVEQ #$28,D0
@@ -34264,14 +34264,15 @@ MakeSVXHeader:
   RTS
 ScanAddAnno:
   LEA ANNOData(PC),A2
-  MOVEQ #$2E,D0
+  MOVEQ #ANNODataEnd-ANNOData,D0
   BSR.W memSafeWriteFileBytes
   RTS
 
 ANNOData:
-  DC.B  "ANNO",0,0,0
-  DC.B  "(Ripped by Action Replay MK III - Amiga",0,0
-
+  DC.B  "ANNO",0,0,0,ANNODataEnd-ANNOData-8
+  DC.B  "Ripped by Action Replay 5 - Amiga",0
+ANNODataEnd
+  even
 ScanAddATAK:
   LEA ATAKData(PC),A2
   MOVEQ #$E,D0
@@ -45115,7 +45116,7 @@ HelpText:
   DC.B  "  romavoid: Enable/Disable triggering from ROM   - romavoid",$D
   DC.B  "kickromadr: Change kickstart placement adr       - kickromadr",$D
   endc
-  DC.B  "     cache: Change cache status (020/030 only)   - cache (0|1)",$A
+  DC.B  "     cache: Change cache status (020/030 only)   - cache (newval)",$A
   DC.B  $D
   DC.B  "Printer commands:",$D
   DC.B  "-----------------",$D
@@ -51395,7 +51396,7 @@ checksum:
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
   ;      !
-  DC.L $32544e83 ; v0.9.0
+  DC.L $9178fa9e ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data
