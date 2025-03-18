@@ -135,5 +135,18 @@ v0.8.0
   - rework startup code so stack is compatible with snapshots
   - fix error with TYPE command on files >=64k
   - add DUMP command to dump a file as hex/ascii
+v0.9.0
+  - add SER command to enable serial console access via terminal
+  - add RFY (receive file over ymodem) command
+  - add RF (receive ymodem file to memory) command
+  - add SFY (send file via ymodem)
+  - add SY (send memory over ymodem)
+  - add GK command (like G but also kills dma, interrupts)
+  - added KILLMEM command (kill running program and allocate large disk buffer)
+  - disabled buttons on prefs screen according to kickstart version
+  - improved handling of Escape - various commands now show details of partial
+    completion (eg, memcode, add, trans)
+  - replaced Burst nibbler with X-Copy 
+  - many bugfixes and tweaks
   
   
