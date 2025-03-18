@@ -8979,6 +8979,7 @@ CMD_CI:
   TST.B ParamFound
   BEQ.W PrintWTF
 
+  BCLR #0,D0
   MOVE.L D0,A1
   BSR copyLockInfo
   BRA.W PrintReady
@@ -9932,7 +9933,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.0.16032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.0.18032025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -13462,6 +13463,21 @@ LAB_A17446:
 .ok:
   CMPA.L  A1,A2
   BLS.W PrintWTF
+
+  CMP.L D6,A1
+  BLT.S .1
+  
+  MOVE.L autoConfigMemEnd,D6
+  CMP.L D6,A1
+  BLT.S .1
+  
+  MOVE.L SlowMemEnd,D6
+  CMP.L D6,A1
+  BLT.S .1
+
+  MOVE.L A2,D6
+.1
+
   BSR.W PrintSearchInfo
   MOVEA.L A2,A3
   MOVEA.L A1,A2
@@ -13548,6 +13564,21 @@ SUB_A174E0:
   MOVEM.L D0-D4/D6/A0-A6,-(A7)
   MOVE.W  D0,D6
   MOVE.L  ChipMemEnd,D1
+  
+  CMP.L D1,A1
+  BLT.S .1
+  
+  MOVE.L autoConfigMemEnd,D1
+  CMP.L D1,A1
+  BLT.S .1
+  
+  MOVE.L SlowMemEnd,D1
+  CMP.L D1,A1
+  BLT.S .1
+
+  MOVE.L A2,D1
+.1
+  
   LEA EscapePressed,A5
   MOVE.B  LAB_A480CA,D4
   MOVE.L memSaveEnd,A6
@@ -13656,6 +13687,7 @@ LAB_A175C0:
   RTS
 
 SearchEsc:
+  JSR PrintCrIfNotBlankLine
   MOVE.L A1,D0
   LEA SearchedUptoAddrText,A0
   JSR PrintText
@@ -15174,7 +15206,8 @@ CMD_FLASH:
 .goflash
   MOVE.L D1,EXT_20000+$40000-4
   LEA flashcode(PC),A0
-  LEA mt_sin,A1
+  ;LEA mt_sin,A1
+  LEA $68000,A1
 .copy
   MOVE.W (A0)+,(A1)+
   CMP.L #flashend,A0
@@ -15191,7 +15224,8 @@ CMD_FLASH:
   DBF D0,.copypref
 
 .goflash2:
-  JSR mt_sin
+  ;JSR mt_sin
+  JSR $68000
   ;JSR flashcode
   RTS
 
@@ -15312,19 +15346,23 @@ flashcode
   clr.w copjmp1(a6)
   move.w #$8380,dmacon(a6)
 
-  MOVE.W #1,D3  ;two passes (one for each chip)
-
 .write3
   LEA SECSTRT_0,A0
   LEA EXT_20000,A2
-  LEA (A0,D3),A0
-  LEA (A2,D3),A2
   MOVE.W #1024-1,D2   ;1024 sectors (of 128 bytes)
 .write2
 
-  ;enable software protect
+  ;enable software protect chip 1
   LEA SECSTRT_0,A3
-  LEA (A3,D3),A3  ;pick correct chip (offset 0 or 1)
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.B #$AA,(A3)
+  MOVE.B #$55,(A4)
+  MOVE.B #$A0,(A3)
+
+  ;enable software protect chip 2
+  LEA SECSTRT_0+1,A3
   MOVE.L A3,A4
   ADD.L #$5555*2,A3
   ADD.L #$2AAA*2,A4
@@ -15334,24 +15372,29 @@ flashcode
 
   ;write sector
   MOVE.W #128-1,D1
-.write
 
-  CMP.L #SECSTRT_0+4,A0
-  BLT.S .s2
-  MOVE.B (A2),D0
-  MOVE.B D0,(A0)
-.s2
-  LEA 2(A2),A2
-  LEA 2(A0),A0
+  ;skip 4 bytes at the very start
+  CMP.L #SECSTRT_0,A0
+  BNE.S .write
+  LEA 4(A0),A0
+  LEA 4(A2),A2
+  SUBQ.W #2,D1
+
+.write
+  MOVE.W (A2)+,(A0)+
   DBF D1,.write
 
   ;wait for sector flash to complete
-  MOVE.B  #0,ciaatodlo
+  ;MOVE.B  #0,ciaatodlo
 .wait
+  ;CMP.B #2,ciaatodlo
+  ;BHS.S .timeout
   MOVE.B -2(A0),D0
   MOVE.B -2(A0),D1
-  CMP.B #2,ciaatodlo
-  BHS.S .timeout
+  CMP.B D1,D0
+  BNE.S .wait
+  MOVE.B -3(A0),D0
+  MOVE.B -3(A0),D1
   CMP.B D1,D0
   BNE.S .wait
 .timeout
@@ -15359,7 +15402,6 @@ flashcode
   BSR DoProgress
 
   DBF D2,.write2
-  DBF D3,.write3
 
   CLR.L bronFlag
   ;verify results
@@ -15372,9 +15414,8 @@ flashcode
   AND.L #$3F,D2
   BNE.S .1
 
-  CLR.W D3
   MOVE.L D4,D2
-  LSR.L #6,D2
+  LSR.L #7,D2
   LEA EXT_1000+129*80-8,A3
   BSR DoProgress
 .1
@@ -15396,11 +15437,8 @@ goodflash
   BRA.S goodflash
 
 DoProgress
-  MOVE.W D3,D0
-  LSL.W #6,D0
-  LSL.W #4,D0
-  ADD.W D2,D0
-  LSR.W #2,D0
+  MOVE.W D2,D0
+  LSR.W #1,D0
   MOVEQ #0,D1
   MOVE.W D0,D1
   LSR.W #3,D1
@@ -15415,7 +15453,6 @@ DoProgress
   BSET D0,480(A3)
   BSET D0,560(A3)
   RTS
-
 
 FlDelay:
   MOVE.B  #0,ciaatodlo
@@ -15437,6 +15474,7 @@ noflash
 
 badflash
   MOVE.W #$7fff,intena+hardware
+  MOVE.W #$7fff,dmacon+hardware
   MOVE.W #$f00,color00+hardware
   BRA.S badflash
 flashend
@@ -15459,7 +15497,8 @@ invalidcrc:
 flashwarn:
   DC.B "Flashing is about to begin, the process will take 20-30 seconds.",$D
   DC.B "DO NOT POWER OFF DURING THIS TIME! On completion the screen will turn",$D
-  DC.B "green for success or red for failure, after this you must reset.",$D,$D
+  DC.B "green for success or red for failure, after this you must reset.",$D
+  DC.B "Please ensure jumper JP1 is set to 2-3 on your device to allow flashing.",$D,$D
   DC.B "Do you wish to continue (Y/N)?",$D,0
 
 noflashText
@@ -16098,18 +16137,18 @@ memCompare:
   SUBQ.L  #1,D0
   MOVE.L  D0,D3
   TST.B ParamFound
-  BEQ.S PrintWTF
+  BEQ.W PrintWTF
   MOVEA.L D0,A1
   BSR.W ReadParameter
   MOVE.L  D0,D4
   TST.B ParamFound
-  BEQ.S PrintWTF
+  BEQ.W PrintWTF
   MOVEA.L D0,A1
   SUB.L D2,D3
-  BMI.S PrintWTF
+  BMI.W PrintWTF
 LAB_A18A4E:
   TST.B EscapePressed
-  BNE.S LAB_A18A70
+  BNE.S comp_esc
   MOVEA.L D2,A0
   BSR.W memSafeReadByte
   MOVE.B  D0,D5
@@ -16126,6 +16165,26 @@ LAB_A18A70:
   BSR.W PrintCrIfNotBlankLine
   MOVEM.L (A7)+,D0-D5
   RTS
+comp_esc:
+  MOVE.L D2,D0
+  JSR PrintCrIfNotBlankLine
+  LEA ComparedUptoAddrText(PC),A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintSpace
+  MOVE.B #"(",D0
+  JSR PrintChar
+  MOVE.L D4,D0
+  JSR PrintAddressHex
+  MOVE.B #")",D0
+  JSR PrintChar
+  JSR PrintCR
+  BRA.S LAB_A18A70
+ 
+ComparedUptoAddrText:
+  DC.B  "Compared up to adr: ",0
+  even
+
 LAB_A18A7A:
   MOVE.L  D4,D0
   SUBQ.L  #1,D0
@@ -18712,7 +18771,7 @@ LAB_A1AA4A:
   BEQ.S LAB_A1AA62
   CMP.L autoConfigMemEnd,D0
   BGT.S LAB_A1AA62
-  MOVE.L  autoConfigMemEnd,D0
+  MOVE.L  autoConfigMemEnd,D6
   BRA.S LAB_A1AA72
 LAB_A1AA62:
   TST.L SlowMemEnd
@@ -18731,13 +18790,20 @@ LAB_A1AA74:
   BNE.S LAB_A1AABA
   ADDQ.L  #2,D6
   CMP.L ChipMemEnd,D6
-  BNE.S LAB_A1AAA4
+  BEQ.S .1
+
+  CMP.L autoConfigMemEnd,D6
+  BEQ.S .2
+
+  BRA.W LAB_A1AB18
+.1
   TST.L autoConfigMemEnd
-  BEQ.S LAB_A1AAA4
+  BEQ.S .LAB_A1AAA4
   MOVEA.L autoConfigMemStart,A0
   MOVE.L  autoConfigMemEnd,D6
   BRA.S LAB_A1AAB8
-LAB_A1AAA4:
+.LAB_A1AAA4:
+.2
   TST.L SlowMemEnd
   BEQ.S LAB_A1AB18
   MOVEA.L #EXT_C00000,A0
@@ -18786,6 +18852,7 @@ LAB_A1AAFE:
   BNE.W LAB_A1AA74
   BRA.S LAB_A1AB1A
 LAB_A1AB18:
+  MOVE.L A0,tempD0
   SUBA.L  A0,A0
 LAB_A1AB1A:
   MOVEM.L (A7)+,D0-D4/A1-A5
@@ -18960,8 +19027,19 @@ LAB_A1AC98:
   LEA NotFoundText(PC),A0
   JSR PrintText
 LAB_A1ACA8:
+  TST.B EscapePressed
+  BNE.W tfesc
   MOVEM.L (A7)+,D0-D1/D6-D7/A0-A2
   RTS
+tfesc:
+  MOVE.L tempD0,D0
+  LEA SearchedUptoAddrText,A0
+  JSR PrintText
+  JSR PrintAddressHex
+  JSR PrintCR
+  MOVEM.L (A7)+,D0-D1/D6-D7/A0-A2
+  RTS
+
 SubFoundText:
   DC.B  "SUB found at:",0
 
@@ -18970,6 +19048,7 @@ NotFoundText:
 
 SubsEliminatedText:
   DC.B  "SUB's eliminated",$D,0
+
 
 FindMemoryRanges:
   MOVEM.L D0-D4/A0-A4,-(A7)
@@ -19137,21 +19216,26 @@ ShowMemQuick2:
   TST.B EscapePressed
   BNE .3
 
+  MOVE.B #":",D0
+  JSR PrintChar
+
   MOVE.L  A4,D0
   JSR PrintAddressHex
+  JSR PrintSpace
 .2
   SUBQ.L  #1,D6
  
-  JSR PrintSpace
   MOVE.B (A4)+,D0
   JSR Print2DigitHex
+  JSR PrintSpace
   MOVEQ #0,D0
   MOVE.W cursorX,D0
   MOVE.W D0,-(A7)
   SUB.W cpuAddrSize,D0
-  SUB.W #1,D0
+  SUB.W #2,D0
   DIVU #3,D0
-  ADD.W #57,D0
+  ADD.W #49,D0
+  ADD.W cpuAddrSize,D0
   MOVE.W D0,cursorX
   JSR UpdateSerCursor
   MOVE.B -1(A4),D0
@@ -19159,11 +19243,9 @@ ShowMemQuick2:
   JSR PrintChar
   MOVE.W (A7)+,cursorX
   JSR UpdateSerCursor  
+  BRA.W .dumpnextbyte
 .3
   MOVEQ #-8,D0
-  TST.B EscapePressed
-  BEQ.S .dumpnextbyte
-
   BSR.W PrintCrIfNotBlankLine
   MOVE.L  A4,D0
   LEA QuickDunpText(PC),A0
@@ -19927,7 +20009,7 @@ LAB_A1B4B6:
   MOVE.L  autoConfigMemEnd,D0
   CMP.L A2,D0
   BGT.S LAB_A1B506
-  MOVE.L  A2,D0
+  MOVE.L D0,A2
 LAB_A1B4DE:
   TST.L SlowMemEnd
   BEQ.S LAB_A1B506
@@ -20786,7 +20868,7 @@ LAB_A1C0C0:
   CMPI.W  #3,LAB_A47FBA
   BNE.W LAB_A1C158
   CMPI.W  #3,LAB_A47FCC
-  BNE.S LAB_A1C158
+  BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.S LAB_A1C158
   MOVE.W  LAB_A47FB8,D1
@@ -20819,7 +20901,7 @@ LAB_A1C108:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  LAB_A47FD0,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.S LAB_A1C162
@@ -22264,6 +22346,20 @@ LAB_A1D3BC:
   MOVEA.L D0,A1
   BRA.S LAB_A1D3E4
 LAB_A1D3D0:
+  MOVE.L  foundAutoConfigMemEnd,D0
+  BEQ.S .noac
+  SUB.L autoConfigMemEnd,D0
+  TST.L autoConfigMemEnd
+  BNE.S .acmem
+  SUB.L  foundAutoConfigMemStart,D0
+.acmem
+  CMP.L D0,D5
+  BHI.S .noac
+  MOVE.L  foundAutoConfigMemStart,D0
+  OR.L  autoConfigMemEnd,D0
+  MOVEA.L D0,A1
+  BRA.S LAB_A1D3E4
+.noac
   MOVE.L  foundChipMemEnd,D0
   SUB.L ChipMemEnd,D0
   CMP.L D0,D5
@@ -34071,7 +34167,7 @@ CMD_SLOADER:
   LEA ALoadDataEnd,A2
   MOVE.L  -(A2),D0
   LEA EXT_1000,A2
-  BSR.W memSafeWriteFileBytes
+  BSR.W writeFileBytes
   JSR HandleDiskFull
   BMI.W LAB_41A256
   BSR.W AddFileToDirBlock
@@ -35014,7 +35110,9 @@ CMD_SYSRAM:
   TST.L D0
   BEQ.S .done
 
-  MOVE.L A1,D0
+  LEA $14(A1),A0
+  JSR memSafeReadLong
+
   CMP.L #$40000,D0
   BGT.S .notchip
   
@@ -35810,7 +35908,7 @@ CMD_XCOPY:
 	move.b d5,d7
 	move.l #$4f,d1
 	move.l #1,d2
-	move.l #1,d3
+	moveq.l #0,d3
 	move.l #$4489,d4
 	move.l #$01020203,d5
 
@@ -36589,6 +36687,8 @@ CMD_RT:
   TST.B ParamFound
   BEQ.S LAB_A24B1A
   MOVE.L  D0,D2
+  TST.L D0
+  BEQ.W dopWTF
 LAB_A24B1A:
   SUBQ.L  #1,D2
   MOVE.L  D1,D3
@@ -37028,15 +37128,17 @@ CMD_WR:
 CMD_WT:
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W wtWtf
   MOVE.L  D0,D1
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W wtWtf
   MOVE.L  D0,D2
+  TST.L D0
+  BEQ wtWtf
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W wtWtf
 
   TST.B pdosRead
   BEQ.S .notpdos
@@ -37045,7 +37147,7 @@ CMD_WT:
   ;get pdos key
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W wtWtf
 
   MOVE.L D0,pdosKey
   MOVE.L tempD0,D0
@@ -37059,10 +37161,10 @@ CMD_WT:
   ;get length parameter
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W wtWtf
   MOVE.W D0,mfmLength
   CMPI.L  #$9999,D0
-  BHI.W LAB_A21070
+  BHI.W wtWtf
 
   MOVE.L tempD0,D0
 .notmfm
@@ -37089,15 +37191,15 @@ apiWriteTracks2:
   CMPA.L  #ChipramSave1,A1
   BHI.S LAB_A24EC4
   CMPI.L  #SECSTRT_0,D0
-  BHI.W LAB_A21070
+  BHI.W wtWtf
 LAB_A24EC4:
   SUBQ.W  #1,D2
   CMPI.W  #$009f,D1
-  BHI.W LAB_A21070
+  BHI.W wtWtf
   MOVE.W  D2,D3
   ADD.W D1,D3
   CMPI.W  #$009f,D3
-  BHI.W LAB_A21070
+  BHI.W wtWtf
   CMP.L #EXT_A700-1,A1
   BHI.S .1
   LEA saveErr(PC),A0
@@ -37113,6 +37215,12 @@ LAB_A24EC4:
   JSR restoreMfmBuffer
   MOVE.L  (A7)+,D0
   JMP PrintDiskOpResult
+
+wtWtf:
+  SF pdosRead
+  SF mfmRead
+  BRA.W LAB_A21070
+
 
 SUB_A24EF0:
   MOVEM.L D1-D7/A0-A6,-(A7)
@@ -37454,7 +37562,13 @@ LAB_A2523A:
   MOVEQ #$4F,D2
   BSR.W SUB_A24EF0
   BMI.S LAB_A25282
+  
   LEA EXT_80000,A1
+  TST.L foundAutoConfigMemEnd
+  BEQ.S .checkSlow
+  MOVE.L foundAutoConfigMemStart,A1
+  BRA.S LAB_A2527A
+.checkSlow
   TST.L foundSlowMemEnd
   BEQ.S LAB_A2527A
   LEA EXT_C00000,A1
@@ -37998,6 +38112,12 @@ CMD_MEMCODE:
   TST.B ParamFound
   BEQ.W add_wtf
   MOVE.L  D0,D3
+  CMP.L #-255,D3
+  BLT.W add_wtf
+
+  CMP.L #$FF,D3
+  BGT.W add_wtf
+  
   CMP.L D1,D2
   BLS.W add_wtf
   MOVEA.L D1,A1
@@ -38008,12 +38128,26 @@ LAB_A25A8A:
   EOR.B D3,D0
   JSR memSafeUpdateByte
   TST.B EscapePressed
-  BNE.S add_esc
+  BNE.S memcode_esc
   ADDQ.L  #1,D1
   CMP.L D1,D2
   BGT.S LAB_A25A8A
   JSR PrintReady
   RTS
+
+memcode_esc:
+  LEA CodedUptoAddrText(PC),A0
+  JSR PrintText
+  MOVE.L D1,D0
+  JSR PrintAddressHex
+  JSR PrintCR
+  MOVEQ #-8,D0
+  JMP PrintDiskOpResult
+
+CodedUptoAddrText:
+  DC.B  "Coded up to adr: ",0
+  even
+
 CMD_ADD:
   JSR ReadParameter
   TST.B ParamFound
@@ -38021,12 +38155,19 @@ CMD_ADD:
   MOVE.L  D0,D1
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.S add_wtf
+  BEQ.W add_wtf
   MOVE.L  D0,D2
   JSR ReadParameter
   TST.B ParamFound
   BEQ.S add_wtf
   MOVE.L  D0,D3
+ 
+  CMP.L #-255,D3
+  BLT.W add_wtf
+
+  CMP.L #$ff,D3
+  BGT.S add_wtf
+  
   CMP.L D1,D2
   BLS.S add_wtf
   MOVEA.L D1,A1
@@ -38044,8 +38185,17 @@ LAB_A25AE8:
   JSR PrintReady
   RTS
 add_esc:
+  LEA AddedUptoAddrText(PC),A0
+  JSR PrintText
+  MOVE.L D1,D0
+  JSR PrintAddressHex
+  JSR PrintCR
   MOVEQ #-8,D0
   JMP PrintDiskOpResult
+
+AddedUptoAddrText:
+  DC.B  "Added up to adr: ",0
+  even
 
 add_wtf:
   JMP LAB_A21070
@@ -51245,7 +51395,7 @@ checksum:
   ;DC.L $8d559577  ;v0.7.0
   ;DC.L $275fa408 ; v0.8.0
   ;      !
-  DC.L $ecd6757d ; v0.9.0
+  DC.L $32544e83 ; v0.9.0
 
 arramstart:
 ;all of this is used to store chipmem data

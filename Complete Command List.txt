@@ -55,9 +55,6 @@ Action Replay 5 Complete Command List
   BS (Set breakpoint)
     BS <addr>
 
-  BURST (Burst nibbler)
-    BURST
-
   C (Copper disassembler)
     C <1|2|address>
 
@@ -677,6 +674,9 @@ Action Replay 5 Complete Command List
 
   X (Restart current program)
     X
+    
+  XCOPY (Launch X-Copy)
+    XCOPY
 
   Y (Show/edit memory as binary)
     Y <addr>
