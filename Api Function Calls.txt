@@ -35,11 +35,11 @@ The current api calls are as follows:
 
  On Entry:
    D0 = 1
-   D0 = Value to print
-	 D1 = Number of digits to print
+   D1 = Value to print
+	 D2 = Number of digits to print
 	 
  Description:
-   The hex representation of the value in D0 is printed. The least significant
+   The hex representation of the value in D1 is printed. The least significant
 	 digits upto the maximum specified are output.
  
  Function 2: Clear Screen
@@ -171,6 +171,7 @@ The current api calls are as follows:
    D0 = 12
 	 D1 = start sector
 	 D2 = sector count
+   D3 = pdos key (0 to calculate automatically)
 	 A0 = load address
 
  Description:
@@ -195,6 +196,7 @@ The current api calls are as follows:
    D0 = 14
 	 D1 = start byte offset
 	 D2 = byte count
+   D3 = pdos key (0 to calculate automatically)
 	 A0 = load address
 
  Description:
@@ -230,3 +232,4 @@ The current api calls are as follows:
 
  Description:
    Write raw mfm data from memory to the current drive.
+
