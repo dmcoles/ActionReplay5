@@ -9,7 +9,7 @@ PROC calcArChecksum(arbase)
   ENDFOR
 ENDPROC check
 
-PROC checkArFlashId(arbase)
+PROC getFlashId(arbase)
   DEF id1,id2
   PutChar(arbase+($5555*2),$AA)
   PutChar(arbase+($2AAA*2),$55)
@@ -36,12 +36,26 @@ PROC checkArFlashId(arbase)
   PutChar(arbase+1+($2AAA*2),$55)
   PutChar(arbase+1+($5555*2),$F0)
   Delay(1)
-ENDPROC (id1=$1FD5) AND (id2=$1FD5)
+ENDPROC id1,id2
+
+PROC checkArFlashId(arbase)
+  DEF id1,id2
+  id1,id2:=getFlashId(arbase)
+ENDPROC ((id1=$1FD5) OR (id1=$BFB5)) AND ((id2=$1FD5) OR (id2=$BFB5))
 
 PROC sendFlashWrite(arbase,chip)
   PutChar(arbase+chip+($5555*2),$AA)
   PutChar(arbase+chip+($2AAA*2),$55)
   PutChar(arbase+chip+($5555*2),$A0)
+ENDPROC
+
+PROC sendFlashErase(arbase,chip)
+  PutChar(arbase+chip+($5555*2),$AA)
+  PutChar(arbase+chip+($2AAA*2),$55)
+  PutChar(arbase+chip+($5555*2),$80)
+  PutChar(arbase+chip+($5555*2),$AA)
+  PutChar(arbase+chip+($2AAA*2),$55)
+  PutChar(arbase+chip+($5555*2),$10)
 ENDPROC
 
 PROC waitSectorComplete(arbase,chip)
@@ -55,9 +69,10 @@ ENDPROC
 
 PROC main()
   DEF fh,romFile,chip,sector,i,arbase=0,checksum,src,dest
+  DEF id,id1,id2
   DEF response[100]:STRING
   
-  WriteF('Action Replay 5 Flash Tool v0.1 by REbEL/QTX\n\n')
+  WriteF('Action Replay 5 Flash Tool v0.2 by REbEL/QTX\n\n')
   
   IF StrLen(arg)=0
     WriteF('Usage: ar5flasher <filename>\n\n')
@@ -135,23 +150,56 @@ PROC main()
     CopyMem(arbase+$40000-512,romFile+$40000-512,128)
   ENDIF
   
+  id1,id2:=getFlashId(arbase)
+  
   WriteF('\nFlashing: ')
   FOR chip:=0 TO 1
     src:=romFile+chip
     dest:=arbase+chip
-    FOR sector:=0 TO (256*1024/2/128)-1
-      IF sector AND 3 = 0 THEN WriteF('.')
+
+    IF chip=0 THEN id:=id1 ELSE id:=id2
+
+    //sst chip needs to be erased first
+    IF id=$BFB5
       Forbid()
       Disable()
-      sendFlashWrite(arbase,chip)
-      FOR i:=0 TO 127
-        IF dest>=(arbase+4) THEN PutChar(dest,Char(src)) 
-        dest+=2
-        src+=2
-      ENDFOR
+      sendFlashErase(arbase,chip)
+      waitSectorComplete(arbase,chip)
       Enable()
       Permit()
-      waitSectorComplete(arbase,chip)
+    ENDIF
+    
+    FOR sector:=0 TO (256*1024/2/128)-1
+      IF sector AND 3 = 0 THEN WriteF('.')
+      IF id=$1FD5
+        Forbid()
+        Disable()
+        sendFlashWrite(arbase,chip)
+        FOR i:=0 TO 127
+          IF dest>=(arbase+4) THEN PutChar(dest,Char(src)) 
+          dest+=2
+          src+=2
+        ENDFOR
+        Enable()
+        Permit()
+        waitSectorComplete(arbase,chip)
+      ENDIF
+      
+      IF id=$BFB5
+        FOR i:=0 TO 127
+          IF dest>=(arbase+4)
+            Forbid()
+            Disable()
+            sendFlashWrite(arbase,chip)
+            PutChar(dest,Char(src)) 
+            Enable()
+            Permit()
+            waitSectorComplete(arbase,chip)
+          ENDIF
+          dest+=2
+          src+=2
+        ENDFOR
+      ENDIF
     ENDFOR
   ENDFOR
 
