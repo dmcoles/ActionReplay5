@@ -2508,6 +2508,7 @@ SerialInt:
   ADD.W #1,serBufUsed
 .1 
   MOVE.W #$800,intreq+hardware
+  MOVE.W #$800,intreq+hardware
 .notserint
   MOVEM.L (A7)+,D0/A0/A1
   RTE
@@ -2563,6 +2564,7 @@ LAB_A11006:
   AND.B #2,D0
   EOR.B D0,ciaapra
   MOVE.B  ciaaicr,D0
+  MOVE.W  #8,intreq+hardware
   MOVE.W  #8,intreq+hardware
   MOVE.L  (A7)+,D0
   RTE
@@ -3635,7 +3637,9 @@ LAB_A117EE:
   BSR restoreAgaColors2
   MOVE.W #0,bplcon3(a5)
 
-  MOVE.W CopyFmode,fmode(a5)
+  MOVE.W CopyFmode,D0
+  AND.W #3,D0
+  MOVE.W D0,fmode(a5)
   MOVE.W #$11,bplcon4(a5)
 .skip1
   MOVE.W  CopyDiwStart,diwstrt(a5)
@@ -3670,6 +3674,7 @@ LAB_A1183A:
   MOVE.W D0,bplcon0(a5)
   MOVE.W  CopyBplCon2,D0
   ANDI.W  #$ffc0,D0
+  OR.W #%100100,D0
 
   MOVE.W D0,bplcon2(a5)
   CMPI.B  #$80,picViewerMode
@@ -3715,6 +3720,7 @@ VBlankInt:
   MOVE.W  D0,-(A7)
   BTST  #5,intreqr+1+hardware
   BEQ.W LAB_A119D0
+  MOVE.W  #$0020,intreq+hardware
   MOVE.W  #$0020,intreq+hardware
   TST.B picViewerMode
   BEQ.S LAB_A1194A
@@ -10034,7 +10040,7 @@ aboutText:
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
   DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.1.28032025 - private beta release for TTE",0
+  DC.B  "                 v0.9.1.02042025 - private beta release for TTE",0
 
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
@@ -15325,7 +15331,6 @@ CMD_FLASH:
   DBF D0,.copypref
 
 .goflash2:
-  ;JSR mt_sin
   JSR $68000
   ;JSR flashcode
   RTS
@@ -15378,7 +15383,13 @@ flashcode
 
   ;check product id
   CMP.W #$1FD5,D0
-  BNE noflash
+  BEQ.S flashok1
+
+  CMP.W #$BFB5,D0
+  BEQ.S flashok1
+  BRA noflash
+
+flashok1
 
   ;enter product identification mode (chip2)
   MOVE.B #$AA,SECSTRT_0+1+($5555*2)
@@ -15408,9 +15419,15 @@ flashcode
   SWAP D1
   MOVE.W D1,intena(A6)
 
-  ;check product id
   CMP.W #$1FD5,D0
-  BNE noflash
+  BEQ.S flashok2
+
+  CMP.W #$BFB5,D0
+  BEQ.S flashok2
+  BRA noflash
+flashok2
+  MOVE.W D0,D4
+ 
 
   JSR Cls
   SF  cursorEnabled
@@ -15448,28 +15465,44 @@ flashcode
   move.w #$8380,dmacon(a6)
 
 .write3
+
+  CMP.W #$BFB5,D4
+  BNE.S .notsst1
+
+  ;erase both chips
+  LEA SECSTRT_0,A3
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$8080,(A3)
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$1010,(A3)
+
+  LEA SECSTRT_0+8,A0
+  BSR waitComplete
+
+.notsst1
   LEA SECSTRT_0,A0
   LEA EXT_20000,A2
   MOVE.W #1024-1,D2   ;1024 sectors (of 128 bytes)
 .write2
 
-  ;enable software protect chip 1
+  CMP.W #$1FD5,D4
+  BNE.S .notat29
+  
+  ;enable software protect both chips
   LEA SECSTRT_0,A3
   MOVE.L A3,A4
   ADD.L #$5555*2,A3
   ADD.L #$2AAA*2,A4
-  MOVE.B #$AA,(A3)
-  MOVE.B #$55,(A4)
-  MOVE.B #$A0,(A3)
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$A0A0,(A3)
 
-  ;enable software protect chip 2
-  LEA SECSTRT_0+1,A3
-  MOVE.L A3,A4
-  ADD.L #$5555*2,A3
-  ADD.L #$2AAA*2,A4
-  MOVE.B #$AA,(A3)
-  MOVE.B #$55,(A4)
-  MOVE.B #$A0,(A3)
+.notat29
 
   ;write sector
   MOVE.W #128-1,D1
@@ -15482,23 +15515,29 @@ flashcode
   SUBQ.W #2,D1
 
 .write
-  MOVE.W (A2)+,(A0)+
-  DBF D1,.write
+  CMP.W #$BFB5,D4
+  BNE.S .notsst2
 
-  ;wait for sector flash to complete
-  ;MOVE.B  #0,ciaatodlo
-.wait
-  ;CMP.B #2,ciaatodlo
-  ;BHS.S .timeout
-  MOVE.B -2(A0),D0
-  MOVE.B -2(A0),D1
-  CMP.B D1,D0
-  BNE.S .wait
-  MOVE.B -3(A0),D0
-  MOVE.B -3(A0),D1
-  CMP.B D1,D0
-  BNE.S .wait
-.timeout
+  ;enable write both chips
+  LEA SECSTRT_0,A3
+  MOVE.L A3,A4
+  ADD.L #$5555*2,A3
+  ADD.L #$2AAA*2,A4
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$A0A0,(A3)
+.notsst2
+
+  MOVE.W (A2)+,(A0)+
+  CMP.W #$BFB5,D4
+  BNE.S .notsst3
+  MOVE.L D1,D5
+  BSR waitComplete
+  MOVE.L D5,D1
+.notsst3
+  DBF D1,.write
+  BSR waitComplete
+  
   LEA EXT_1000+97*80-8,A3
   BSR DoProgress
 
@@ -15536,6 +15575,18 @@ goodflash
   MOVE.W #$7fff,intena+hardware
   MOVE.W #$0f0,color00+hardware
   BRA.S goodflash
+
+  ;wait for sector flash to complete
+waitComplete
+  MOVE.B -2(A0),D0
+  MOVE.B -2(A0),D1
+  CMP.B D1,D0
+  BNE.S waitComplete
+  MOVE.B -1(A0),D0
+  MOVE.B -1(A0),D1
+  CMP.B D1,D0
+  BNE.S waitComplete
+  RTS
 
 DoProgress
   MOVE.W D2,D0
@@ -32872,6 +32923,16 @@ WriteImageBody:
   BMI.W LAB_A234A4
   LEA LAB_A452C8,A1
   LEA CopyBpl1Pth,A2
+  
+  MOVE.W  CopyBplCon0,D0
+  BTST  #$B,D0
+  BEQ.S .notham8
+  CMP.W #8,D4
+  BNE.S .notham8
+  
+  LEA 8(A2),A2      ;ham 8 bitbitplane rotation
+
+.notham8
   MOVE.W  D4,D0
   SUBQ.W  #1,D0
 LAB_A23406:
@@ -32889,6 +32950,10 @@ LAB_A23412:
 LAB_A2341E:
   MOVE.L  (A2)+,(A1)+
 LAB_A23420:
+  CMP.L #CopyBpl1Pth+(8*4),A2
+  BNE.S .notwrap
+  LEA CopyBpl1Pth,A2
+.notwrap
   DBF D0,LAB_A23406   ;get bitplane pointers
 
 LAB_A23424:
@@ -33077,7 +33142,7 @@ WriteCAMG:
 
   MOVE.W  CopyBplCon0,D1
   BTST  #6,D1         ;super hires
-  BNE.S .notshi
+  BEQ.S .notshi
   BSET  #5,D0
 .notshi
   CMPI.W  #6,D1
@@ -34924,7 +34989,12 @@ saveflashcode:
 
   ;check product id
   CMP.W #$1FD5,D1
-  BNE noflash2
+  BEQ.S .flashok1
+
+  CMP.W #$BFB5,D1
+  BEQ.S .flashok1 
+  BRA noflash2
+.flashok1
 
   ;enter product identification mode (chip2)
   MOVE.B #$AA,1(A3)
@@ -34950,21 +35020,26 @@ saveflashcode:
 
   ;check product id
   CMP.W #$1FD5,D1
-  BNE noflash2
-  
-  ;enable software protect (chip 1)
-  MOVE.B #$AA,(A3)
-  MOVE.B #$55,(A4)
-  MOVE.B #$A0,(A3)
+  BEQ.S .flashok2
 
-  ;enable software protect (chip 2)
-  MOVE.B #$AA,1(A3)
-  MOVE.B #$55,1(A4)
-  MOVE.B #$A0,1(A3)
+  CMP.W #$BFB5,D1
+  BEQ.S .flashok2
+  BRA noflash2
+.flashok2
 
-  LEA arramstart-512,A1
+  CMP.W #$1FD5,D1
+  BEQ.S .flashat39
 
-  ;write both sectors at the same time
+  ;make a temp copy of the last 8k
+  lea arramstart-8192,A2
+  LEA arramstart+(1024*1024)-8192,A1
+  MOVE.W #8192/4-1,D1
+.copy
+  MOVE.L (A2)+,(A1)+
+  DBF D1,.copy
+ 
+  ;update the settings
+  LEA arramstart+(1024*1024)-512,A1
   MOVE.W #128-1,D1
 .loop
   TST.L D0
@@ -34977,24 +35052,75 @@ saveflashcode:
 .flskip
   DBF D1,.loop
 
-.fldone
+  LEA arramstart-8192,A0
+
+  ;erase sectors both chips
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$8080,(A3)
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$3030,(A0)
+
+  BSR .flashWait
+  
+  ;reprogram the last 8k
+  LEA arramstart+(1024*1024)-8192,A0
+  LEA arramstart-8192,A1
+  MOVE.W #4096-1,D2
+.update
+  ;enable write both chips
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$A0A0,(A3)
+
+  MOVE.W (A0)+,(A1)+
+  BSR .flashWait
+  DBF D2,.update
+  BRA.W .fldone
+  
+  
+.flashat39
+  ;enable software protect both chips
+  MOVE.W #$AAAA,(A3)
+  MOVE.W #$5555,(A4)
+  MOVE.W #$A0A0,(A3)
+
+  LEA arramstart-512,A1
+  ;write both sectors at the same time
+  MOVE.W #128-1,D1
+.loop1
+  TST.L D0
+  BEQ .flclr1
+  MOVE.W (A0)+,(A1)+
+  SUBQ.L #2,D0
+  BRA.S .flskip1
+.flclr1
+  CLR.W (A1)+
+.flskip1
+  DBF D1,.loop1
   ;wait for sector flash on on both chips to complete
 .wait
-  MOVE.B -2(A1),D0
-  MOVE.B -2(A1),D1
-  CMP.B D1,D0
-  BNE.S .wait
-  MOVE.B -3(A1),D0
-  MOVE.B -3(A1),D1
-  CMP.B D1,D0
-  BNE.S .wait
+  BSR .flashWait
 
+.fldone
   LEA hardware,A6
   MOVE.L tempD0,D1
   MOVE.W D1,dmacon(A6)
   SWAP D1
   MOVE.W D1,intena(A6)
   MOVEQ #0,D0
+  RTS
+
+.flashWait
+  MOVE.B -2(A1),D0
+  MOVE.B -2(A1),D1
+  CMP.B D1,D0
+  BNE.S .flashWait
+  MOVE.B -1(A1),D0
+  MOVE.B -1(A1),D1
+  CMP.B D1,D0
+  BNE.S .flashWait
   RTS
 
 FlDelay2:
@@ -37248,7 +37374,7 @@ ReadTracks:
 LAB_A24CEA:
   MOVE.W  D1,D0
   JSR SUB_A24E64
-  BSR.W SUB_A207AA
+  JSR SUB_A207AA
   BPL.W LAB_A24D58
   MOVE.L  D0,-(A7)
   MOVE.W  D1,D0
@@ -37262,7 +37388,7 @@ LAB_A24CEA:
   BEQ.S LAB_A24D50
   ST  LAB_A48335
   MOVE.W  D1,D0
-  BSR.W SUB_A207AA
+  JSR SUB_A207AA
   BMI.S LAB_A24D3E
   SF  LAB_A48335
   MOVE.L  A0,-(A7)
@@ -51659,7 +51785,7 @@ checksum:
   ;DC.L $275fa408 ; v0.8.0
   ;DC.L $9178fa9e ; v0.9.0
   ;      !
-  DC.L $a7c2e37a ; v0.9.1
+  DC.L $a73b5ed7 ; v0.9.1
 
 arramstart:
 ;all of this is used to store chipmem data
