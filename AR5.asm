@@ -35052,15 +35052,14 @@ saveflashcode:
 .flskip
   DBF D1,.loop
 
-  LEA arramstart-8192,A0
-
+  LEA arramstart-8192,A1
   ;erase sectors both chips
   MOVE.W #$AAAA,(A3)
   MOVE.W #$5555,(A4)
   MOVE.W #$8080,(A3)
   MOVE.W #$AAAA,(A3)
   MOVE.W #$5555,(A4)
-  MOVE.W #$3030,(A0)
+  MOVE.W #$3030,(A1)
 
   BSR .flashWait
   
@@ -51785,7 +51784,7 @@ checksum:
   ;DC.L $275fa408 ; v0.8.0
   ;DC.L $9178fa9e ; v0.9.0
   ;      !
-  DC.L $a73b5ed7 ; v0.9.1
+  DC.L $a93b60d7 ; v0.9.1
 
 arramstart:
 ;all of this is used to store chipmem data
