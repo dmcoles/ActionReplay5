@@ -1,6 +1,6 @@
 Action Replay 5 API Information
 
-The api allows access to functionality within the action reply ROM
+The api allows access to functionality within the action replay ROM
 from user code. The api is enabled using the SETAPI command.
 
 Once the api has been enabled calls can be made to the api using
@@ -17,7 +17,7 @@ The current api calls are as follows:
    D0 = -1
 
  Description:
-   Stop executing code and return to the Action Repay command prompt.
+   Stop executing code and return to the Action Replay command prompt.
 
  Function 0: Print Text
  ----------------------
@@ -132,7 +132,7 @@ The current api calls are as follows:
    D0 = 9
 	 D1 = start track
 	 D2 = track count
-   D3 = pdos key (0 to calculate automatically)
+	 D3 = pdos key (0 to calculate automatically)
 	 A0 = load address
 
  Description:
@@ -145,7 +145,7 @@ The current api calls are as follows:
    D0 = 10
 	 D1 = start track
 	 D2 = track count
-   D3 = pdos key
+	 D3 = pdos key
 	 A0 = save address
 
  Description:
@@ -171,7 +171,7 @@ The current api calls are as follows:
    D0 = 12
 	 D1 = start sector
 	 D2 = sector count
-   D3 = pdos key (0 to calculate automatically)
+	 D3 = pdos key (0 to calculate automatically)
 	 A0 = load address
 
  Description:
@@ -196,7 +196,7 @@ The current api calls are as follows:
    D0 = 14
 	 D1 = start byte offset
 	 D2 = byte count
-   D3 = pdos key (0 to calculate automatically)
+	 D3 = pdos key (0 to calculate automatically)
 	 A0 = load address
 
  Description:
@@ -210,8 +210,8 @@ The current api calls are as follows:
    D0 = 15
 	 D1 = start track
 	 D2 = track count
-   D3 = sync marker
-   D4 = track length (in words)
+	 D3 = sync marker
+	 D4 = track length (in words)
 	 A0 = load address
 
  Description:
@@ -227,7 +227,7 @@ The current api calls are as follows:
    D0 = 16
 	 D1 = start track
 	 D2 = track count
-   D3 = track length (in words)
+	 D3 = track length (in words)
 	 A0 = save address
 
  Description:

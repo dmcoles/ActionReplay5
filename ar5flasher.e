@@ -72,7 +72,7 @@ PROC main()
   DEF id,id1,id2
   DEF response[100]:STRING
   
-  WriteF('Action Replay 5 Flash Tool v0.2 by REbEL/QTX\n\n')
+  WriteF('Action Replay 5 Flash Tool v1.0 by REbEL/QTX\n\n')
   
   IF StrLen(arg)=0
     WriteF('Usage: ar5flasher <filename>\n\n')
@@ -218,3 +218,5 @@ PROC main()
   WriteF('\n\nOperation completed successfully\n\n')
   Dispose(romFile)
 ENDPROC
+
+CHAR '$VER: ar5flasher 1.0.0-04042025',0

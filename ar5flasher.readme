@@ -17,7 +17,7 @@ The first jumper (labelled JP1) which is set to 1-2 under normal operation
 enables the stealth capabilities of the cart. In this mode the ROM and RAM
 present on the cart is not visible to the Amiga system until the cart is
 activated. This means software is not able to detect the presence of the cart.
-In order to flash from the command line tool this jumper should be set to 2-3
+In order to flash a new firmware to the cart this jumper should be set to 2-3
 and this will make the DeMoN memory visible at all times.
 
 IF you are able to boot your machine successfully then with this JP1 jumper

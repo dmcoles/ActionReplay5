@@ -429,6 +429,8 @@ VbrTrap15:
   DS.L  $11
 InstallSettings:
   DC.l 3
+ArReturnAddr:
+  DC.L 0
 ColdCaptFlag:
   DC.B 0
   cnop 0,4
@@ -659,6 +661,7 @@ LAB_A102CC:
   BEQ.S TriggerArEntry
   BRA.S LAB_A102FA
 TriggerArEntry:
+  MOVE.L (A7)+,ArReturnAddr
   MOVE.B  #$00,ciaasdr
   JMP RomEntry
 LAB_A102FA:
@@ -2217,6 +2220,14 @@ LAB_A10BF4:
   MOVE.W  #$7fff,intreq+hardware
   MOVE.W  SaveIntreq,intreq+hardware 
   SF.B apiCall
+  if arsoft=1
+  TST.L ArReturnAddr
+  BEQ.S .noret
+  MOVE.L ArReturnAddr,-(A7)
+  CLR.L ArReturnAddr
+  RTS
+.noret
+  endc
   RTE
 
 getVBR:
@@ -6885,7 +6896,7 @@ cmd_memcode_help:
 
 cmd_mfm_help:
   DC.B  "MFM (Decode raw mfm data)",13
-  DC.B  "  MFM <src-addr> <track-len> <track-count> <dest-addr> <sync> <sector-offset> <sector-count> <sector-len> <sector-interleave> (<sectornum-offset>)",13
+  DC.B  "  MFM <src-addr> <track-len> <track-count> <dest-addr> <sync> <sector-offset> <sector-count> <sector-len> <sector-interleave> (<mfm-type>) (<sectornum-offset>)",13
   DC.B 0
 
 cmd_mm_help:
@@ -10035,13 +10046,11 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                             ACTION REPLAY AMIGA V5",$D
-  DC.B  "                           (c)2025 by REbEL / QUARTEX",$D
+  DC.B  "                    ACTION REPLAY AMIGA V5.0.0 (05-Apr-2025)",$D
+  DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
-  DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",$D,$D
-  DC.B  "                 v0.9.1.02042025 - private beta release for TTE",0
-
+  DC.B  "                    and Aktion Replay 4 PRO (Parcon Software)",0
 HeaderStarsText:
   DC.B  $D,"********************************************************************************",0
 
@@ -27232,7 +27241,7 @@ ScanRestart:
   JSR Cls
   LEA txtScanInfo(PC),A0
   JSR PrintText
-  BSR.W SUB_414096
+  BSR.W PrintPeriod
   BSR.W SUB_4141B6
   BSR.W SUB_413FC2
   NOT.B LAB_A480D6
@@ -27313,7 +27322,7 @@ LAB_413EB8:
   BSR.W SUB_413E2E
   BSR.W SUB_4141B6
   MOVE.W  #$012c,LAB_A480D2
-  BSR.W SUB_414096
+  BSR.W PrintPeriod
   BRA.W LAB_413D8A
 LAB_413ED0:
   SUBQ.W  #1,D0
@@ -27333,19 +27342,19 @@ LAB_413ED0:
   BSR.W SUB_413E48
   BSR.W SUB_4141B6
   MOVE.W  6(A0),LAB_A480D2
-  BSR.W SUB_414096
+  BSR.W PrintPeriod
   BRA.W LAB_413D8A
 ScanSaveSample:
   JSR SaveSampleMem
   BRA.W ScanRestart
 LAB_413F1E:
   ADDQ.W  #2,LAB_A480D2
-  BSR.W SUB_414096
+  BSR.W PrintPeriod
   JSR Delay
   BRA.W LAB_413D8A
 LAB_413F32:
   SUBQ.W  #2,LAB_A480D2
-  BSR.W SUB_414096
+  BSR.W PrintPeriod
   JSR Delay
   BRA.W LAB_413D8A
 scanKeyLeft:
@@ -27436,7 +27445,7 @@ LAB_41406C:
   JSR Delay
   MOVEM.L (A7)+,D0-D3/A0
   RTS
-SUB_414096:
+PrintPeriod:
   CLR.W cursorX
   MOVE.W  #5,cursorY
   LEA txtSamplePeriod(PC),A0
@@ -27532,9 +27541,20 @@ SUB_4141B6:
   MOVEM.L (A7)+,D0-D3/A2
   MOVE.L  LAB_A480CE,D2
   SUB.L LAB_A480CA,D2
+
+  MOVEQ #0,D5
   LSL.L #5,D2
+.calcloop
+  CMP.L #$2800000,D2
+  BLT.S .calc2
+  SUB.L #$2800000,D2
+  ADD.L #$10000,D5
+  BRA.S .calcloop 
+.calc2
   DIVU  #$0280,D2
   ANDI.L  #$0000ffff,D2
+  ADD.L D5,D2
+  
   MOVEQ #0,D5
   MOVEQ #0,D4
   MOVE.L  LAB_A480CA,D0
@@ -39617,6 +39637,16 @@ CMD_MFM:
   SWAP D6
 
   JSR ReadParameter
+  SWAP D5
+  MOVE.W #1,D5
+
+  TST.B ParamFound
+  BEQ.S .notype
+  MOVE.W D0,D5     ;mfm type (1= hi-low order, 2 = low-high order)
+.notype
+  SWAP D5
+
+  JSR ReadParameter
   MOVEQ #-1,D7
 
   TST.B ParamFound
@@ -39641,52 +39671,89 @@ CMD_MFM:
   BEQ mfmWtf
   SWAP D6
 
+  SWAP D5
+  CMP.W #1,D5
+  BEQ.S .typeok
+  CMP.W #2,D5
+  BNE mfmWtf
+.typeok
+  SWAP D5
+  
+
   SUBQ #1,D2
   ADD.W D1,D1
 
 .processTrack
   MOVEM.L D1/D2,-(SP)
 
-  LEA (A0,D1),A2  ;track end
+  LEA (A1,D1),A5  ;track end
   MOVEQ #0,D0 ;sector count
 
   MOVE.W D5,tempD1
   SUBQ #1,D5
+.nextsector
+  TST.W D3
+  BEQ .nosync
 
+  MOVE.L D0,-(A7)
 .findsync
+  MOVE.L A1,A0
+  JSR memSafeReadWord
+  ADD.L #2,A1
 
-  CMP.W (A0)+,D3  ;find sector sync
+  CMP.W D0,D3  ;find sector sync
   BEQ.S .sectorsync
-  CMP.L A0,A2
-  BEQ.W .nexttrack
-  BRA.S .findsync
+  CMP.L A1,A2
+  BNE.S .findsync
+  MOVE.L (A7)+,D0
+  BRA.W .nexttrack
 
 .sectorsync
-  CMP.W (A0)+,D3  ;find sector sync
+  MOVE.L A1,A0
+  JSR memSafeReadWord
+  ADD.L #2,A1
+
+  CMP.W D0,D3  ;find sector sync
   BEQ.S .sectorsync
-  LEA -2(A0),A0
+  MOVE.L (A7)+,D0
+
+  LEA -2(A1),A1
+.nosync
 
   CMP.L #-1,D7
   BEQ.S .nosec
-  MOVEM.L D1/D2,-(A7)
+  MOVEM.L D0-D2,-(A7)
   MOVEQ #0,D1
-  MOVE.B (A0,D7),D1
-  MOVE.B 4(A0,D7),D2
+  LEA (A1,D7),A0
+  JSR memSafeReadByte
+  MOVE.B D0,D1
+  LEA 4(A0),A0
+  JSR memSafeReadByte
+  MOVE.B D0,D2
+
   AND.B #$55,D1
   AND.B #$55,D2
+  SWAP D5
+  CMP.W #1,D5
+  BNE.S .type2 
   LSL.B #1,D1
+  BRA.S .shiftdone
+.type2
+  LSL.B #1,D2
+.shiftdone
+  SWAP D5
   OR.B D2,D1
   MULU D6,D1
   MOVE.W D1,tempD0    ;destination sector offset
-  LEA (A1,D1),A1
-  MOVEM.L (A7)+,D1/D2
+  LEA (A2,D1),A2
+  MOVEM.L (A7)+,D0-D2
 .nosec
 
-  ADD.L D4,A0   ;add sector offset
+  ADD.L D4,A1   ;add sector offset
 
-  MOVE.L A0,A3
+  MOVE.L A1,A3
   SWAP D6
-  LEA (A0,D6.W),A4
+  LEA (A1,D6.W),A4
   SWAP D6
   MOVE.L D0,-(SP)
   MOVE.W D6,D0
@@ -39696,8 +39763,18 @@ CMD_MFM:
   MOVEQ #0,D3
 .mfmdecode
   ;decode sector
-  MOVE.B (A3)+,D1
-  MOVE.B (A4)+,D2
+
+  MOVE.L D0,-(A7)
+  MOVE.L A3,A0
+  JSR memSafeReadByte
+  ADDQ.L #1,A3
+  MOVE.B D0,D1
+  
+  MOVE.L A4,A0
+  JSR memSafeReadByte
+  ADDQ.L #1,A4
+  MOVE.B D0,D2
+  MOVE.L (A7)+,D0
 
   ADD.W #1,D3
   SWAP D6
@@ -39712,18 +39789,21 @@ CMD_MFM:
 
 
   ;track end overrun check
-  CMP.L A4,A2
-  BNE.S .2
+  CMP.L A5,A4
+  BLT.S .2
 
-
+  MOVE.W D0,D1
 .clrdata
-  CLR.B (A1)+
-  DBF D0,.clrdata
+  MOVE.L A2,A0
+  CLR.W D0
+  JSR memSafeUpdateByte
+  ADDQ.L #1,A2
+  DBF D1,.clrdata
 
   MOVE.W tempD0,D1    ;destination sector offset
   ADD.W D6,D1
   NEG.W D1
-  LEA (A1,D1),A1
+  LEA (A2,D1),A2
 
   MOVEM.L (A7)+,D1-D3
   MOVE.L (SP)+,D0
@@ -39733,9 +39813,22 @@ CMD_MFM:
 .2
   AND.B #$55,D1
   AND.B #$55,D2
+  SWAP D5
+  CMP.W #1,D5
+  BNE.S .type2_2
   LSL.B #1,D1
+  BRA.S .shiftdone2
+.type2_2
+  LSL.B #1,D2
+.shiftdone2
+  SWAP D5
   OR.B D2,D1
-  MOVE.B D1,(A1)+
+  MOVE.L A2,A0
+  SWAP D0
+  MOVE.B D1,D0
+  JSR memSafeUpdateByte
+  ADDQ.L #1,A2
+  SWAP D0
   DBF D0,.mfmdecode
 
   CMP.L #-1,D7
@@ -39743,7 +39836,7 @@ CMD_MFM:
   MOVE.W tempD0,D1    ;destination sector offset
   ADD.W D6,D1
   NEG.W D1
-  LEA (A1,D1),A1
+  LEA (A2,D1),A2
 .seqsec1
 
   MOVEM.L (A7)+,D1-D3
@@ -39751,16 +39844,16 @@ CMD_MFM:
   MOVE.L (SP)+,D0
   ADDQ #1,D0
 
-  MOVE.L A3,A0
+  MOVE.L A3,A1
 
-  DBF D5,.findsync
+  DBF D5,.nextsector
 
 .nexttrack
   CMP.L #-1,D7
   BEQ.S .seqsec2
   MOVE.W tempD1,D1
   MULU D6,D1
-  LEA (A1,D1),A1
+  LEA (A2,D1),A2
 .seqsec2
   MOVE.W tempD1,D5
   CMP.W D0,D5
@@ -39771,7 +39864,7 @@ CMD_MFM:
 .1
 
   MOVEM.L (SP)+,D1/D2
-  MOVE.L A2,A0
+  MOVE.L A2,A1
   DBF D2,.processTrack
 
   JMP PrintReady
@@ -45424,7 +45517,7 @@ HelpText:
   DC.B  "        wr: Write raw mfm data to active drive   - wr strack num src words",$D
   DC.B  "       mfm: Decode mfm data                      - mfm src tlen tcnt dest",$D
   DC.B  "                                                     sync soff scnt slen",$D
-  DC.B  "                                                     sint (snumoff)",$D
+  DC.B  "                                                     sint (mfmtype) (snumoff)",$D
   DC.B  "       rnc: Show rnc serial track                - rnc",$D
   DC.B  "      dmon: Get/display disk-mon buffer          - dmon",$D
   DC.B  "   clrdmon: Restore disk-mon buffer              - clrdmon",$D
@@ -51784,7 +51877,7 @@ checksum:
   ;DC.L $275fa408 ; v0.8.0
   ;DC.L $9178fa9e ; v0.9.0
   ;      !
-  DC.L $a93b60d7 ; v0.9.1
+  DC.L $628efff9 ; v5.0.0
 
 arramstart:
 ;all of this is used to store chipmem data
