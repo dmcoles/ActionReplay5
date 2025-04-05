@@ -40,7 +40,7 @@ The current api calls are as follows:
 	 
  Description:
    The hex representation of the value in D1 is printed. The least significant
-	 digits upto the maximum specified are output.
+	 digits up to the maximum specified are output.
  
  Function 2: Clear Screen
  ------------------------

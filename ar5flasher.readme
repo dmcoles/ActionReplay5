@@ -7,7 +7,7 @@ This utility is for flashing the DeMoN cartridge. It relies on the presence of
 the AT29C010A flash chips which are used to store the firmware on this device.
 
 While the cartridge can be flashed from the Action Replay console using the
-FLASH commmand it may be necessary to flash the firmware without using the
+FLASH command it may be necessary to flash the firmware without using the
 device itself. The DeMoN cart has an anti-brick mechanism which allows it to
 be flashed even if the firmware has become corrupted and is not functional.
 There are two jumpers on the PCB that allow the device to be flashed under
@@ -65,7 +65,7 @@ Release 1.3
 1> ar5flasher ar5firmware.rom
 
 
-After entering this and pressing return the flasher should performm its job
+After entering this and pressing return the flasher should perform its job
 and the ROM file will be applied to the cart flash memory. A verify operation
 will also take place to ensure it was completed successfully
 
