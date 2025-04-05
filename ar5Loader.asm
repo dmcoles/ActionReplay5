@@ -79,7 +79,7 @@ lbC00004A LEA doslibrary.MSG(PC),A1
 doslibrary.MSG  dc.b  'dos.library',0
 dosbase dc.l  0
 cmdline dc.l  0
-  dc.b  '$VER: ar5loader 1.0.0-04042025',0
+  dc.b  '$VER: ar5loader 1.0.0-05042025',0
   even
 main MOVEA.L 4.L,A6
   SUBA.L  A1,A1
