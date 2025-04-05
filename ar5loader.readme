@@ -1,0 +1,103 @@
+                         
+						 
+                    Action Replay 5 Software Loader V1.0
+                    ------------------------------------
+						 
+This is the software only version of Action Replay 5. It is able to run on any
+Amiga that has a minimum of 1MB of RAM. The loader is based upon the ARIV
+software version of Action Replay release by Paradox/Parcon Software in 1993.
+
+The loader (ar5loader) can be run from CLI and will display a window allowing
+showing whether the Action Replay 5 image is currently loaded into memory and
+allowing the user to select from various options that control how the loader
+will load and configure Action Replay when it is installed.
+
+The options can also be saved to a file and will be reloaded when the loader
+is next run.
+
+The options are as follows:
+
+  Custom Address:
+  You can enable this and enter a custom load address where the Action Replay
+  image will be installed. The default address will be selected from whatever
+  memory you have installed in your system and it will pick an address at the
+  top end of this memory area to try and avoid the Action Replay from being
+  overwritten by any programs.
+  
+  Activate On:
+  You can choose how the Action Replay is activated. There are several
+  combinations of mouse and keyboard inputs and also an option to pick level 7
+  interrupt. This is useful if you have a level 7 interrupt trigger hardware
+  button as this does not require any interrupts to be enabled and cannot
+  be blocked.
+
+  RomAvoid:
+  If this is enabled then the Action Replay will not trigger when code is
+  executing from ROM. 
+
+  VGA Screenmode:
+  Enables the VGA screen mode display output. Your Amiga will need to be
+  capable of outputting this mode.
+  
+  Ignore Memory Allocation:
+  By default the loader will attempt to allocate the memory where the image
+  is going to be loaded. If the memory allocation fails then the install will
+  not complete. If you wish to ignore the memory allocation failure and simply
+  continue with the install anyway you may turn on this option.
+  
+  Insert Mode:
+  Sets the default to Insert mode in the Action Replay console.
+  
+  Move VBR:
+  This is only for CPUs that have a VBR (68010+) the installer will create a
+  copy of the exception vectors and then move the VBR to point at this memory
+  area. This helps to prevent other programs overwriting the vectors and
+  preventing the Action Replay from picking up the trigger actions. This is
+  particularly effective on older software that is designed for the A500
+  as it will most likely not be aware of the VBR.
+  
+  Keymap:
+  Select the default active keymap in the Action Replay console.
+  
+  Reset Proof:
+  Installs a coldcapture handler that reinitialises Action Replay on reset.
+  
+  Disable VPOS writes:
+  These writes were used in Action Replay to try and make the cart less
+  detectable to running software but they do cause some issue for modern
+  displays.
+  
+Once you have configure the settings to your preference you can use the
+remaining buttons:
+
+  Install:
+  Loads and installs the Action Replay 5 image into memory.
+  
+  Uninstall:
+  Removes an already installed action Replay 5 image. Useful if you wish to
+  re-load the Action Replay image to a different address.
+  
+  Save Options:
+  Saves the currently select options to a config file.
+  
+  Quit:
+  Exits the installer. Any loaded Action Replay image will continue to be
+  operational until it is uninstalled.
+
+
+The software version of Action Replay looks and acts almost exactly like the
+hardware version but of course it is software so it can more easily be
+detected and disabled or overwritten.
+
+In addition Action Replay does not work well with RTG graphics cards and if
+you atttempt to activate the Action Replay when an RTG screen mode is in
+operation it will most likely not be able to display its own interface.
+
+It is recommended that you set your workbench to display on a standard
+screen mode while you are using this software.
+
+The software version of Action Replay does have some advantages though. Since
+it does not require any additional hardware it can be used on pretty much
+every configuration of Amiga you might want to run it on. It is compatible
+with all CPUs and Chipsets which of course is not true of the hardware
+versions of Action Replay.

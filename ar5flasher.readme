@@ -1,7 +1,7 @@
                          
 						 
-                  Action Replay 5 Standalone Flasher Utility
-                  ------------------------------------------
+                Action Replay 5 Standalone Flasher Utility V1.0
+                -----------------------------------------------
 						 
 This utility is for flashing the DeMoN cartridge. It relies on the presence of
 the AT29C010A flash chips which are used to store the firmware on this device.
