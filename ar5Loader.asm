@@ -996,7 +996,7 @@ loadAR
 
   MOVE.L  optionsfh(PC),D1
   MOVE.L  #tempData,D2     ;read reloc data
-  MOVE.L  #$2000*4,D3
+  MOVE.L  #tempDataEnd-tempData,D3
   JSR _LVORead(A6)
 
   MOVE.L  optionsfh(PC),D1
@@ -1035,7 +1035,7 @@ lbC000D76 MOVE.W  #$F0,$DFF180.L
   RTS
 
 file1:
-  DC.B "ar5",0
+  DC.B "ar5.dat",0
   even
 
 GetDefInstallAddr
@@ -1718,6 +1718,7 @@ checkboxGadgetSelectedImageData dc.l  $200
   dcb.l 11,0
 
   SECTION temp,BSS
-tempData ds.l  $2000
+tempData ds.l  $2100
+tempDataEnd
 
   end
