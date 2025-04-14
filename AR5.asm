@@ -292,10 +292,18 @@ rsnoop SET 0
 rsnoop SET 1
   endc
 
-;fixcol macro
-;  MOVE.W #\1,$DFF180
-;  JSR debugDelay
-;  endm
+fixcol macro
+  MOVE.L D0,-(A7)
+  MOVE.W #25,D0
+.dloop
+  MOVE.B  #0,ciaatodlo
+.dloop2:
+  MOVE.W #\1,$DFF180
+  CMP.B #2,ciaatodlo
+  BNE.S .dloop2
+  DBF D0,.dloop
+  MOVE.L (A7)+,D0
+  endm
 
 ;fixcol macro
 ;  endm
@@ -705,7 +713,7 @@ DisplayArInstalLogo:
   MOVE.W #$7fff,intena+hardware
   MOVE.L A7,A6
   LEA StackEnd,A7
-  LEA EXT_0,A0
+  LEA EXT_1000,A0
   LEA ChipramSave1,A1
   MOVE.L A0,A2
   MOVE.W #$1f40-1,D0
@@ -930,7 +938,7 @@ NMI_Entry:
   MOVE.B  EXT_F8000D,kickstartVersion
 .k3
   endc
-
+  
   if arhardware=1
   BTST #1,FreezeState
   BNE reset
@@ -942,7 +950,8 @@ NMI_Entry:
   if (arhardware+pistorm=1)
   tst.b exceptionsActive
   beq.s nmi1
-  CMPI.L  #$124,2(A7)
+
+  CMPI.L  #$128,2(A7)
   BGT.W nmi1
   CMPI.L  #$100,2(A7)
   BLS.W nmi1
@@ -950,26 +959,38 @@ NMI_Entry:
 nmi1:
   tst.b breakpointsActive
   beq.s nmi2
+  CMPI.L  #$40,2(A7)
+  BEQ.S .isbp
   CMPI.L  #$46,2(A7)
   bne.s nmi2
+.isbp
   jmp ExceptionEntry2
 
 nmi2:
   tst.b MemwatchActive
   beq.s nmi3
+  cmp.l #$130,2(a7)
+  beq.s .ismw
   cmp.l #$136,2(a7)
   bne.s nmi3
+.ismw
   jmp ExceptionEntry2
 nmi3:
   tst.b apiActive
   beq.s nmi4
+  cmp.l #$100,2(a7)
+  BEQ.S .isapi
   cmp.l #$106,2(a7)
   bne.s nmi4
+.isapi
   jmp ApiEntry
 
 nmi4:
+  cmp.l #$150,2(a7)
+  BEQ.S .istr
   cmp.l #$156,2(a7)
   bne.s x
+.istr
   MOVE.L A0,D0
   JSR getVBR
   MOVE.L D0,A0
@@ -2020,7 +2041,7 @@ AREntry2:
   MOVE.W  0(A7),SaveOldSr
   MOVE  #$2000,SR
   LEA StackEnd,A7
-  
+
   CMP.B #34,kickstartVersion
   BLS.S .1
   
@@ -2035,7 +2056,14 @@ AREntry2:
   JSR getCACR
   MOVE.L  D0,SAVE_CACR
   MOVEQ #0,D0
+
+  SF.B tempD1
   JSR setCACR
+
+  TST.B tempD1
+  BNE.S .2
+  MOVE.W #8,cpuAddrSize  
+.2
 
   MOVE.L  vposr+hardware,D0
   MOVE.L D0,SAVE_VPOS
@@ -2158,6 +2186,7 @@ LAB_A10A88:
   MOVE  D0,SR
 
   MOVE.L  SAVE_CACR,D0
+  OR.W #$808,D0   ;clear data and instruction cache
   JSR setCACR
 
   MOVE.L Int5Save,AUTO_INT5.W
@@ -2229,7 +2258,7 @@ LAB_A10BF4:
 .noret
   endc
   RTE
-
+  
 getVBR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
@@ -2248,7 +2277,11 @@ getVBR:
   RTS
 vbrtrap:
   MOVE.W #0,vbrflag
+  ADD.L  #4,2(a7)
+  RTE
+
 cacrtrap:
+  ST.B tempD1
   ADD.L  #4,2(a7)
   RTE
 
@@ -8941,6 +8974,9 @@ LAB_A1323A:
   CMPI.W  #7,D2
   BNE.S LAB_A13244
   ADDQ.L  #6,D0
+  TST.W vbrflag
+  BEQ.S LAB_A13244
+  ADDQ.L  #2,D0
 LAB_A13244:
   JSR Print8DigitHex
   JSR PrintSpace
@@ -9953,8 +9989,11 @@ LAB_A13C0E:
   BEQ.S LAB_A13C1E
   JSR FindVirus
 LAB_A13C1E:
+  CMPI.L  #$00000040,SaveOldPc
+  BEQ.S .isbp
   CMPI.L  #$00000046,SaveOldPc
   BNE.S LAB_A13C7C
+.isbp
   LEA SaveCpuRegs,A0
   MOVEA.L $3C(A0),A1    ;get old A7
   MOVE.L  (A1),-(A7)
@@ -9985,8 +10024,11 @@ LAB_A13C1E:
   BSR.W PrintCrIfNotBlankLine
   SF  restartFlag
 LAB_A13C7C:
+  CMPI.L  #$00000130,SaveOldPc
+  BEQ.S .ismw
   CMPI.L  #$00000136,SaveOldPc
   BNE LAB_A13D02
+.ismw
   LEA SaveCpuRegs,A0
   MOVEA.L $3C(A0),A1
   MOVE.L  (A1),-(A7)
@@ -10046,7 +10088,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                    ACTION REPLAY AMIGA V5.0.0 (05-Apr-2025)",$D
+  DC.B  "                    ACTION REPLAY AMIGA V5.0.0 (14-Apr-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -14633,13 +14675,11 @@ LAB_4080A8:
   BLE.S LAB_4080A8
 
   JSR disableAllDma
-  SUBA.L  A0,A0
-  MOVE.W  #$2c00,D0
+  LEA EXT_100.W,a0
+  MOVE.W  #$2bc0-1,D0
 LAB_4080B8:
   CLR.L (A0)+
   DBF D0,LAB_4080B8
-  MOVEM.L (A7),D0-D7/A0-A6
-  MOVE.L  A1,BUS_ERROR.W
 LAB_4080C6:
   CMP.B #34,kickstartVersion
   BHI.S LAB_408104
@@ -22095,15 +22135,15 @@ LAB_40D56A:
 .2
   MOVE.L A1,-(A7)
   MOVE.L  A0,UnpackSourceEnd
-  MOVE.L  #$0000100,UnpackDest
+  MOVE.L  #$0001100,UnpackDest
   JSR UnpackNoFlash
   MOVE.L (A7)+,A0
-  LEA EXT_0.W,A1
+  LEA EXT_1000.W,A1
 LAB_40D5CE:
   MOVE.L  (A0),(A1)+
   CMPI.L  #$fffffffe,(A0)+
   BNE.S LAB_40D5CE
-  CLR.L cop1lch+hardware
+  MOVE.L #EXT_1000,cop1lch+hardware
   MOVE.W  #$04d2,copjmp1+hardware
   MOVE.W  #$7fff,intreq+hardware
 LAB_40D624:
@@ -22124,9 +22164,9 @@ BootScreenCopper1:
   DC.L  $01a8079A,$01aa086D,$01ac08AB,$01ae097E
   DC.L  $01b009BC,$01b20A8F,$01b40ACD,$01b60BDE
   DC.L  $01b80CEF,$01ba0DFF,$01bc0090,$01be0F00
-  DC.L  $00e00000,$00e20100,$00e40000,$00e616e0
-  DC.L  $00e80000,$00ea2cc0,$00ec0000,$00ee42a0
-  DC.L  $00f00000,$00f25880
+  DC.L  $00e00000,$00e21100,$00e40000,$00e626e0
+  DC.L  $00e80000,$00ea3cc0,$00ec0000,$00ee52a0
+  DC.L  $00f00000,$00f26880
   DC.L  $01005200,$fffffffe
  
 BootScreenCopper2:
@@ -22140,9 +22180,9 @@ BootScreenCopper2:
 	DC.L	$01A80000,$01AA0000,$01AC0000,$01AE0000
 	DC.L	$01B00000,$01B20000,$01B40000,$01B60000
 	DC.L	$01B80000,$01BA0000,$01BC0000,$01BE0000
-  DC.L  $00e00000,$00e20100,$00e40000,$00e616e0
-  DC.L  $00e80000,$00ea2cc0,$00ec0000,$00ee42a0
-  DC.L  $00f00000,$00f25880
+  DC.L  $00e00000,$00e21100,$00e40000,$00e626e0
+  DC.L  $00e80000,$00ea3cc0,$00ec0000,$00ee52a0
+  DC.L  $00f00000,$00f26880
   DC.L  $01005200,$fffffffe
 
 disableAllDma:
@@ -22256,10 +22296,10 @@ LAB_A1CFB2:
 
   if arhardware=1
   MOVE.L  #$4a3900bf,(A0)+
-  MOVE.W  #$e001,(A0)+
+  MOVE.L  #$e0014e71,(A0)+
   else
   MOVE.L  #$4e4e4e73,(A0)+
-  MOVE.W  #$4e71,(A0)+
+  MOVE.L  #$4e714e71,(A0)+
   endc
   DBF D0,LAB_A1CFB2
 
@@ -22274,10 +22314,10 @@ LAB_A1CFB2:
   endc
 
   MOVE.L  #$00000100,ADR_ERROR(A0)
-  MOVE.L  #$00000106,ILLEG_OPC(A0)
-  MOVE.L  #$0000010c,DIVISION0(A0)
-  MOVE.L  #$00000112,LINEA_EMU(A0)
-  MOVE.L  #$00000118,LINEF_EMU(A0)
+  MOVE.L  #$00000108,ILLEG_OPC(A0)
+  MOVE.L  #$00000110,DIVISION0(A0)
+  MOVE.L  #$00000118,LINEA_EMU(A0)
+  MOVE.L  #$00000120,LINEF_EMU(A0)
   ST  exceptionsActive
   LEA ExceptionHandlerInsText(PC),A0
   JSR PrintText
@@ -22290,30 +22330,40 @@ ExceptionHandlerInsText:
 
 SUB_A1D0A8:
   if arhardware=1
-  CMPI.L  #$00000124,SaveOldPc
+  CMPI.L  #$00000128,SaveOldPc
   BHI.S LAB_A1D0F0
-  CMPI.L  #$00000106,SaveOldPc
+  CMPI.L  #$00000100,SaveOldPc
   BEQ.S LAB_A1D0F2
-  CMPI.L  #$0000010c,SaveOldPc
-  BEQ.S LAB_A1D0F8
-  CMPI.L  #$00000112,SaveOldPc
-  BEQ.S LAB_A1D0FE
-  CMPI.L  #$00000118,SaveOldPc
-  BEQ.S LAB_A1D104
-  CMPI.L  #$0000011e,SaveOldPc
-  BEQ.S LAB_A1D10A
-  else
-  CMPI.L  #$0000011c,SaveOldPc
-  BHI.S LAB_A1D0F0
-  CMPI.L  #$00000102,SaveOldPc
+  CMPI.L  #$00000106,SaveOldPc
   BEQ.S LAB_A1D0F2
   CMPI.L  #$00000108,SaveOldPc
   BEQ.S LAB_A1D0F8
   CMPI.L  #$0000010e,SaveOldPc
+  BEQ.S LAB_A1D0F8
+  CMPI.L  #$00000110,SaveOldPc
   BEQ.S LAB_A1D0FE
-  CMPI.L  #$00000114,SaveOldPc
+  CMPI.L  #$00000116,SaveOldPc
+  BEQ.S LAB_A1D0FE
+  CMPI.L  #$00000118,SaveOldPc
   BEQ.S LAB_A1D104
+  CMPI.L  #$0000011e,SaveOldPc
+  BEQ.S LAB_A1D104
+  CMPI.L  #$00000120,SaveOldPc
+  BEQ.S LAB_A1D10A
+  CMPI.L  #$00000126,SaveOldPc
+  BEQ.S LAB_A1D10A
+  else
+  CMPI.L  #$00000128,SaveOldPc
+  BHI.S LAB_A1D0F0
+  CMPI.L  #$00000102,SaveOldPc
+  BEQ.S LAB_A1D0F2
+  CMPI.L  #$0000010a,SaveOldPc
+  BEQ.S LAB_A1D0F8
+  CMPI.L  #$00000112,SaveOldPc
+  BEQ.S LAB_A1D0FE
   CMPI.L  #$0000011a,SaveOldPc
+  BEQ.S LAB_A1D104
+  CMPI.L  #$00000122,SaveOldPc
   BEQ.S LAB_A1D10A
   endc
 LAB_A1D0F0:
@@ -51877,7 +51927,7 @@ checksum:
   ;DC.L $275fa408 ; v0.8.0
   ;DC.L $9178fa9e ; v0.9.0
   ;      !
-  DC.L $628efff9 ; v5.0.0
+  DC.L $592ff7f0 ; v5.0.0
 
 arramstart:
 ;all of this is used to store chipmem data
