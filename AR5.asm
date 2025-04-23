@@ -621,18 +621,18 @@ LAB_A101E0:
   DBF D0,LAB_A101E0
   RTS
 ArExceptionHandler:
-  CMPI.L  #SECSTRT_0,2(A7)
+  CMPI.L  #SECSTRT_0,6(A7)
   BLT.S LAB_A10258
-  CMPI.L  #dataend,2(A7)
+  CMPI.L  #dataend,6(A7)
   BLT.W LAB_A10340
 LAB_A10258:
   TST.B RomAvoidFlag
   BEQ.S LAB_A10276
 LAB_A10260:
-  CMPI.L  #$00f80000,2(A7)
+  CMPI.L  #$00f80000,6(A7)
   BLO.S LAB_A10276
 LAB_A1026A:
-  CMPI.L  #$00fffff0,2(A7)
+  CMPI.L  #$00fffff0,6(A7)
   BLO.W LAB_A102FA
 LAB_A10276:
   TST.B imode
@@ -3285,6 +3285,7 @@ agarest:
   BCC .nextbank
 
 restskip:
+  MOVE.W #0,bplcon3(A5)
   MOVEM.L (SP)+,D1/D4/D5/A0/A4/A5
 restdone:
   RTS
@@ -10088,7 +10089,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                    ACTION REPLAY AMIGA V5.0.0 (14-Apr-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.0.1-dev (16-Apr-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -15787,7 +15788,7 @@ LAB_A182C4:
   BHS.W PrintWTF
 
   ST  LAB_A481DC
-  MOVE.W  #$0817,D0
+  MOVE.W  #((trainerAreaEnd-mt_sin)/4)-1,D0
   LEA mt_sin,A1
 LAB_A182DE:
   CLR.L (A1)+
@@ -52004,6 +52005,7 @@ LAB_A45352:
   DS.L  $40
 LAB_A45452:
   DS.L  $2F
+  cnop 0,4
 trainerAreaEnd:
 
 TextPage1:
