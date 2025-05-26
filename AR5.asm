@@ -1,9 +1,11 @@
-;Action Replay 5
+ ;Action Replay 5
 dbg=0
 pistorm=0
 arhardware=1
 arsoft=0
 
+
+demon2=1
 xcopy=1
 
 ;$1000-$4e80 (NTSC) $1000-$6000(PAL)  screen memory (copied to ChipramSave1)
@@ -24,6 +26,7 @@ xcopy=1
   if arsoft=1
     opt d-,s-
   endc
+  
 
 EXT_0   EQU $0
 EXT_4   EQU $4
@@ -287,6 +290,15 @@ X_ACK=6
 X_NAK=21
 X_CAN=24
 
+  if demon2=0
+arhardwarebase EQU $400000
+  else
+arhardwarebase EQU $a80000
+  endc
+
+USBReg1 EQU arhardwarebase+$13fff1
+USBReg2 EQU arhardwarebase+$13fff3
+
 rsnoop SET 0
   if (arhardware+pistorm=1)
 rsnoop SET 1
@@ -348,11 +360,11 @@ gfxname: DC.B "graphics.library",0
   endc
 
  if pistorm=1
- ORG  $a10000
+ ORG  $a80000
  endc
 
  if arhardware=1
- ORG  $400000
+ ORG  arhardwarebase
  endc
 
 SECSTRT_0:
@@ -444,10 +456,8 @@ ColdCaptFlag:
   cnop 0,4
   else
 
-FreezeMode:
-  DC.B $20
-FreezeState:
-  DC.B $18,$20,$18
+FreezeState
+  DC.B $20,$18,$20,$18
   DC.B "ACTION REPLAY V By REbEL/QTX. "  ;30
   DC.B "Based on Action Replay MKIII (Datel Electronics) " ;51
   DC.B "& Aktion Replay 4 PRO (Parcon Software)." ;42
@@ -940,10 +950,15 @@ NMI_Entry:
   endc
   
   if arhardware=1
-  BTST #1,FreezeState
+  MOVE.L A0,tempD0
+  MOVE.L arhwreg,A0
+  MOVE.B 1(A0),tempD1   ;get freeze state
+  MOVE.L tempD0,A0
+  
+  BTST #1,tempD1      ;check freeze state
   BNE reset
 
-  BTST #0,FreezeState
+  BTST #0,tempD1      ;check freeze state
   BEQ nmi
   endc
 
@@ -1062,7 +1077,7 @@ LAB_4001B4:
   MOVEM.L SaveCpuRegs,D0-D1/A0/A4-A5
 LAB_4001C0:
   JSR setActivateMode
-  RTE
+  JMP exit_rte
   endc
 
   if arhardware=0
@@ -1070,11 +1085,11 @@ LAB_4001C0:
   endc
   if arhardware=1
 reset:
-  BTST #0,FreezeState
-  BEQ SoftBoot
-  JMP HardBoot
+  BTST #0,tempD1    ;check copy of freeze state
+  BEQ SecondBootIntercept
+  JMP BootIntercept
 
-SoftBoot:
+SecondBootIntercept:
   MOVE.L  A0,-(A7)
   LEA 6(A7),A0
   MOVEA.L (A0),A0
@@ -1672,7 +1687,7 @@ LAB_400BB6:
   BRA.W LAB_400C18
 LAB_400C04:
   MOVE.L  A0,-(A7)
-  MOVEA.L EXT_4.W,A0
+  MOVEA.L EXT_4.W,A0  
   SUBA.W  #$01c8,A0
   MOVE.L  saveOldDoIo,2(A0)
   MOVEA.L (A7)+,A0
@@ -1907,6 +1922,15 @@ LAB_A10230:
   JMP RomEntry
   endc
 LAB_A10240:
+  JMP exit_rte
+actual_rte:
+  if pistorm=1
+  ;clear running flag
+  dc.w $4e7a,$01e0  ;movec #$1e0,d0
+  and.w #$dfff,d0
+  dc.w $4e7b,$01e0  ;movec d0,#$1e0
+  endc
+
   RTE
 
 RomEntry:
@@ -2021,7 +2045,7 @@ LAB_A10934:
 LAB_A10944:
   MOVEA.L (A7)+,A0
   BSET  #7,(A7)
-  RTE
+  JMP exit_rte
 AREntry2:
   SF  LAB_A4824E
 
@@ -2042,9 +2066,16 @@ AREntry2:
   MOVE  #$2000,SR
   LEA StackEnd,A7
 
+  if demon2=0
+  TST.W acaflags
+  BNE.S .s1
+  
   CMP.B #34,kickstartVersion
   BLS.S .1
   
+.s1
+  endc
+
   TST.B ks2memTested
   BNE.S .1
   
@@ -2257,7 +2288,7 @@ LAB_A10BF4:
   RTS
 .noret
   endc
-  RTE
+  JMP exit_rte
   
 getVBR:
   MOVE.L ILLEG_OPC.W,-(A7)
@@ -2371,9 +2402,11 @@ LAB_A10D6A:
 LAB_A10D7A:
   RTS
 setActivateMode:
-  MOVE.W  D0,-(A7)
+  MOVE.W  D0,tempD0
   CLR.W newActivateMode
   MOVEQ #0,D0
+  TST.W acaflags
+  BNE.S LAB_A10D94              ;boot select disabled for aca mode
   CMP.B #34,kickstartVersion    ;boot select 1.x only
   BHI.S LAB_A10D94
 
@@ -2383,6 +2416,8 @@ setActivateMode:
 LAB_A10D94:
   TST.L DiskCoderFlags
   BNE.S LAB_A10DCA
+  TST.W acaflags
+  BNE.S ks2_skip              ;aca mode - disable nasty stuff
   CMP.B #34,kickstartVersion
   BHI.S ks2_skip
   MOVE.B  NotExtMemAddPrefsFlag,D0
@@ -2408,9 +2443,12 @@ LAB_A10DD2:
   BEQ.S LAB_A10E00
   BSET  #1,newActivateModeLo
 LAB_A10E00:
-  MOVE.W  (A7)+,D0
+  MOVE.W  tempD0,D0
   if arhardware=1
-  MOVE.W  newActivateMode,FreezeMode
+  MOVE.L A0,tempD0
+  MOVE.L arhwreg,A0
+  MOVE.W  newActivateMode,(A0)      ;set freezemode
+  MOVE.L tempD0,A0
   endc
   RTS
 
@@ -2630,7 +2668,7 @@ LAB_A11076:
   MOVE.B  #$80,ciabcrb
   RTS
 UpdateSerCursor:
-  TST. serIO
+  TST.B serIO
   BEQ.W .nomove
   MOVEM.L D0-D1,-(A7)
   MOVE.B #27,D0
@@ -3411,7 +3449,7 @@ LAB_A11A7E:
 LAB_A11A7E_1:
   BTST #1,D1      ;ecs denise
   BNE.S LAB_A11A7E_2
-  MOVE.W  SaveBplCon3,D0
+  MOVE.W SaveBplCon3,D0
   if rsnoop=0
   BEQ.S LAB_A11A7E_2
   endc
@@ -3655,13 +3693,6 @@ MakeMempeekerDisplay:
   MOVEM.L D0-D4/A0/A3-A5,-(A7)
   LEA hardware,A5
 
-  MOVEQ #$F,D0
-  LEA SaveColor,A4
-  LEA $180(A5),A3
-LAB_A117EE:
-  MOVE.L  (A4)+,(A3)+
-  DBF D0,LAB_A117EE
-
   MOVE.B ChipsetIdValue,D0
   BTST #0,D0      ;ecs
   BNE.S .ecsskip
@@ -3671,7 +3702,10 @@ LAB_A117EE:
 .ecsskip
   BTST #0,D0      ;ecs
   BNE.S .ecsskip2
-  MOVE.W #0,bplcon3(a5)
+
+  MOVE.W CopyBplCon3,D0
+  AND.W #%0001110100111111,D0
+  MOVE.W D0,bplcon3(a5)
 
 .ecsskip2
   BTST #2,D0      ;aga
@@ -3679,16 +3713,25 @@ LAB_A117EE:
   MOVE.L AgaPaletteSave,D0
   BEQ.S .skip1
 
-  BSR restoreAgaColors2
-  MOVE.W #0,bplcon3(a5)
-
   MOVE.W CopyFmode,D0
   AND.W #3,D0
   MOVE.W D0,fmode(a5)
-  MOVE.W #$11,bplcon4(a5)
+
+  MOVE.W CopyBplCon4,D0
+  AND.W #$ff00,D0
+  OR.W #$11,D0
+  MOVE.W D0,bplcon4(a5)
 .skip1
   MOVE.W  CopyDiwStart,diwstrt(a5)
   MOVE.W  CopyDiwStop,diwstop(a5)
+  TST.B DiwHighSet
+  BEQ.S .ignorediwhigh
+  TST.W CopyDiwHigh
+  BEQ.S .ignorediwhigh
+
+  MOVE.W  CopyDiwHigh,diwhigh(a5) 
+   
+.ignorediwhigh
   MOVE.W  CopyDdfStrt,ddfstrt(a5)
   MOVE.W  CopyDdfStop,ddfstop(a5)
   MOVE.W  CopyBplMod1,bpl1mod(a5)
@@ -3696,17 +3739,17 @@ LAB_A117EE:
   MOVE.W  CopyBplCon1,bplcon1(a5)
 
   MOVEQ #7,D0
-paldone:
   LEA CopyBpl1Pth,A4
   LEA $E0(A5),A3
   BTST  #2,CopyBplCon0Lo
   BEQ.S LAB_A11818
   BTST  #7,4(A5)
-  BNE.S LAB_A11818
+  BNE.S LAB_A11818 
   LEA bpl1Work,A4
 LAB_A11818:
   MOVE.L  (A4)+,(A3)+
   DBF D0,LAB_A11818
+
   MOVE.W  CopyBplCon0,D0
   ANDI.W  #$fe75,D0
   MOVE.W  D0,D1
@@ -3717,25 +3760,17 @@ LAB_A11818:
   ORI.W #$1000,D0
 LAB_A1183A:
   MOVE.W D0,bplcon0(a5)
+ 
   MOVE.W  CopyBplCon2,D0
-  ANDI.W  #$ffc0,D0
+  ANDI.W  #$fec0,D0
   OR.W #%100100,D0
-
   MOVE.W D0,bplcon2(a5)
+   
   CMPI.B  #$80,picViewerMode
   BEQ.S LAB_A11866
   MOVEQ #0,D0
   ADDQ.W  #1,LAB_A480DA
 LAB_A11866:
-  TST.B memPeekerHelpFlag
-  BEQ.S LAB_A1188A
-  MOVE.W  memPeekerBlackFlag,D1
-  LEA color00+hardware,A4
-  MOVE.W  D1,$22(A4)
-  MOVE.W  D1,$2A(A4)
-  MOVE.W  D1,$32(A4)
-  MOVE.W  D1,$3A(A4)
-LAB_A1188A:
   TST.B memPeekerHelpFlag
   BNE.S LAB_A118C6
   MOVE.L  #EXT_100,spr0pth(a5)
@@ -3759,6 +3794,18 @@ LAB_A118D2:
   DBF D2,LAB_A118D2
   MOVE.W #$8020,dmacon(a5)
 LAB_A118F2:
+  JSR updateMempeekPalette
+
+  TST.B memPeekerHelpFlag
+  BEQ.S LAB_A1188A
+  MOVE.W  memPeekerBlackFlag,D1
+  LEA color00+hardware,A4
+  MOVE.W  D1,$22(A4)
+  MOVE.W  D1,$2A(A4)
+  MOVE.W  D1,$32(A4)
+  MOVE.W  D1,$3A(A4)
+LAB_A1188A:
+
   MOVEM.L (A7)+,D0-D4/A0/A3-A5
   RTS
 VBlankInt:
@@ -4245,12 +4292,12 @@ LAB_A121C4:
 
   JSR readCmdChar
   CMP.B #" ",D0
-  BEQ.S .0
+  BEQ.W .0
   CMP.B #"A",D0
-  BNE.S .1
+  BNE.W .1
 
   LEA dira_help_dummy,A2
-  BRA.S .0
+  BRA.W .0
 
 .notdir
   CMP.L #CMD_G,A1
@@ -4258,14 +4305,38 @@ LAB_A121C4:
 
   JSR readCmdChar
   CMP.B #" ",D0
-  BEQ.S .0
+  BEQ.W .0
   CMP.B #"K",D0
-  BNE.S .1
+  BNE.W .1
 
   LEA gk_help_dummy,A2
   BRA.S .0
 
 .notgo
+  CMP.L #CMD_RY,A1
+  BNE.S .notry
+
+  JSR readCmdChar
+  CMP.B #" ",D0
+  BEQ.S .0
+  CMP.B #"G",D0
+  BNE.S .1
+
+  LEA ryg_help_dummy,A2
+  BRA.S .0
+.notry
+  CMP.L #CMD_RFY,A1
+  BNE.S .notrfy
+
+  JSR readCmdChar
+  CMP.B #" ",D0
+  BEQ.S .0
+  CMP.B #"G",D0
+  BNE.S .1
+
+  LEA rfyg_help_dummy,A2
+  BRA.S .0
+.notrfy
   CMP.L #CMD_FORMAT,A1
   BNE.S .0
 
@@ -5212,6 +5283,13 @@ commandTable:
   DC.L  CMD_INSTALL
   DC.L cmd_install_help
 
+  if demon2=1
+  DC.B  "SERTYPE",0
+  even
+  DC.L  CMD_SERTYPE
+  DC.L cmd_sertype_help
+  endc
+
   DC.B  "RAMTEST",0
   even
   DC.L  CMD_RAMTEST
@@ -5689,6 +5767,13 @@ commandTable:
   even
   DC.L  CMD_SER
   DC.L cmd_ser_help
+
+  if demon2=1
+  DC.B  "USB",0
+  even
+  DC.L  CMD_USB
+  DC.L cmd_usb_help
+  endc
 
   DC.B  "RNC",0
   even
@@ -6332,6 +6417,14 @@ formatq_help_dummy:
 formatv_help_dummy:
   DC.L 0
   DC.L cmd_formatv_help
+
+rfyg_help_dummy:
+  DC.L 0
+  DC.L cmd_rfyg_help
+
+ryg_help_dummy:
+  DC.L 0
+  DC.L cmd_ryg_help
 
 cmd_a_help:
   DC.B  "A (Assemble)",13
@@ -7117,6 +7210,11 @@ cmd_rf_help:
   DC.B  "  RF",13
   DC.B 0
 
+cmd_rfyg_help:
+  DC.B  "RFYG (Receive file via serial - ymodem-g)",13
+  DC.B  "  RFYG (path)",13
+  DC.B 0
+
 cmd_rfy_help:
   DC.B  "RFY (Receive file via serial - ymodem)",13
   DC.B  "  RFY (path)",13
@@ -7179,6 +7277,11 @@ cmd_rt_help:
   DC.B  "  RT <start-track> (<num-tracks> <dest-addr>)",13
   DC.B 0
 
+cmd_ryg_help:
+  DC.B  "RYG (Receive memory via serial - ymodem-g)",13
+  DC.B  "  RYG <dest-addr>",13
+  DC.B 0
+
 cmd_ry_help:
   DC.B  "RY (Receive memory via serial - ymodem)",13
   DC.B  "  RY <dest-addr>",13
@@ -7223,6 +7326,13 @@ cmd_serspeed_help:
   DC.B  "SERSPEED (Set serial speed)",13
   DC.B  "  SERSPEED (<baud>)",13
   DC.B 0
+
+  if demon2=1
+cmd_sertype_help:
+  DC.B  "SERTYPE (Set ymodem transfer type)",13
+  DC.B  "  SERTYPE",13
+  DC.B 0
+  endc
 
 cmd_setapi_help:
   DC.B  "SETAPI (Set api handler)",13
@@ -7443,6 +7553,13 @@ cmd_unpack_help:
   DC.B  "UNPACK (Unpack packed mem)",13
   DC.B  "  UNPACK <dest-addr> <end-of-packed-addr>",13
   DC.B 0
+
+  if demon2=1
+cmd_usb_help:
+  DC.B  "USB (Toggle USB serial)",13
+  DC.B  "  USB",13
+  DC.B 0
+  endc
 
 cmd_v_help:
   DC.B  "V (Alias for COMP)",13
@@ -7696,6 +7813,14 @@ LAB_A12BE0:
   MOVEQ #4,D0
   JSR PrintSpaces
   DBF D1,LAB_A12BE0
+  
+  MOVE.W  CopyDiwHigh,D0
+  BSR.W Print4DigitHex
+  MOVEQ #4,D0
+  JSR PrintSpaces
+
+  MOVE.W  CopyFmode,D0
+  BSR.W Print4DigitHex
   JSR PrintCR
   LEA BitplanesHeaderText(PC),A0
   BSR.W PrintText
@@ -7713,7 +7838,7 @@ LAB_A12BE0:
   LEA CopyBpl1Pth,A0
 LAB_A12C18:
   MOVE.L  (A0)+,D0
-  JSR Print8DigitHex
+  JSR Print6DigitHex
   MOVEQ #$20,D0
   BSR.W PrintChar
   BSR.W PrintChar
@@ -7725,7 +7850,7 @@ LAB_A12C3A:
   LEA ColorsHeaderText(PC),A0
   BSR.W PrintText
   MOVE.W  #$001f,D1
-  LEA SaveColor,A0
+  LEA CopyColor,A0
 LAB_A12C4C:
   MOVE.W  (A0)+,D0
   BSR.W Print4DigitHex
@@ -7753,6 +7878,20 @@ LAB_A12C90:
   MOVEQ #4,D0
   BSR.W PrintSpaces
   DBF D1,LAB_A12C90
+  MOVE.W SaveBplCon3,D0
+  BSR.W Print4DigitHex
+  MOVEQ #4,D0
+  BSR.W PrintSpaces
+  MOVE.W SaveBplCon4,D0
+  BSR.W Print4DigitHex
+  MOVEQ #4,D0
+  BSR.W PrintSpaces
+
+  MOVE.W SaveBeamCon0,D0
+  BSR.W Print4DigitHex
+  MOVEQ #5,D0
+  BSR.W PrintSpaces
+
   MOVE.W  SaveDmaCon,D0
   BSR.W Print4DigitHex
   MOVEQ #3,D0
@@ -7810,7 +7949,7 @@ LAB_A12D62:
   MOVEQ #0,D0
   MOVE.B  0(A1,D2.W),D0
   LSR.W #1,D0
-  BSR.W ConvertToBCD
+  JSR ConvertToBCD
   MOVEQ #3,D1
   BSR.W PrintValue
 LAB_A12D7A:
@@ -7868,7 +8007,7 @@ ecsDeniseText
   DC.B  "ECS Denise",$D,0
 
 DisplayWinHeaderText:
-  DC.B  "DIWSTRT DIWSTOP DDFSTRT DDFSTOP",$D,0
+  DC.B  "DIWSTRT DIWSTOP DDFSTRT DDFSTOP DIWHIGH FMODE",$D,0
 
 BitplanesHeaderText:
   DC.B  "BITPLANES",$D,0
@@ -7880,7 +8019,7 @@ SpritesHeaderText:
   DC.B  "SPRITES",$D,0
 
 DisplayHeaderText:
-  DC.B  "BPLCON0 BPLCON1 BPLCON2 DMACON INTREQ",$D,0
+  DC.B  "BPLCON0 BPLCON1 BPLCON2 BPLCON3 BPLCON4 BEAMCON0 DMACON INTREQ",$D,0
 
 DisplayHeader2Text:
   DC.B  "BPL1MOD BPL2MOD BLTCON0 BLTCON1 DSKSYNC",$D,0
@@ -7892,13 +8031,15 @@ LAB_A12E7D:
   DC.B  "   ",0
 
 LAB_A12E81:
-  DC.B  "clxcon   INTENA   ADKCON  TDF0  TDF1  TDF2  TDF3",$D,0
+  DC.B  "CLXCON   INTENA   ADKCON  TDF0  TDF1  TDF2  TDF3",$D,0
 
 AudioHeaderText:
   DC.B  "AUDADR   AUDLEN   AUDPER   AUDVOL",$D,0
 
 LAB_A12ED6:
-  DC.B  "****",0,0
+  DC.B  "****",0
+  
+  even
 
 CMD_TILDE:
   MOVE.L  DefaultAddress,D0
@@ -9603,6 +9744,8 @@ LAB_A1361E:
   DC.L  SaveColor00
   DC.W  $0182
   DC.L  SaveColor01
+  DC.W  $01e4
+  DC.L  SaveDiwHigh
   DC.W  $ffff
 SUB_A1375E:
   MOVEM.L D6/A1,-(A7)
@@ -9758,7 +9901,9 @@ LAB_A138BC:
   BSR.W InvalidAsciiToDot
   BSR.W PrintChar
   DBF D1,LAB_A138BC
-  MOVE.W  #8,cursorX
+  MOVE.W cpuAddrSize,D1
+  ADD.W #2,D1
+  MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
@@ -9794,7 +9939,9 @@ LAB_A1391A:
   BSR.W InvalidAsciiToDot
   BSR.W PrintChar
   DBF D1,LAB_A1391A
-  MOVE.W  #8,cursorX
+  MOVE.W cpuAddrSize,D1
+  ADD.W #2,D1
+  MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
@@ -10089,7 +10236,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.0.1-dev (16-Apr-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (26-May-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -11778,7 +11925,7 @@ LAB_A1614A:
   BEQ.S LAB_A16158
 LAB_A1614E:
   TST.B (A0)+
-  BMI.S LAB_A161C4
+  BMI.W LAB_A161C4
   BNE.S LAB_A1614E
   SUBQ.W  #1,D0
   BRA.S LAB_A1614A
@@ -11799,7 +11946,11 @@ LAB_A1617A:
   LEA 0(A0,D0.W),A0
   BSR.W PrintText
 LAB_A16192:
-  MOVE.W  #$000f,cursorX
+  MOVE.W D0,-(A7)
+  MOVE.W  #15-6,D0
+  ADD.W cpuAddrSize,D0
+  MOVE.W D0,cursorX
+  MOVE.W (A7)+,D0
   JSR UpdateSerCursor
   JSR PrintSpace
   LEA LAB_A47FBA,A1
@@ -12274,12 +12425,12 @@ SUB_A166EC:
   MOVE.L  SaveBpl1Mod,CopyBplMod1
   MOVE.W  clxcon(A1),Copyclxcon
   LEA color00(A1),A1
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   MOVEQ #$1F,D0
 LAB_A1675A:
   MOVE.W  (A1)+,(A0)+
   DBF D0,LAB_A1675A
-  MOVE.L  SaveColor00,SaveColor
+  MOVE.L  SaveColor00,CopyColor
 
   MOVE.L AgaPaletteSave,D0
   BEQ.S .noaga1
@@ -12358,9 +12509,11 @@ LAB_A16812:
   MOVE.W  #1,LAB_A480AC
   BRA.S LAB_A16806
 SUB_A16826:
+  TST.W SaveDiwHigh
+  SNE.B DiwHighSet
   MOVEM.L D0-D4/A0-A1,-(A7)
   ;CLR.W  CopyFmode
-  CLR.W CopyDiwHigh
+  ;CLR.W CopyDiwHigh
   ;CLR.W  CopyBplCon4
   if rsnoop=1
   MOVE.L SaveCop1Lch,A0
@@ -12516,7 +12669,7 @@ LAB_A169AC:
   MOVE.W  D2,D3
   SUBI.W  #$0180,D3
   SWAP  D2
-  LEA SaveColor,A1
+  LEA CopyColor,A1
   MOVE.W  D2,0(A1,D3.W)
   BRA.W LAB_A1688E
 LAB_A169D6:
@@ -12555,6 +12708,7 @@ LAB_A16A3A:
   BNE.S LAB_A16A4C
   SWAP  D2
   MOVE.W  D2,CopyDiwHigh
+  ST.B DiwHighSet
   BRA.W LAB_A1688E
 LAB_A16A4C:
   CMPI.W  #$010c,D2
@@ -14059,7 +14213,9 @@ LAB_A177CC:
   BSR.W PrintValue
   DBF D4,LAB_A177CC
   JSR PrintCRToPrinter
-  MOVE.W  #$000f,cursorX
+  MOVE.W #$000f-6,D4
+  ADD.W cpuAddrSize,D4
+  MOVE.W  D4,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D4/A0-A3
@@ -14140,7 +14296,9 @@ LAB_A178D2:
   BSR.W PrintValue
   DBF D3,LAB_A178D2
   JSR PrintCRToPrinter
-  MOVE.W  #8,cursorX
+  MOVE.W cpuAddrSize,D1
+  ADD.W #2,D1
+  MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
   MOVEM.L (A7)+,D0-D3/A0
@@ -14472,35 +14630,19 @@ FilledUptoAddrText:
   even
   
   if arhardware=1
-HardBoot:
+BootIntercept:
   CMPI.L  #BRON_TAG,bronFlag
   BNE.S LAB_407C98
   TST.B NoresPrefsFlag
   BEQ.S LAB_407C98
 .1
-  CLR.W FreezeMode
 
-  MOVEA.L 2(A7),A3
-  CLR.W (A7)
-  CLR.L 2(A7)
-  LEA EXT_40000,A7
-  JMP (A3)
+  MOVE.L A0,tempD0
+  MOVE.L arhwreg,A0
+  MOVE.W #0,(A0)      ;clear freezemode
+  MOVE.L tempD0,A0
+  JMP exit_rte
 LAB_407C98:
-  MOVEA.L 2(A7),A3
-  CLR.W (A7)
-  CLR.L 2(A7)
-
-  LEA StackEnd,A7
-  MOVE.L  D0,-(A7)
-  MOVE.L  A3,D0
-  CMPI.B  #34,kickstartVersion
-  BHI.W LAB_407CD0
-  ORI.L #$00fc0000,D0
-LAB_407CD0:
-  ORI.L #$00f80000,D0
-  MOVEA.L D0,A3
-  MOVE.L  (A7)+,D0
-
   MOVEM.L D0-D7/A0-A6,-(A7)
   CMPI.L  #BRON_TAG,bronFlag
   BEQ.W LAB_407E64
@@ -14510,6 +14652,14 @@ LAB_407CD0:
 LAB_407CF6:
   CLR.L (A0)+
   DBF D0,LAB_407CF6
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  MOVE.L (A7)+,tempD0
+  MOVE.L (A7)+,tempD1
+  MOVE.L A7,SaveOldPc
+  LEA StackEnd,A7
+  MOVE.L tempD1,-(A7)
+  MOVE.L tempD0,-(A7)
+  MOVEM.L D0-D7/A0-A6,-(A7)
   MOVE.L  #BRON_TAG,bronFlag
   JSR FirstInit
   BSR.W GetDrivesConnected
@@ -14533,9 +14683,32 @@ LAB_407D40:
   BSR ARInit
   
   JSR setActivateMode
+  TST.W acaflags
+  BNE.S .1
+
   MOVEA.L EXT_F80004,A7
   JMP (A7)
+
+.1
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  MOVE.L (A7)+,tempD0
+  MOVE.L (A7)+,tempD1
+  MOVE.L SaveOldPc,A7
+  MOVE.L tempD1,-(A7)
+  MOVE.L tempD0,-(A7)
+  MOVE.W #$7fff,intena+hardware
+  MOVE.W #$7fff,intreq+hardware
+  JMP exit_rte
 LAB_407E64:
+  MOVEM.L (A7)+,D0-D7/A0-A6
+  MOVE.L (A7)+,tempD0
+  MOVE.L (A7)+,tempD1
+  MOVE.L A7,SaveOldPc
+  LEA StackEnd,A7
+  MOVE.L tempD1,-(A7)
+  MOVE.L tempD0,-(A7)
+  MOVEM.L D0-D7/A0-A6,-(A7)
+
   MOVE.B  ExtMemAddPrefsFlag,NotExtMemAddPrefsFlag
   NOT.B NotExtMemAddPrefsFlag
   CLR.W BlankerCount
@@ -14682,6 +14855,8 @@ LAB_4080B8:
   CLR.L (A0)+
   DBF D0,LAB_4080B8
 LAB_4080C6:
+  TST.W acaflags
+  BNE.S LAB_408104
   CMP.B #34,kickstartVersion
   BHI.S LAB_408104
   MOVE.W  LAB_A4822E,D0
@@ -14701,9 +14876,15 @@ LAB_4080C6:
 LAB_408104:
   MOVEM.L (A7)+,D0-D7/A0-A6
   CLR.L AronFlag
-  LEA EXT_40000,A7
+  MOVE.L (A7)+,tempD0
+  MOVE.L (A7)+,tempD1
+  MOVE.L SaveOldPc,A7
+  MOVE.L tempD1,-(A7)
+  MOVE.L tempD0,-(A7)
+  MOVE.W #$7fff,intena+hardware
+  MOVE.W #$7fff,intreq+hardware
   BSR dovpos0
-  JMP (A3)
+  JMP exit_rte
 
 LAB_408120:
   CMPI.W  #3,D0
@@ -14761,9 +14942,6 @@ ARInit:
   MOVE.B  EXT_F8000D,kickstartVersion
 
 .k3
-    
-
-    
   JSR SUB_41BB88
   JSR SUB_A17DF4
   MOVE.B  ExtMemAddPrefsFlag,NotExtMemAddPrefsFlag
@@ -14786,6 +14964,14 @@ ARInit:
   ST  DisableVposWrite
   CLR.L trackStartSkip
   MOVE.L #-1,trackMaxByteCount
+  TST.W acaflags
+  BNE.S .1
+  MOVE.L #$bfe001,arBfe001Trigger
+  BRA.S .2
+.1
+  ;aca trigger nmi
+  MOVE.L #$D8E001,arBfe001Trigger
+.2
 
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
@@ -14896,6 +15082,12 @@ LAB_A17DDE:
 FirstInit:
   CLR.W arramstart
   CLR.W arramstart+16384
+
+  if demon2=1
+  SF.B usbPresent
+  SF defUsbSerial
+  endc
+
   MOVE.W #$1234,arramstart
   MOVE.L #EXT_4E80,memSaveEnd
   MOVE.L #TextPage1,TextPage1Addr
@@ -14923,17 +15115,43 @@ FirstInit:
   if (arhardware+pistorm=1)
   JSR CheckARRam
   CMP.L #1024,D0
-  BLT.S .3
+  BLT.W .3
   MOVE.L #arramstart+$10000,newRamdiskAddr
   endc
+
   
+  if (arhardware+demon2)=2
+
+  MOVE.B D0,USBReg2
+  CMP.B USBReg2,D0
+  BNE.S .hasusb
+
+  NOT.B D0
+  MOVE.B D0,USBReg2
+  CMP.B USBReg2,D0
+  BEQ.S .nousb  
+ 
+.hasusb
+  ST.B defUsbSerial   ;set usb serial as default
+  ST.B usbPresent     ;set usb serial as present
+.nousb
+  endc
+
   if (arhardware=1)
+  
   ;relies on CheckPalMode having saved D1 to tempD1
   ;kickstart sets DMACON to $7FFF very early on
   CMP.W #$7fff,tempD1+2
   BEQ.S .old
 
+  endc
+  if (arhardware+demon2)=1
   LEA arramstart+$BF000,A0
+  endc
+  if (arhardware+demon2)=2
+  LEA arramstart+$3F000,A0
+  endc
+  if (arhardware=1)
   MOVE.L A0,RegSnoopAddr
   MOVE.W #$100-1,D0
 .clr
@@ -16182,8 +16400,10 @@ LAB_A1884E:
   LEA EXT_40.W,A3
 
   if arhardware=1
-  MOVE.L  #$4a3900bf,(a3)+
-  MOVE.L  #$e00160f8,(a3)+
+  MOVE.W  #$4a39,(a3)+
+  MOVE.L  arBfe001Trigger,(A3)+
+  ;MOVE.L  #$bfe001,(a3)+
+  MOVE.W  #$60f8,(a3)+
   else
   MOVE.L  #$4e714e71,(a3)+  ;nop nop
   MOVE.L  #$4e4f4e73,(a3)+  ;trap 15 rte
@@ -16426,9 +16646,7 @@ CMD_PC:
 memPeeker:
   SF  LAB_A480CA
 SUB_A18AD6:
-  ;CLR.W  CopyFmode
-  CLR.W CopyDiwHigh
-  ;CLR.W  CopyBplCon4
+  ;CLR.W CopyDiwHigh
   CLR.W memPeekerBitplaneLocks
   CLR.W memPeekerColorReg
   MOVE.W  #$ffff,memPeekerBlackFlag
@@ -16638,6 +16856,30 @@ LAB_A18C9C:
   ADDQ.W  #1,LAB_A480AC
   BSR.W SUB_A16826
   BRA.W LAB_A19028
+
+updateMempeekPalette:
+  MOVE.B ChipsetIdValue,D0
+  BTST #2,D0      ;aga
+  BNE.S   .skip1
+
+  lea hardware,a5
+  MOVE.L AgaPaletteSave,D0
+  BEQ.S .skip1
+  JSR restoreAgaColors2
+
+  MOVE.W CopyBplCon3,D0
+  AND.W #%0001110100111111,D0
+  MOVE.W D0,bplcon3(a5)
+  RTS
+.skip1
+  MOVEQ #$F,D0
+  LEA CopyColor,A4
+  LEA $180(A5),A3
+LAB_A117EE:
+  MOVE.L  (A4)+,(A3)+
+  DBF D0,LAB_A117EE
+  RTS
+
 memPeekKeyF3:
   CMPI.W  #F4Key,D0
   BEQ.W memPeekKeyF4
@@ -17014,7 +17256,7 @@ GetSavedPaletteColor:
   
 .1
   ADD.W D0,D0
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   MOVE.W  0(A0,D0.W),D0
   ANDI.L  #$0fff,D0
   MOVE.W D0,-(A7)
@@ -17047,7 +17289,7 @@ SetSavedPaletteColor:
   
 .1 
   ADD.W D0,D0
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   MOVE.W  D1,0(A0,D0.W)
   RTS
 .agaPalette:
@@ -17201,7 +17443,7 @@ memPeekKeyF10:
   BRA.S colsdone
 
 .ecs
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   LEA color02+hardware,A1
   MOVE.L  (A0)+,SaveColor00
   MOVEQ #$E,D0
@@ -17211,7 +17453,7 @@ LAB_A19398:
 
 colsdone
   MOVE.W  CopyBplCon0,D0
-  ANDI.W  #$fe14,D0
+  ANDI.W  #$fe15,D0
   MOVE.W  D0,SaveBplCon0
   MOVE.W  CopyBplCon1,SaveBplCon1
   MOVE.W  CopyBplCon2,SaveBplCon2
@@ -17228,7 +17470,7 @@ colsdone
   MOVE.W  CopyDdfStop,SaveDdfStop
   BRA.W LAB_A19C8E
 memPeekKeyF1:
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   MOVE.W  CopyBplCon0,D0
   ANDI.W  #$7010,D0
   CMPI.W  #$1000,D0
@@ -17459,7 +17701,7 @@ SUB_A194AA:
   RTS
 
 memPeekKeyB:
-  LEA SaveColor,A0
+  LEA CopyColor,A0
   MOVE.W #$FF,D3
   TST.B ShiftKey
   BEQ.S LAB_A1950E
@@ -18904,8 +19146,8 @@ LAB_A1A81E:
 
 CiaRegsTable:
   DC.B  "parallel port a",0
-  DC.B  "parallel port a direction",0
   DC.B  "parallel port b",0
+  DC.B  "parallel port a direction",0
   DC.B  "parallel port b direction",0
   DC.B  "timer a low",0
   DC.B  "timer a high",0
@@ -19258,7 +19500,7 @@ FindMemoryRanges:
   MOVEA.L #EXT_C00000,A0
   MOVEA.L #$00dc0000,A1
   MOVEA.L A0,A4
-  ADDA.L  #$00040000,A0
+  ADDA.L  #$00040000,A0 
 LAB_40B096:
   MOVEA.L A4,A2
   ADDA.L  #$00040000,A2
@@ -19276,15 +19518,19 @@ LAB_40B0BC:
   MOVE.L  #$0000f2d4,D1
   MOVE.W  D1,-3942(A2)
   CMP.W -3942(A2),D1
-  BNE.W LAB_40B102
+  BEQ.S .1
+  MOVE.W D4,-3942(A0)
+  BRA.W LAB_40B102
+.1
   CMP.W -3942(A0),D1
   BEQ.W LAB_40B0F2
 LAB_40B0DC:
   MOVE.L  #$0000b698,D1
   MOVE.W  D1,-3942(A2)
   CMP.W -3942(A2),D1
-  BNE.W LAB_40B102
-  BRA.W LAB_40B0F6
+  BEQ.W LAB_40B0F6
+  MOVE.W D4,-3942(A0)
+  BRA.W LAB_40B102
 LAB_40B0F2:
   CMPA.L  A0,A2
   BEQ.S LAB_40B0DC
@@ -19295,8 +19541,10 @@ LAB_40B0F6:
 
   MOVEA.L A2,A4
   CMPA.L  A4,A1
-  BHI.S LAB_40B096
+  BHI.W LAB_40B096
 LAB_40B0FC:
+  TST.W acaflags
+  BNE.S LAB_40B102
   MOVE.W  #$7fff,EXT_FFFFF09A.W
 LAB_40B102:
   SUBA.L  #$00040000,A0
@@ -20949,7 +21197,7 @@ LAB_A1BEC8:
   BRA.W LAB_A1C162
 LAB_A1BF1A:
   SUBQ.W  #1,D0
-  BNE.S LAB_A1BF9C
+  BNE.W LAB_A1BF9C
   CMPI.W  #$000b,LAB_A47FBA
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
@@ -20970,7 +21218,7 @@ LAB_A1BF1A:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.L  LAB_A47FBC,D0
-  BSR.W memSafeWriteLong
+  JSR memSafeWriteLong
   ADDQ.W  #4,A4
   MOVEM.L (A7)+,D0/A0
   BRA.S LAB_A1BF94
@@ -20978,7 +21226,7 @@ LAB_A1BF7E:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  LAB_A47FBE,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
 LAB_A1BF94:
@@ -22296,8 +22544,10 @@ CMD_SETEXCEPT:
 LAB_A1CFB2:
 
   if arhardware=1
-  MOVE.L  #$4a3900bf,(A0)+
-  MOVE.L  #$e0014e71,(A0)+
+  MOVE.W  #$4a39,(A0)+
+  MOVE.L  arBfe001Trigger,(A0)+
+  ;MOVE.L  #$bfe001,(A0)+
+  MOVE.W  #$4e71,(A0)+
   else
   MOVE.L  #$4e4e4e73,(A0)+
   MOVE.L  #$4e714e71,(A0)+
@@ -22485,7 +22735,7 @@ LAB_A1D2EA:
 SUB_A1D2F6:
   MOVEM.L D0/A0-A1,-(A7)
   LEA LAB_A47FB6,A0
-  LEA SaveColor,A1
+  LEA CopyColor,A1
   MOVEQ #$F,D0
 LAB_A1D308:
   MOVE.L  (A1)+,(A0)+
@@ -23841,10 +24091,10 @@ LAB_A1DBA0:
   BNE.S LAB_A1DBA0
   BRA.W LAB_A1DCF8
 LAB_A1DBAE:
-  ADDQ.W  #1,SaveColor
-  BTST  #6,LAB_A4806B
+  ADDQ.W  #1,CopyColor
+  BTST  #6,CopyColorLo
   BEQ.W LAB_A1DC4C
-  CLR.W SaveColor
+  CLR.W CopyColor
   JSR SUB_A2603E
   CMPI.W  #0,D0
   BNE.S LAB_A1DBDE
@@ -24541,6 +24791,8 @@ LAB_A1E6BC:
 LAB_A1E6CC:
   CMPI.W  #6,D0
   BNE.S LAB_A1E6DC
+  TST.W acaflags
+  BNE.S LAB_A1E6DC
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E6DC
   NOT.B ExtMemAddPrefsFlag
@@ -24625,6 +24877,8 @@ LAB_A1E79A:
 LAB_A1E7B2:
   CMPI.W  #2,D0
   BHI.S LAB_A1E7D4
+  TST.W acaflags
+  BNE.S LAB_A1E7D4
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E7D4
 ; memory control settings
@@ -24636,6 +24890,8 @@ LAB_A1E7B2:
 LAB_A1E7D4:
   CMPI.W  #3,D0
   BNE.S LAB_A1E7E6
+  TST.W acaflags
+  BNE.S LAB_A1E7E6
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E7E6
 ; chipram control settings
@@ -24643,6 +24899,8 @@ LAB_A1E7D4:
   BRA.W LAB_A1E646
 LAB_A1E7E6:
   CMPI.W  #4,D0
+  BNE.S LAB_A1E804
+  TST.W acaflags
   BNE.S LAB_A1E804
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E804
@@ -24657,6 +24915,8 @@ LAB_A1E804:
 LAB_A1E810:
   CMPI.W  #$0056,D0
   BNE.S LAB_A1E834
+  TST.W acaflags
+  BNE.S LAB_A1E834
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E834
   JSR drawPrefsHighlightsPage1
@@ -24668,6 +24928,8 @@ LAB_A1E810:
   BRA.S LAB_A1E846
 LAB_A1E834:
   CMPI.W  #$0057,D0
+  BNE.S LAB_A1E88C
+  TST.W acaflags
   BNE.S LAB_A1E88C
   CMPI.B  #34,kickstartVersion
   BHI.S LAB_A1E88C
@@ -24742,6 +25004,8 @@ LAB_A1E8FA:
   if arhardware=1
   CMPI.W  #5,D0
   BHI.S LAB_A1E91A
+  TST.W acaflags
+  BNE.S LAB_A1E91A
   CMPI.B  #34,kickstartVersion    ;boot control 1.x only
   BHI.S LAB_A1E91A
 
@@ -24754,7 +25018,7 @@ LAB_A1E8FA:
   BEQ.S LAB_A1E8B8
 LAB_A1E912:
   MOVE.W  D0,BootSelectPrefs
-  BRA.S LAB_A1E8B8
+  BRA.W LAB_A1E8B8
 LAB_A1E91A:
   endc
   
@@ -24763,6 +25027,8 @@ LAB_A1E91A:
   CMPI.W  #6,D0
   BNE.S LAB_A1E934
 ; bootblock coder setting
+  TST.W acaflags
+  BNE.S LAB_A1E934
   CMPI.B  #38,kickstartVersion
   BHI.S LAB_A1E934
   NOT.B BootblockCoderPrefsFlag
@@ -24771,6 +25037,8 @@ LAB_A1E91A:
   BRA.W LAB_A1E8B8
 LAB_A1E934:
   CMPI.W  #7,D0
+  BNE.S LAB_A1E972
+  TST.W acaflags
   BNE.S LAB_A1E972
   CMPI.B  #38,kickstartVersion    ;bootblock coder 1.x, 2.x only
   BHI.S LAB_A1E972
@@ -24842,6 +25110,8 @@ LAB_A1E9F0:
   BLS.S LAB_A1EA14
   CMPI.W  #$0013,D0
   BHI.S LAB_A1EA14
+  TST.W acaflags
+  BNE.S LAB_A1EA14
   CMPI.B  #34,kickstartVersion      ;drive control 1.x only
   BHI.S LAB_A1EA14
 ; Drive control setting
@@ -24862,6 +25132,8 @@ LAB_A1EA14:
 
   ;virus boot hardware only
   if arhardware=1
+  TST.W acaflags
+  BNE.S LAB_A1EA72
   CMPI.B  #38,kickstartVersion    ;virus boot ks 1.x and 2.x only
   BHI.S LAB_A1EA72
   else
@@ -24911,6 +25183,8 @@ LAB_A1EA96:
   CMPI.W  #$0017,D0
   BNE.S LAB_A1EACA
 ; Safe disk - resident
+  TST.W acaflags
+  BNE.S LAB_A1EACA
   CMPI.B  #34,kickstartVersion    ;safedisk 1.x only
   BHI.S LAB_A1EACA
   SF  SafediskNoclickFlag
@@ -24927,6 +25201,8 @@ LAB_A1EACA:
   CMPI.W  #$001c,D0
   BNE.S LAB_A1EAF8
 ; safe disk - noclick
+  TST.W acaflags
+  BNE.S LAB_A1EAF8
   CMPI.B  #34,kickstartVersion      ;safedisk 1.x only
   BHI.S LAB_A1EAF8
   BCHG  #3,SafediskNoclickFlag
@@ -24942,6 +25218,8 @@ LAB_A1EAF8:
   CMPI.W  #$001d,D0
   BNE.S LAB_A1EB1E
 ; setmap d - resident
+  TST.W acaflags
+  BNE.S LAB_A1EB1E
   CMPI.B  #34,kickstartVersion      ;setmapd 1.x only
   BHI.S LAB_A1EB1E
   NOT.B SetmapDPrefsFlag
@@ -25000,10 +25278,12 @@ drawPrefsHighlightsPage2:
   JSR disablePrefsBox(PC)
 
   else
-
+  TST.W acaflags
+  BNE.S .do
   CMP.B #34,kickstartVersion
   BLS.S .is13
 
+.do
   MOVEQ #0,D0
 .dis
   JSR disablePrefsBox(PC)   ;disable boot selector
@@ -25028,9 +25308,13 @@ drawPrefsHighlightsPage2:
   MOVEQ #29,D0    ;disable setmap resident
   JSR disablePrefsBox(PC)
 
+  TST.W acaflags
+  BNE.S .do2
+
   CMP.B #39,kickstartVersion
   BLO.S .dis3
 
+.do2
   MOVEQ #22,D0              ;disable virus boot
   JSR disablePrefsBox(PC)
 
@@ -25058,8 +25342,11 @@ LAB_A1EB54:
   ADDQ.W  #1,D1
   CMPI.W  #4,D0
   BLS.S LAB_A1EB44
+  TST.W acaflags
+  BNE.S .do3
   CMPI.B  #34,kickstartVersion
   BLS.S LAB_A1EB78
+.do3
   MOVEQ #0,D0
 LAB_A1EB6A:
   JSR disablePrefsBox(PC)
@@ -25175,9 +25462,12 @@ drawPrefsHighlightsPage1:
 
   else
 
+  TST.W acaflags
+  BNE.S .do
   CMP.B #34,kickstartVersion
   BLS.S .is13
 
+.do
   MOVEQ #0,D0
 .dis
   JSR disablePrefsBox(PC)   ;disable memory controls
@@ -26408,7 +26698,7 @@ LAB_412E2A:
 sindata:
   DC.L  $0018314a,$61788da1,$b4c5d4e0,$ebf4fafd
   DC.L  $fffdfaf4,$ebe0d4c5,$b4a18d78,$614a3118
-  DC.L  $08390006,$00bfe001,$66f64e75
+  ;DC.L  $08390006,$00bfe001,$66f64e75
 TrackerSearch:
   MOVEQ #0,D0
   JSR ReadParameter
@@ -33075,7 +33365,7 @@ WriteCMAP:
   MOVEM.L D1-D2/A1-A2,-(A7)
   LEA LAB_A4520A,A1
   MOVE.L  #$434d4150,(A1)+    ;CMAP
-  LEA SaveColor,A2
+  LEA CopyColor,A2
   MOVE.B ChipsetIdValue,D0
   BTST #2,D0      ;aga
   BNE.S   .notaga
@@ -35615,6 +35905,13 @@ ramfoundText:
   endc
 
 CheckARRam:
+  TST.W acaflags
+  BEQ.S .notaca
+  MOVE.W #64,D0
+  RTS
+  
+
+.notaca
   MOVE.W #40,D7
 
   LEA arramstart,A0
@@ -35657,6 +35954,28 @@ CheckARRam:
   MOVE.W D7,D0
   RTS
 
+  if demon2=1
+CMD_SERTYPE:
+  LEA currentTypeSerialText(PC),A0
+  TST.B usbPresent
+  BEQ.S .usbtype
+  
+  LEA currentTypeUsbText(PC),A0
+  
+  NOT.B defUsbSerial
+  BNE.S .usbtype
+
+  LEA currentTypeSerialText(PC),A0
+.usbtype
+  JSR PrintText
+  RTS
+
+currentTypeUsbText: DC.B "YModem Transfers set to USB.",13,0
+currentTypeSerialText: DC.B "YModem Transfers set to internal serial port.",13,0
+  even
+  endc
+  
+
 CMD_SERSPEED:
   JSR ReadParameter
   TST.B ParamFound
@@ -35683,6 +36002,12 @@ currentSpeedText: DC.B "Serial port speed: !",0
   even
 
 CMD_RFY:
+  MOVEQ #0,D5   ;not ymodem-g 
+  JSR readCmdChar
+  CMPI.B  #"G",D0
+  BNE.S .ng
+  MOVEQ #1,D5   ;ymodem-g 
+.ng
   MOVE.L A0,A1
   BSR getSerTempAddr
   CMP.L #0,A0
@@ -35727,6 +36052,12 @@ CMD_RFY:
   RTS
  
 CMD_RY:
+  MOVEQ #0,D5   ;not ymodem-g 
+  JSR readCmdChar
+  CMPI.B  #"G",D0
+  BNE.S .ng
+  MOVEQ #1,D5   ;ymodem-g 
+.ng
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W syWTF
@@ -35737,14 +36068,21 @@ CMD_RY:
   RTS
 
 doYmodemReceive:
+  if demon2=1
+  JSR PrintSerTransType
+  endc
   LEA receivingFilesText,A0
   JSR PrintText
 
   MOVE.B serIO,-(A7)
+  if demon2=1
+  MOVE.B usbIO,-(A7)
+
+  MOVE.B defUsbSerial,usbIO
+  endc
   ST.B serIO
   JSR RawIOInit
 
-  MOVEQ #0,D5   ;not ymodem-g
 nextfile:
   CLR.B stringWorkspace
   MOVEQ #9,D1
@@ -35753,7 +36091,12 @@ ryloop1
   BSR getSerTempAddr
 
   MOVE.L #"C",D0
-  JSR RawPutChar
+  TST.W D5
+  BEQ.S .ng
+
+  MOVE.B #"G",D0
+.ng  
+  JSR RawPutCharWithFlush
   TST.B serIO
   BEQ.S .fail1
 
@@ -35782,7 +36125,7 @@ ryloop1
   BNE.S gotblock0
 
   MOVE.L #X_ACK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
 
   BRA.S gotblock0
 notsuccess:
@@ -35858,7 +36201,12 @@ gotblock0:
   ST.B serIO
 
   MOVE.L #"C",D0
-  JSR RawPutChar
+  TST.W D5 
+  BEQ.S .ng
+  MOVE.B #"G",D0
+
+.ng
+  JSR RawPutCharWithFlush
 
   MOVE.L A1,A0
   ADD.L D4,A1
@@ -35887,7 +36235,7 @@ gotblock0:
   CMP.W #9,D6
   BNE.S .gmode
   MOVE.L #X_ACK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
 
 .gmode
   TST.B serFileTransfer
@@ -35911,7 +36259,7 @@ gotblock0:
   BGT.W ryfail
   
   MOVE.L #X_NAK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
   JSR WaitSerCharTimeout2
   BRA.W .filedone
 .noteot
@@ -35920,7 +36268,7 @@ gotblock0:
   BEQ.W ryfail
 
   MOVE.L #X_NAK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
 
   DBF D6,.blockloop
   BRA.W ryend
@@ -35961,7 +36309,7 @@ gotblock0:
   BNE.s addfile
 
   MOVE.L #X_ACK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
   BRA.W nextfile
 
 addfile:
@@ -35969,10 +36317,13 @@ addfile:
   BSR.W AddFileToDirBlock
   CLR.B stringWorkspace
   MOVE.L #X_ACK,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
   BRA.W nextfile
 
 ryend:
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   BSR UpdateRawIO
   LEA receiveOkText(PC),A0
@@ -35980,6 +36331,9 @@ ryend:
   RTS
 
 filefail:
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   BSR UpdateRawIO
   TST.B stringWorkspace
@@ -35993,6 +36347,9 @@ filefail:
   RTS
 
 ryfail:
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   BSR UpdateRawIO
   TST.B serFileTransfer
@@ -36008,6 +36365,9 @@ ryfail:
   RTS
 
 rybuffOverrun:
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   BSR UpdateRawIO
   TST.B serFileTransfer
@@ -36023,6 +36383,9 @@ rybuffOverrun:
   RTS
 
 ryTimeout:
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   BSR UpdateRawIO
   TST.B serFileTransfer
@@ -36108,19 +36471,78 @@ GetBlock:
   MOVE.W #6,errcode
   CMP.B D3,D6  ;block num and expected block num
   BNE.W .wrongblock
+
+  LEA crc16tbl,A3
+  MOVEQ #0,D4
  
   MOVE.L A0,A1
   BSR getSerTempAddr
+  MOVE.L A0,A2
   MOVE.W D1,D2
   SUBQ.W #1,D2
   MOVE.W #2,errcode
-.getblock:
+  
+  if demon2=1
+  TST.B usbIO
+  BEQ.S .getserblock
+  
+  LEA USBReg1,A4
+  LEA USBReg2,A5
+  MOVEQ #1,D5
+
+.getusbblock:
+  MOVE.B  #0,ciaatodlo
+  MOVEQ #0,D0
+.4
+  BTST D5,(A5)
+  BNE.S .1
+.ready
+  MOVE.B (A4),D0
+  MOVE.B D0,(A0)+  
+
+  MOVE.W D4,D3
+  LSR.W #8,D3
+
+  EOR.B D0,D3
+
+  ADD.W D3,D3
+  MOVE.W (A3,D3),D3
+  LSL.W #8,D4
+  EOR.W D3,D4
+
+  DBF D2,.getusbblock
+  TST.B EscapePressed
+  BEQ.S .cont
+
+.1
+  TST.B EscapePressed
+  BNE.S .6
+  
+  CMP.B #100,ciaatodlo
+  BNE.S .4
+.6
+  BRA.W .blockfail
+  endc
+  
+.getserblock:
   JSR WaitSerCharTimeout2 ;block byte
   CMP.L #-1,D0
   BEQ.W .blockfail
   MOVE.B D0,(A0)+  
-  DBF D2,.getblock
-    
+
+  MOVE.W D4,D3
+  LSR.W #8,D3
+
+  EOR.B D0,D3
+
+  ADD.W D3,D3
+  MOVE.W (A3,D3),D3
+  LSL.W #8,D4
+  EOR.W D3,D4
+
+  DBF D2,.getserblock
+
+.cont    
   MOVE.W #3,errcode
   JSR WaitSerCharTimeout2 ;crc byte1
   CMP.L #-1,D0
@@ -36135,41 +36557,25 @@ GetBlock:
   LSL.W #8,D5
   MOVE.B D0,D5
 
-  BSR getSerTempAddr
-  EXG A0,A1
-  
-  MOVE.W D1,D2
-  SUB.W #1,D2
-  
-  LEA crc16tbl,A3
-  MOVEQ #0,D4
-.copydata
-  MOVE.B (A1),D0
-
-  MOVE.W D4,D3
-  LSR.W #8,D3
-
-  EOR.B D0,D3
-
-  ADD.W D3,D3
-  MOVE.W (A3,D3),D3
-  LSL.W #8,D4
-  EOR.W D3,D4
-
-  CMP.L A0,A1
-  BEQ.S .skipcopy
-  JSR memSafeUpdateByte
-.skipcopy
-  ADDQ.L #1,A1
-  ADDQ.L #1,A0
-  DBF D2,.copydata
-
   MOVE.W #7,errcode
   CMP.W D5,D4
   BNE.S .badcrc
 
-  MOVE.W #0,errcode
+  CMP.L A2,A1
+  BEQ.S .skipcopy
+  
+  MOVE.L A2,A0
+  EXG A0,A1
+  SUB.W #1,D1
+  
+.copydata
+  MOVE.B (A1)+,D0
+  JSR memSafeUpdateByte
+  ADDQ.L #1,A0
+  DBF D1,.copydata
 
+.skipcopy
+  MOVE.W #0,errcode
 .success  
   MOVEQ #X_SUCCESS,D0
 .blockreturn
@@ -36240,6 +36646,7 @@ getSerTempAddr:
   MOVE.L (A7)+,D0
   MOVE.L  #EXT_A700,DiskMonBuffer
   MOVE.L  #2100,DiskMonBufferSize
+  MOVE.L DiskMonBuffer,A0
   CLR.L LAB_A48386
   RTS
 
@@ -36257,6 +36664,10 @@ receiveFailText: DC.B 13,"Receive failed",13,0
 receiveOkText: DC.B 13,"Receive completed",13,0
 bufferOverrunText: DC.B 13,"Receive fail, buffer overrun",13,0
 startTimeoutText: DC.B "Timeout waiting for transfer to start",13,0
+  if demon2=1
+usingUSBSerialText: DC.B "USB Transfer: ",0
+usingInternalSerialText: DC.B "Serial Port Transfer: ",0
+  endc
   even
 
 CMD_SFY:
@@ -36284,9 +36695,16 @@ CMD_SFY:
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
   MOVE.B serIO,-(A7)
+  if demon2=1
+  MOVE.B usbIO,-(A7)
+  endc
 
   JSR OpenFile
   BMI fileerr;data length
+
+  if demon2=1
+  JSR PrintSerTransType
+  endc
 
   LEA sendingDataText,A0
   JSR PrintText
@@ -36299,6 +36717,9 @@ CMD_SFY:
 
 filesenddone:
   SF  serFileTransfer
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   JSR UpdateRawIO
 
@@ -36378,7 +36799,10 @@ CMD_XCOPY:
   MOVEA.L ChipMemEnd,A7
   endc
   if (xcopy*2+arhardware)=3
-  CLR.L FreezeMode
+  MOVE.L A0,tempD0
+  MOVE.L arhwreg,A0
+  MOVE.W #0,(A0)      ;clear freezemode 
+  MOVE.L tempD0,A0
   endc
   if xcopy=1
   move.l #$4e714e71,$60c.w
@@ -36404,10 +36828,16 @@ CMD_SY:
   CMP.L A2,A1
   BHS.W syWTF
 
+  if demon2=1
+  JSR PrintSerTransType
+  endc
   LEA sendingDataText,A0
   JSR PrintText
 
   MOVE.B serIO,-(A7)
+  if demon2=1
+  MOVE.B usbIO,-(A7)
+  endc
 
   MOVE.L A1,A5    ;start address
   SUB.L A1,A2
@@ -36427,19 +36857,38 @@ CMD_SY:
   CLR.B (A0)+
 
   JSR doYModemSend
+  if demon2=1
+  MOVE.B (A7)+,usbIO
+  endc
   MOVE.B (A7)+,serIO
   JSR UpdateRawIO
   JMP PrintReady
 
-sendingDataText: DC.B "Starting serial YModem transfer.",13,0
+sendingDataText: DC.B "Starting YModem send.",13,0
 
   even
 
 syWTF:
   JMP PrintWTF
 
+  if demon2=1
+PrintSerTransType:
+
+  LEA usingUSBSerialText,A0
+  TST.B defUsbSerial
+  BNE.S .printsertype
+  LEA usingInternalSerialText,A0
+  
+.printsertype
+  JSR PrintText
+  RTS
+  endc
+
 doYModemSend:
   ST.B serIO
+  if demon2=1
+  MOVE.B defUsbSerial,usbIO
+  endc
   JSR RawIOInit
 
   MOVE.W #9,D1
@@ -36562,6 +37011,7 @@ resend1:
   MOVEQ.W #9,D1
 .wait1
   JSR WaitSerCharTimeout2
+    
   CMP.B #"A",D0  ;2k block - not supported
   BEQ.W sendfail
 
@@ -36648,7 +37098,27 @@ nextblock:
 .readdone
   LEA 3(A4),A1
   LEA 1024(A1),A2
-  JSR doCrc16
+
+  MOVEQ #0,D0
+
+  LEA crc16tbl,A3
+.crc16
+  MOVE.B (A1)+,D1
+  
+  MOVE.W D0,D3
+  LSR.W #8,D3
+
+  EOR.B D1,D3
+
+  ADD.W D3,D3
+  MOVE.W (A3,D3),D3
+  LSL.W #8,D0
+  EOR.W D3,D0
+
+  CMP.L A1,A2
+  BNE.S .crc16
+
+  ;JSR doCrc16
 
   MOVE.B D0,1028(A0)  ;crc
   LSR.W #8,D0
@@ -36722,12 +37192,12 @@ continuesend2:
 allsent:
   JSR WaitSerCharTimeout2
   MOVE.L #X_EOT,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
 
   JSR WaitSerCharTimeout2
 
   MOVE.L #X_EOT,D0
-  JSR RawPutChar
+  JSR RawPutCharWithFlush
 
   JSR WaitSerCharTimeout2
 
@@ -36809,14 +37279,118 @@ sendfail:
   JSR PrintText
   RTS
 
+  if demon2=1
+CMD_USB:
+  TST.B usbPresent
+  BEQ.S .3
+
+  TST.B usbIO
+  BNE.S .0
+  TST.B serIO
+  BNE.W noserandusb
+
+.0
+  NOT.B usbIO
+  BEQ.S .1
+  
+  ST.B serIO
+  MOVE.B #" ",D0
+  JSR USBPutChar
+  TST.B usbIO
+  BEQ.S .2
+  
+  JSR UpdateSerCursor
+  LEA usbserialEnabledText(PC),A0
+  JMP PrintText
+.1
+  SF.B serIO
+  LEA usbserialDisabledText(PC),A0
+  JSR PrintText
+  RTS
+.2
+  SF.B serIO
+  SF.B usbIO
+  LEA usbserialTimeoutText(PC),A0
+  JSR PrintText
+  RTS
+.3
+  LEA noUsbDeviceText(PC),A0
+  JSR PrintText
+  RTS
+
+noUsbDeviceText: DC.B "Your hardware does not support USB serial",13,0
+usbserialTimeoutText: DC.B "USB IO timed out",13,0
+usbserialDisabledText: DC.B "USB IO disabled",13,0
+usbserialEnabledText: DC.B "USB IO enabled",13,0
+  even
+
+USBPutChar:
+  MOVEM.L A1/D1,-(A7)
+  TST.B usbIO
+  BEQ.S .nousb
+  MOVE.B  #0,ciaatodlo
+
+.trysend  
+  TST.B EscapePressed
+  BNE.S .timeout
+  CMP.B #100,ciaatodlo
+  BEQ.S .timeout
+  MOVE.B USBReg2,D1
+  BTST #0,D1
+  BNE.S .trysend      ;wait for usb ready to receive
+
+  MOVE.B D0,USBReg1
+  BRA.S .succ
+.timeout
+  SF.B serIO
+  SF.B usbIO
+.nousb
+.succ
+  MOVEM.L (A7)+,A1/D1
+  rts
+GetUSBChar1:
+  MOVEQ #-1,D0
+
+  BTST #1,USBReg2
+  BNE.S .nodata
+  MOVEQ #0,D0
+  MOVE.B USBReg1,D0
+.nodata
+  RTS
+
+GetUSBChar2:
+  MOVE.B  #0,ciaatodlo
+  MOVEQ #0,D0
+.4
+  BTST #1,USBReg2
+  BNE.S .1
+.ready
+  MOVE.B USBReg1,D0
+  rts         
+.1
+  TST.B EscapePressed
+  BNE.S .6
+  
+  CMP.B #100,ciaatodlo
+  BNE.S .4
+.6
+  moveq     #-1,D0
+  rts  
+  endc
+
 CMD_SER:
+  if demon2=1
+  TST.B usbIO
+  BNE.S noserandusb
+  endc
+  
   NOT.B serIO
   BEQ.S .1
   
   JSR RawIOInit
   MOVE.B #" ",D0
   JSR RawPutChar
-  TST.L D0
+  TST.B serIO
   BEQ.S .2
   
   JSR UpdateSerCursor
@@ -36833,6 +37407,12 @@ CMD_SER:
   JSR PrintText
   JSR UpdateRawIO
   RTS
+  if demon2=1
+noserandusb:
+  LEA noserandusbText(PC),A0
+  JSR PrintText
+  RTS
+  endc
 
 serialTimeoutText: DC.B "Serial IO timed out",13,0
 serialDisabledText: DC.B "Serial IO disabled",13,0
@@ -36840,6 +37420,9 @@ serialEnabledText: DC.B "Serial IO enabled",13,0
 sendingBlockText: DC.B "Sending block ",0
 sendFailText: DC.B 13,"Sending failed/cancelled.",13,0
 sendCompletedText: DC.B 13,"Sending completed.",13,0
+  if demon2=1
+noserandusbText: DC.B "Cant have serial and USB active at the same time",13,0
+  endc
 
   even
 CMD_RNC:
@@ -37026,7 +37609,7 @@ CMD_RNC:
 .1
   DBF D6,.retry
   JSR PrintCR
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
   JSR restoreMfmBuffer
   RTS
 
@@ -37858,18 +38441,18 @@ CMD_CODECOPY:
 LAB_A25042:
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W ccwtf
   MOVE.W  D0,D4
-  BMI.W LAB_A21070
+  BMI.W ccwtf
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.W LAB_A21070
+  BEQ.W ccwtf
   MOVE.W  D0,D5
-  BMI.W LAB_A21070
+  BMI.W ccwtf
   CMPI.W  #3,D4
-  BHI.W LAB_A21070
+  BHI.W ccwtf
   CMPI.W  #3,D5
-  BHI.W LAB_A21070
+  BHI.W ccwtf
   MOVEQ #0,D6
   MOVE.L  #$0000009f,D7
   MOVEQ #-13,D0
@@ -37890,6 +38473,7 @@ LAB_A250B2:
   ST  cursorEnabled
 dodiskres:
   JMP PrintDiskOpResult
+ccwtf: JMP LAB_A21070
 SUB_A250D0:
   CMP.W D4,D5
   BEQ.W LAB_A25168
@@ -38103,7 +38687,7 @@ LAB_A253DA:
   ST  LAB_A48391
   JSR setActivateMode
   MOVE  SR,SaveSR
-  MOVE.L  TRAP_00.W,SaveColor
+  MOVE.L  TRAP_00.W,CopyColor
   MOVE.L  TRAP_01.W,SaveTrap1
   MOVE.L  TRAP_02.W,SaveTrap2
   MOVE.L  LAB_A25426(PC),TRAP_00.W
@@ -38122,7 +38706,7 @@ LAB_A2542A:
 LAB_A2542E:
   DC.L  $60f660f4
 LAB_A25432:
-  MOVE.L  SaveColor,TRAP_00.W
+  MOVE.L  CopyColor,TRAP_00.W
   MOVE.L  SaveTrap1,TRAP_01.W
   MOVE.L  SaveTrap2,TRAP_02.W
   LEA 6(A7),A7
@@ -38285,6 +38869,8 @@ LAB_A256BA:
   JSR PrintText
   BRA.W LAB_A2547E
 CMD_BOOTCODE:
+  TST.W acaflags
+  BNE.S BBNotCompatible
   CMP.B #39,kickstartVersion
   BHS.S BBNoKS3
   JSR ReadParameter
@@ -38309,6 +38895,9 @@ LAB_A256FE:
 LAB_A25718:
   JSR PrintReady
   RTS
+BBNotCompatible:
+  LEA BBCoderNotCompat(PC),A0
+  JMP PrintText
 BBNoKS3:
   LEA BBCoderNotKS3Text(PC),A0
   JMP PrintText
@@ -38319,6 +38908,9 @@ BBCoderDisabledText:
   DC.B  "Bootblockcoder disabled",$D,0
 
 BBCoderNotKS3Text: DC.B "Bootblockcoder is not compatible with Kickstart 3.x or higher",13,0
+
+BBCoderNotCompat: DC.B "Bootblockcoder is not compatible with ACA500plus",13,0
+
   even
 CMD_BOOTPROT:
   JSR ReadParameter
@@ -38734,40 +39326,40 @@ SUB_A25BC0:
   BNE.S LAB_A25BD8
   LEA DataText(PC),A2
 LAB_A25BD8:
-  JSR SaveFileData(PC)
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A0,A5
 LAB_A25BE0:
-  MOVE.L  #$30303030,SaveColor
+  MOVE.L  #$30303030,CopyColor
   MOVEA.L A4,A0
   JSR memSafeReadByte
   ADDQ.L  #1,A0
   MOVEA.L A0,A4
   JSR ConvertToBCD
   ROR.W #8,D0
-  OR.B  D0,LAB_A4806B
+  OR.B  D0,CopyColorLo
   CLR.B D0
   ROL.W #4,D0
   OR.B  D0,LAB_A4806C
   CLR.B D0
   ROL.W #4,D0
   OR.B  D0,LAB_A4806D
-  LEA LAB_A4806B,A2
+  LEA CopyColorLo,A2
   MOVEQ #3,D0
   MOVEA.L A5,A0
-  JSR SaveFileData(PC)
+  JSR SaveFileData
   BMI.S LAB_A25C48
   LEA LAB_A25C58(PC),A2
   MOVEQ #1,D0
   SUBQ.W  #1,D4
   BEQ.S LAB_A25C3C
-  JSR SaveFileData(PC)
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A0,A5
   BRA.S LAB_A25BE0
 LAB_A25C3C:
   ADDQ.L  #1,A2
-  JSR SaveFileData(PC)
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A4,A2
   MOVEQ #0,D0
@@ -38923,8 +39515,12 @@ TestMemKS2:
   LEA $a00000,A1
   endc
 
-  if arhardware=1
+  if (arhardware+demon2)=1
   LEA SECSTRT_0,A1
+  endc
+
+  if (arhardware+demon2)=2
+  LEA $a00000,A1
   endc
 
 .proc1
@@ -38965,10 +39561,20 @@ TestMemKS2:
 .noproc
   RTS
   
-  if arhardware=1
+  if (arhardware+demon2)=2
 SUB_41BB88:
+SUB_41BD86:
+SUB_41BC8A:
+  RTS
+  endc
+  
+  if (arhardware+demon2)=1
+SUB_41BB88:
+  TST.W acaflags
+  BNE.S .2
   CMPI.B  #34,kickstartVersion
   BLS.S .1
+.2
   RTS
 
 .1  
@@ -39093,8 +39699,11 @@ LAB_41BC78:
   RTS
 
 SUB_41BC8A:
+  TST.W acaflags
+  BNE.S .2
   CMPI.B  #34,kickstartVersion
   BLS.S .1
+.2
   RTS
 .1
   LEA LAB_A483AA,A0
@@ -39151,7 +39760,16 @@ LAB_41BD7A:
   MOVE.B  #$ff,$4C(A0)
   DBF D1,LAB_41BCB6
   RTS
+
 SUB_41BD86:
+  TST.W acaflags
+  BNE.S .2
+  CMPI.B  #34,kickstartVersion
+  BLS.S .1
+.2
+  RTS
+
+.1  
   LEA EXT_E80000,A0
   MOVEQ #$14,D1
   TST.B AutoConfigPrefsFlag
@@ -39938,6 +40556,10 @@ SerPrint:
   rts       
 
 RawIOInit:
+  if demon2=1
+  TST.B usbIO
+  BNE.W .noupdate
+  endc
   MOVE.W #$8800,intena+hardware   ;enable serial interrupt
   
   MOVE.L #serDataBuff,serDataReadPtr
@@ -39977,9 +40599,14 @@ RawIOInit:
   SUBQ.W #1,D2
   
   MOVE.W D2,$00dff032       ; Set up the SERPER register.
+.noupdate
   rts
 
 UpdateRawIO:
+  if demon2=1
+  TST.B usbIO
+  BNE.S .disable
+  endc
   TST.B serIO
   BEQ.S .disable
   
@@ -39988,12 +40615,18 @@ UpdateRawIO:
   
 .disable
   MOVE.W #$800,intena+hardware   ;disable serial interrupt
+.noupdate
   RTS
 
 
 RawMayGetChar:
   TST.B serIO
   BEQ.S .1
+  if demon2=1
+  TST.B usbIO
+  BNE.W GetUSBChar1
+  endc
+
   TST.W serBufUsed
   BEQ.S .1
   MOVE.L A0,-(A7)
@@ -40017,30 +40650,21 @@ RawMayGetChar:
   moveq     #-1,D0
   rts         
 
-WaitSerChar:
-  bsr.s     RawMayGetChar
-  tst.l     D0                    ;Did we get a character?
-  bmi.s     WaitSerChar              ;Continue waiting if not.
-  rts                             ;Return the character.
-
-;WaitSerCharTimeout:
-;  MOVE.B  #0,ciaatodlo
-;.2
-;  bsr.s RawMayGetChar
-;  tst.l D0
-;  bpl.s .1
-;  CMP.B #100,ciaatodlo
-;  BNE.S .2
-;  SF.B serIO
-;  JSR UpdateRawIO
-;  LEA serRecvTimeoutText(PC),A0
-;  JSR PrintText 
-;.1:
-;  rts
+;WaitSerChar:
+;  bsr.s     RawMayGetChar
+;  tst.l     D0                    ;Did we get a character?
+;  bmi.s     WaitSerChar              ;Continue waiting if not.
+;  rts                             ;Return the character.
 
 WaitSerCharTimeout2:
   TST.B serIO
   BEQ.S .5
+
+  if demon2=1
+  TST.B usbIO
+  BNE.W GetUSBChar2
+  endc
+
   MOVE.B  #0,ciaatodlo
   MOVE.L A0,-(A7)
 .4
@@ -40081,17 +40705,83 @@ SendBlock:
   BEQ.S .end  
   SUBQ.W #1,D0
   MOVE.W D0,D2
+  if demon2=1
+  TST.B usbIO
+  BNE.S .usbsend
+  endc
 .sendchars
   MOVE.B (A0)+,D0
   JSR RawPutChar
   DBF D2,.sendchars
-.end 
+.end
   MOVEM.L (A7)+,D0-D2/A0
   RTS
-RawPutChar:
-  MOVE.L D1,-(A7)
+
+  if demon2=1
+.usbsend
+  MOVEM.L A1-A3/D3-D4,-(A7)
+
+  LEA USBReg1,A2
+  LEA USBReg2,A1
+  LEA ciaatodlo,A3
+  ;LEA EscapePressed,A4
+  MOVEQ #100,D3
+  MOVEQ #0,D4 
+ 
+  TST.B EscapePressed    ;Escape pressed
+  BNE.S .timeout
+
+.nextchar
+  MOVE.B  D4,(A3)   ;reset timer
+.trysend  
+  ;TST.B (A4)    ;Escape pressed
+  ;BNE.S .timeout
+  CMP.B (A3),D3
+  BEQ.S .timeout
+
+  BTST D4,(A1)
+  BNE.S .trysend      ;wait for usb ready to receive
+
+  MOVE.B (A0)+,(A2)
+  DBF D2,.nextchar
+  MOVE.B D2,(A1)    ;flush
+  MOVEM.L (A7)+,A1-A3/D3-D4
+  MOVEM.L (A7)+,D0-D2/A0
+  RTS
+
+.timeout
+  SF.B serIO
+  SF.B usbIO
+  MOVEM.L (A7)+,A1-A3/D3-D4
+  MOVEM.L (A7)+,D0-D2/A0
+  RTS
+  endc
+
+RawPutCharWithFlush:
+  if demon2=1
+  TST.B usbIO
+  BEQ.S RawPutChar
+
   TST.B serIO
   BEQ.S .noser
+
+  BSR.W USBPutChar
+  
+  MOVE.B D0,USBReg2 ;usb force flush
+.noser
+  RTS
+  endc
+
+RawPutChar:
+  TST.B serIO
+  BEQ.S .noser
+
+  if demon2=1
+  TST.B usbIO
+  BNE USBPutChar
+  endc
+
+  MOVE.L D1,-(A7)
   MOVE.B  #0,ciaatodlo
 
 .trysend  
@@ -40109,13 +40799,13 @@ RawPutChar:
   and.w     #$FF,D0               ;Mask out all but bits 0-7.
   or.w      #$0100,D0             ;Set the stop bit.
   move.w    D0,$DFF030             ;Write to SERDAT.
-  MOVEQ #-1,D0
-  BRA.S .succ
-.noser
-.timeout
-  MOVEQ #0,D0
-.succ
   MOVE.L (A7)+,D1
+  rts
+.timeout
+  SF.B serIO
+  JSR UpdateRawIO
+  MOVE.L (A7)+,D1
+.noser
   rts
 serRecvTimeoutText: DC.B "timeout while receiving. Serial disabled.",13,0
   even
@@ -41025,8 +41715,11 @@ SUB_A27084:
   MOVE.W  #$8100,dmacon+hardware
   RTS
 CMD_SAFEDISK:
+  TST.W acaflags
+  BNE.S .1
   CMPI.B  #34,kickstartVersion
   BLS.S LAB_A270AE
+.1
   LEA WrongTDiskText(PC),A0
   JSR PrintText
   JMP PrintReady
@@ -41282,7 +41975,7 @@ UpdatesTksText:
 
 SUB_A27542:
   MOVE.L  D0,-(A7)
-  LEA IntuitionLibName(PC),A1
+  LEA IntuitionLibName,A1
   LEA $17A(A6),A0
   JSR LAB_A27934
   LEA NoIntuitionText(PC),A0
@@ -41560,7 +42253,7 @@ LAB_A27906:
   LEA $114(A6),A0
   MOVEA.L (A0),A0
 LAB_A2790C:
-  LEA TrackDiskName(PC),A1
+  LEA TrackDiskName,A1
   MOVEM.L D6-D7/A2,-(A7)
   JSR LAB_A27934
   MOVEM.L (A7)+,D6-D7/A2
@@ -42271,9 +42964,10 @@ LAB_A2813E:
   MOVE.W  #$00ec,D4
   LEA EXT_130.W,A2
   if arhardware=1
-  MOVE.L  #$4a3900bf,(A2)+
-  MOVE.L  #$e0014e71,(A2)+
-  MOVE.W  #$4e71,(A2)+
+  MOVE.W  #$4a39,(A2)+
+  MOVE.L  arBfe001Trigger,(A2)+
+  ;MOVE.L  #$bfe001,(A2)+
+  MOVE.L  #$4e714e71,(A2)+
   else
   MOVE.L  #$00000046,TRAP_15.W
   LEA EXT_46.W,a0
@@ -44413,6 +45107,8 @@ LAB_A29E16:
   RTS
 SUB_A29E2E:
   MOVEM.L A0/A2-A3/A6,-(A7)
+  TST.W acaflags
+  BNE.S LAB_A29E50
   CMPI.B  #34,kickstartVersion
   BLS.S LAB_A29E42
   LEA KickVerText(PC),A1
@@ -44785,8 +45481,10 @@ CMD_SETAPI:
   LEA EXT_100.W,A0
 
   if arhardware=1
-  MOVE.L  #$4a3900bf,(A0)+
-  MOVE.L  #$e0014e73,(A0)+
+  MOVE.W  #$4a39,(A0)+
+  MOVE.L  arBfe001Trigger,(A0)+
+  ;MOVE.L  #$bfe001,(A0)+
+  MOVE.W  #$4e73,(A0)+
   else
   MOVE.L  #$4e4e4e73,(A0)+
   MOVE.W  #$4e71,(A0)+
@@ -45327,7 +46025,7 @@ LAB_A2A20C:
   JSR SUB_A236E2
   BMI.W LAB_A2A31C
   MOVE.W  D2,D0
-  LEA SaveColor,A2
+  LEA CopyColor,A2
   MOVEA.L A1,A3
   MOVE.B  D2,(A2)+
   SUBQ.W  #1,D2
@@ -45361,7 +46059,7 @@ redo:
   BMI.S LAB_A2A2CE
   LEA stringWorkspace,A2
   LEA 0(A2,D6.W),A2
-  LEA SaveColor,A3
+  LEA CopyColor,A3
   MOVEQ #0,D3
   MOVE.B  (A3)+,D3
   ADD.W D3,D6
@@ -45629,9 +46327,17 @@ HelpText:
   DC.B  "        sy: Send memory via serial (ymodem)      - sy start end",$D
   DC.B  "       sfy: Send file via serial (ymodem)        - sfy (path)name",$D
   DC.B  "        ry: Receive memory via serial (ymodem)   - ry address",$D
+  DC.B  "       ryg: Receive memory via serial (ymodem-g) - ryg address",$D
   DC.B  "       rfy: Receive files via serial (ymodem)    - rfy (path)",$D
+  DC.B  "      rfyg: Receive files via serial (ymodem-g)  - rfyg (path)",$D
   DC.B  "  serspeed: Set serial speed                     - serspeed (baud)",$D
+  if demon2=1
+  DC.B  "   sertype: Switch between usb/serial port xfers - sertype",$D
+  endc
   DC.B  "       ser: Enable/Disable serial console        - ser",$D
+  if demon2=1
+  DC.B  "       usb: Enable/Disable usb console           - usb",$D
+  endc
   DC.B  "     crc16: Calculate a crc16 checksum           - crc16 start end",$D
   DC.B  "     crc32: Calculate a crc32 checksum           - crc32 start end",$D
   DC.B  "     axfer: Setup system for AmigaXfer           - axfer",$D
@@ -46408,8 +47114,10 @@ ActivateTrace:
   lea EXT_150.W,a0
 
   if arhardware=1
-  move.l #$4a3900bf,(a0)+
-  move.l #$e00160f8,(a0)+
+  move.w #$4a39,(a0)+
+  MOVE.L  arBfe001Trigger,(A0)+
+  ;move.l #$bfe001,(a0)+
+  move.w #$60f8,(a0)+
   endc
 
   if arhardware=0
@@ -49842,7 +50550,8 @@ LAB_42C750:
   MOVEA.L ChipMemEnd,A7
   endc
   if ((xcopy*2)+arhardware)=1
-  CLR.L FreezeMode
+  MOVE.L arhwreg,A0
+  MOVE.W #0,(A0)      ;clear freezemode
   endc
   if xcopy=0
   JMP BURST_NIB_DEST
@@ -51906,11 +52615,22 @@ OldVbr:
   DS.L  1
   endc
   if rsnoop=1
-  ds.b SECSTRT_0+$40000-*-4
+  ds.b SECSTRT_0+$40000-*-4-16
   else
   cnop 0,4
   endc
+exit_rte:
+  JMP actual_rte
+  if arhardware=1
+arhwreg:
+  dc.l FreezeState
+  endc
+acaflags:
+  dc.w 0          ;flags, currently 0 or nonzero
+                  ;(to disable certain nasty functions and change bfe001 to d8e001)
+  dc.l "AR51"     ;signature to help find this structure
 ENDCRC
+
 checksum:
   ;DC.L $1905c6ed ;v0.1
   ;DC.L $507aad91 ; v0.2
@@ -51928,7 +52648,8 @@ checksum:
   ;DC.L $275fa408 ; v0.8.0
   ;DC.L $9178fa9e ; v0.9.0
   ;      !
-  DC.L $592ff7f0 ; v5.0.0
+  ;DC.L $592ff7f0 ; v5.0.0
+  DC.L $0d5636a0
 
 arramstart:
 ;all of this is used to store chipmem data
@@ -52099,9 +52820,9 @@ LAB_A48A0C:
   DS.L  $23
   endc
 
-SaveColor:
+CopyColor:
   DS.B  1
-LAB_A4806B:
+CopyColorLo:
   DS.B  1
 LAB_A4806C:
   DS.B  1
@@ -52773,9 +53494,17 @@ ks2memTested:
   DS.B 1
 serIO:
   DS.B 1
+  if demon2=1
+usbIO:
+  DS.B 1
+defUsbSerial:
+  DS.B 1
+usbPresent:
+  DS.B 1
+  endc
 palMode:
   DS.B 1
-bootScreen
+bootScreen:
   DS.B 1
   even
 newRamdiskAddr:
@@ -52817,6 +53546,8 @@ serDataBuff:
 serBuffEnd:
 serBuffOverrun
   DS.B 1
+DiwHighSet:
+  DS.b 1
   even
 serDataReadPtr:
   DS.L 1
@@ -52824,7 +53555,9 @@ serDataWritePtr:
   DS.L 1
 serBufUsed:
   DS.W 1
-
+arBfe001Trigger:
+  DS.L 1
+  
   if arsoft=1
   even
 AllocedMem
