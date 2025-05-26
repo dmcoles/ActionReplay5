@@ -459,6 +459,9 @@ Action Replay 5 Complete Command List
   RFY (Receive files via serial ymodem)
     RFY (path)
 
+  RFYG (Receive files via serial ymodem-g)
+    RFYG (path)
+
   RM (Show MMU registers)
     RM
 
@@ -492,6 +495,9 @@ Action Replay 5 Complete Command List
   RY (Receive files to memory via serial ymodem)
     RY <start-addr>
 
+  RYG (Receive files to memory via serial ymodem-g)
+    RYG <start-addr>
+
   SA (Save current program to disk)
     SA (<path>)<name>,<crate>)
 
@@ -516,11 +522,14 @@ Action Replay 5 Complete Command List
   SERSPEED (Set serial baud rate)
     SERSPEED (<baud>)
 
+  SERTYPE (Switch between usb/serial port xfers)
+    SERTYPE
+
   SETAPI (Set api handler)
     SETAPI
 
-  SETEXCEPT (Set exception handler)
-    SETEXCEPT
+  SETTYPE (Set exception handler)
+    SETTYPE
 
   SETMAP (Keymap editor)
     SETMAP
@@ -647,6 +656,9 @@ Action Replay 5 Complete Command List
 
   UNPACK (Unpack packed mem)
     UNPACK <dest-addr> <end-of-packed-addr>
+    
+  USB (Enable/Disable usb console)
+    USB
 
   V (Alias for COMP)
     V <start-addr> <end-addr> <dest-addr>

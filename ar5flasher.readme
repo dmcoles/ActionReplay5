@@ -1,6 +1,6 @@
                          
 						 
-                Action Replay 5 Standalone Flasher Utility V1.0
+                Action Replay 5 Standalone Flasher Utility V1.1
                 -----------------------------------------------
 						 
 This utility is for flashing the DeMoN cartridge. It relies on the presence of
@@ -78,3 +78,10 @@ to indicate where the issue lies.
 If the device is functioning correctly this process should allow a reflash of
 the firmware and recovery from a brick where there firmware has become
 corrupted.
+
+
+Change History
+
+V1.0 - Initial release version
+
+V1.1 - Updated to support new DeMoN hardware (26-May-2025)
