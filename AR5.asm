@@ -2557,7 +2557,7 @@ KeyboardIntInstall:
   MOVEA.L (A7)+,A0
   RTS
 SerialInt:
-  MOVEM.L D0/A0/A1,-(A7)
+  MOVEM.L D0/A0,-(A7)
   MOVE.W intreqr+hardware,D0
   BTST  #11,D0
   BEQ.W .notserint
@@ -2592,7 +2592,7 @@ SerialInt:
   MOVE.W #$800,intreq+hardware
   MOVE.W #$800,intreq+hardware
 .notserint
-  MOVEM.L (A7)+,D0/A0/A1
+  MOVEM.L (A7)+,D0/A0
   RTE
 
 KeyboardInt:
@@ -3059,7 +3059,6 @@ LAB_A11486:
 
 CheckPalMode
   MOVE.L D0,tempD0
-  MOVE.L D1,tempD1
   SF.B fullPal
   SF.B palMode
 
@@ -3094,7 +3093,6 @@ CheckPalMode
   MOVE.W D1,intena+hardware
 
   MOVE.L tempD0,D0
-  MOVE.L tempD1,D1
 
   RTS
 
@@ -10236,7 +10234,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (26-May-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (27-May-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -14652,6 +14650,7 @@ LAB_407C98:
 LAB_407CF6:
   CLR.L (A0)+
   DBF D0,LAB_407CF6
+  MOVE.W D1,RegSnoop+dmacon
   MOVEM.L (A7)+,D0-D7/A0-A6
   MOVE.L (A7)+,tempD0
   MOVE.L (A7)+,tempD1
@@ -15080,6 +15079,7 @@ LAB_A17DDE:
   JMP AREntry2
 
 FirstInit:
+
   CLR.W arramstart
   CLR.W arramstart+16384
 
@@ -15139,9 +15139,9 @@ FirstInit:
 
   if (arhardware=1)
   
-  ;relies on CheckPalMode having saved D1 to tempD1
+  ;relies on having saved D1 to tempD1 at the start of this routine
   ;kickstart sets DMACON to $7FFF very early on
-  CMP.W #$7fff,tempD1+2
+  CMP.W #$7fff,RegSnoop+dmacon
   BEQ.S .old
 
   endc
@@ -36566,13 +36566,14 @@ GetBlock:
   
   MOVE.L A2,A0
   EXG A0,A1
-  SUB.W #1,D1
+  MOVE.W D1,D2
+  SUB.W #1,D2
   
 .copydata
   MOVE.B (A1)+,D0
   JSR memSafeUpdateByte
   ADDQ.L #1,A0
-  DBF D1,.copydata
+  DBF D2,.copydata
 
 .skipcopy
   MOVE.W #0,errcode
@@ -53891,5 +53892,25 @@ StackStart:
   ds.b arramstart+$10000-*
 StackEnd:
 dataend:
+
+  if arsoft=0
+fixArChecksum:
+  LEA fixArChecksum(PC),A0
+  MOVE.L A0,A1
+  ADD.L #STARTCRC-SECSTRT_0,A0
+  SUB.L #$50000,A0
+  SUB.L #$10004,A1
+  MOVEQ #0,D0
+  MOVEQ #0,D2
+fixloop:
+  ADD.L (A0)+,D0
+  CMP.L A1,A0
+  BNE.S fixloop
+  MOVE.L  D0,(A1)+
+  MOVE.L A1,A0
+  SUBQ.L #1,A1
+  SUB.L #$40000,A0
+  RTS
+  endc
 
   END
