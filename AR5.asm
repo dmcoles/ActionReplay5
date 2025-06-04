@@ -5,7 +5,7 @@ arhardware=1
 arsoft=0
 
 
-demon2=1
+demon2=0
 xcopy=1
 
 ;$1000-$4e80 (NTSC) $1000-$6000(PAL)  screen memory (copied to ChipramSave1)
@@ -1926,11 +1926,12 @@ LAB_A10240:
 actual_rte:
   if pistorm=1
   ;clear running flag
+  MOVE.W D0,tempD0
   dc.w $4e7a,$01e0  ;movec #$1e0,d0
   and.w #$dfff,d0
   dc.w $4e7b,$01e0  ;movec d0,#$1e0
+  MOVE.W tempD0,D0
   endc
-
   RTE
 
 RomEntry:
@@ -2086,6 +2087,8 @@ AREntry2:
   MOVE.L  D0,tempD0
   JSR getCACR
   MOVE.L  D0,SAVE_CACR
+
+
   MOVEQ #0,D0
 
   SF.B tempD1
@@ -2265,6 +2268,25 @@ LAB_A10BF4:
   MOVE.B  SAVE_CIABPRB,ciabprb
   TST.B ciabicr
   TST.B ciaaicr
+
+  ;clear caches according to cpu type
+  CMP.B #1,cpuType    ;68000 or 68010
+  BLE.S .cachedone
+
+  CMP.B #4,cpuType  ;68040 or 68060
+  BGE.S .docpusha
+
+  opt p=68020
+  movec cacr,d0   ;68020 or 68030
+  or.w #$808,d0
+  movec d0,cacr
+  BRA.S .cachedone
+.docpusha
+  opt p=68040
+  cpusha bc     ;68040 or 68060
+  opt p=68000
+
+.cachedone
   MOVE.L  tempD0,D0
   MOVE.L  tempD1,D1
   MOVE.W  #$0300,dmacon+hardware
@@ -2280,6 +2302,9 @@ LAB_A10BF4:
   MOVE.W  #$7fff,intreq+hardware
   MOVE.W  SaveIntreq,intreq+hardware 
   SF.B apiCall
+
+  
+  
   if arsoft=1
   TST.L ArReturnAddr
   BEQ.S .noret
@@ -2324,7 +2349,7 @@ vbrtrap2:
 getCACR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
-  MOVEQ #0,D0
+  MOVEQ #-1,D0
   OPT p=68040
   MOVEC CACR,D0
   OPT p=68000
@@ -7761,6 +7786,16 @@ CMD_INFO:
   MOVE.W  D0,LAB_A480AC
 LAB_A12BCC:
   BSR.W SUB_A166C8
+  LEA CpuHeaderText(PC),A0
+  BSR.W PrintText
+  LEA CpuChars(PC),A0
+  MOVEQ #0,D0
+  MOVE.B cpuType,D0
+  MOVE.B (A0,D0.W),D0
+  JSR PrintChar
+  MOVE.B #"0",D0
+  JSR PrintChar
+  
   LEA ChipsetHeaderText(PC),A0
   BSR.W PrintText
   BTST.B #2,ChipsetIdValue
@@ -7985,6 +8020,12 @@ LAB_A12D9C:
   DBF D3,LAB_A12D9C
   JSR PrintReady
   RTS
+
+CpuHeaderText
+  DC.B  "CPU: MC680",0
+
+CpuChars
+  DC.B "012346"
 
 ChipsetHeaderText
   DC.B  "CHIPSET: ",0
@@ -10234,7 +10275,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (27-May-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (02-Jun-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -14781,7 +14822,7 @@ LAB_407EE0:
   CMP.W memoryControlPrefsValue,D0
   BEQ.W LAB_407FE6
 LAB_407FE0:
-  SF  sqInRamdisk
+  SF.B  sqInRamdisk
 LAB_407FE6:
   MOVE.L  EXT_0.W,-(A7)
   CLR.L EXT_0.W
@@ -14961,6 +15002,7 @@ ARInit:
   SF  sqMemOverrideFlag
   ST  BurstNibblerFastStartPrefsFlag
   ST  DisableVposWrite
+  
   CLR.L trackStartSkip
   MOVE.L #-1,trackMaxByteCount
   TST.W acaflags
@@ -14987,7 +15029,7 @@ LAB_A17D26:
   ST  keymap
   ST  insertmode
   endc
-  SF  sqInRamdisk
+  SF.B  sqInRamdisk
   CLR.W P1AutoFirePrefsSetting
   CLR.W P2AutoFirePrefsSetting
   SF  MegaStickPrefsFlag
@@ -15109,6 +15151,45 @@ FirstInit:
   MOVE.L #ChipRamSave2-1024,AgaPaletteCopy
 .1:
   CLR.W arramstart
+
+  MOVEQ #0,D7
+  JSR getVBR
+  TST.W vbrflag
+  BEQ.S .notcpu
+  MOVEQ #1,D7
+  MOVE.W #%101000001001,D0
+  JSR setCACR
+  JSR getCACR
+  CMP.L #-1,D0
+  BEQ.S 	.notcpu
+  MOVEQ #2,D7
+
+	btst.l #9,d0
+	beq.s .not030
+
+  MOVEQ #3,D7
+
+.not030
+	btst.l #0,d0
+	bne.s .notcpu
+
+  MOVEQ #4,D7
+
+  MOVE.L A7,A1
+  MOVE.L $10.W,D2
+  MOVE.L #.restexc,$10.W
+  
+  opt p=68060
+  MOVEC PCR,D1
+  MOVEQ #5,D7
+  opt p=68000
+
+.restexc
+  MOVE.L D2,$10.W
+  MOVE.L A1,A7
+
+.notcpu
+  MOVE.B D7,cpuType
 
   MOVE.L #RegSnoop,RegSnoopAddr
 
@@ -22895,7 +22976,7 @@ LAB_A1D4F0:
   BSR.W SwapChipRam1
   MOVE.W  #$c000,$9A(A5)
   MOVE.W  #$8200,$96(A5)
-  ST  sqInRamdisk
+  ST.B  sqInRamdisk
   BSR.W PrintReady
 LAB_A1D510:
   MOVEM.L (A7)+,D0-D7/A0-A6
@@ -39504,7 +39585,11 @@ LAB_A25E06:
 
 TestMemKS2:
  
+  if pistorm=1
+  LEA $8000000,A0
+  else
   LEA $200000,A0
+  endc
   MOVE.L A0,A2
   if arsoft=1
   LEA $a00000,A1
@@ -39848,7 +39933,12 @@ LAB_41BDEC:
 
   endc
 
-  if arhardware=0
+  if pistorm=1
+SUB_41BB88:
+  RTS
+  endc
+
+  if arhardware+pistorm=0
 
 SUB_41BB88:
   LEA LAB_A483AA,A0
@@ -52625,6 +52715,8 @@ exit_rte:
   if arhardware=1
 arhwreg:
   dc.l FreezeState
+  else
+  dc.l 0
   endc
 acaflags:
   dc.w 0          ;flags, currently 0 or nonzero
@@ -52734,11 +52826,6 @@ TextPage1:
   DS.L  80*25/4
 TextPage2:
   DS.L  80*25/4
-robdmode:
-  DS.B  1
-decryptins:
-  DS.B  1
-  even
 cpuAddrSize:
   DS.W  1
 vbrflag
@@ -52763,6 +52850,14 @@ debuggerFocus:
 ChipsetIdValue:
   DS.B  1
 serFileTransfer
+  DS.B  1
+cpuType:
+  DS.B  1
+robdmode:
+  DS.B  1
+decryptins:
+  DS.B  1
+sqInRamdisk:
   DS.B  1
   even
 dbgMemBase:
@@ -53007,8 +53102,6 @@ memPeekerDdfMode:
   DS.W  1
 saveSp:
   DS.L  1
-sqInRamdisk:
-  DS.W  1
 insertmode:
   DS.B  1
 LAB_A48205:
