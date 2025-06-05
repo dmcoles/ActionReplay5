@@ -1931,7 +1931,7 @@ actual_rte:
   and.w #$dfff,d0
   dc.w $4e7b,$01e0  ;movec d0,#$1e0
   MOVE.W tempD0,D0
-  endc
+  endc 
   RTE
 
 RomEntry:
@@ -8028,7 +8028,7 @@ CpuChars
   DC.B "012346"
 
 ChipsetHeaderText
-  DC.B  "CHIPSET: ",0
+  DC.B  " CHIPSET: ",0
 
 agaText
   DC.B  "AGA",$D,0
@@ -10302,27 +10302,52 @@ DangerText:
   DC.B  "++++++++++++++",0
 
 AboutArText:
-  DC.B  $D,$D
-  DC.B  "         _____    /|      ___  ________________________________ _____",$D
-  DC.B  "        /     \  / |___  /   \ \  __   \_____  ___  _____/\    V    /",$D
-  DC.B  "       /   i   \/  |   |/  :  \|\/  !   \Z!/   | /\/  __)  \   !   /",$D
-  DC.B  "      /    |/\  \  |   |       \       _/ /    |/       \_  >     <",$D
-  DC.B  "      \    \_ \ /  !   |   i    \   \   \/     |\        / /   i   \",$D
-  DC.B  "       \______ /______ |___| ___/___|\   /____ | \_____ / /    |____\",$D
-  DC.B  "=============\/=======\|===|/=========\_/=====\|======\/==\____|=============",$D
-  DC.B  $D
-  DC.B  "                        here we are. born to be kings.",$D
-  DC.B  "                      we're the princes of the universe.",$D
-  DC.B  "                    here we belong. fighting for survival.",$D
-  DC.B  "                      we got to be the rulers of you all",$D
-  DC.B  "                   we are immortal. we have inside us blood",$D
-  DC.B  "                                   of kings",$D
-  DC.B  "                   we have no rival no one can be our equal",$D
-  DC.B  "                        bring us the future of you all",$D
-  DC.B  $D
-  DC.B  "                                always remember",$D
-  DC.B  "                       there can be only one - quartex!",$D
-  DC.B  $D,0
+  DC.B  "                            __",13
+  DC.B  "   <<- ---------------------|///",13
+  DC.B  "                           /",13
+  DC.B  "               _______    /                   .____.         ___     _______",13
+  DC.B  " ______________|      |__/____________________|    |  _______\  \   /      /",13
+  DC.B  "_\        __\  |      |___.       ___\_      _|    |__\ ____/ \  \ /      /",13
+  DC.B  "|   |     /    |      |/  _       \   /      \_    _/ ___/----_\  \__  __/",13
+  DC.B  "|__ | _   \    |      |___|       |   \      (|_   |___ |\          /  \",13
+  DC.B  "  )____\   \__ |     _|   |_______|____\______|/   |  )____________/    \__",13
+  DC.B  "       /___/ )_______(                  \     |____|              |  st!  /",13
+  DC.B  "       |                                 \                        |______/",13
+  DC.B  "=-= THERE CAN BE ONLY 1/ONE! =-----------=\__                     ",13
+  DC.B  "       |                                 ||//-------------------/----- ->>",13
+  DC.B  "       |               Here we are. Born to be Kings.          /",13
+  DC.B  "       |            We're the Princes of the universe.        /||",13
+  DC.B  "       |           Here we belong. Fighting for survival.      ||",13
+  DC.B  "       |             We got to be the rulers of you all!.      ||",13
+  DC.B  "       |          We are immortal. We have inside us blood     ||",13
+  DC.B  "       |                         of kings                      ||",13
+  DC.B  "       |          We have no rival, no one can be our equal.   ||",13
+  DC.B  "       |               Bring us the future of you all          ||",13
+  DC.B  "       |                     and always remember               ||",13
+  DC.B  "       |               There can be only one - QUARTEX!        ||",13
+  DC.B  "       +---------- ----- - -----                       '2025   ||",13,0
+
+  ;DC.B  $D,$D
+  ;DC.B  "         _____    /|      ___  ________________________________ _____",$D
+  ;DC.B  "        /     \  / |___  /   \ \  __   \_____  ___  _____/\    V    /",$D
+  ;DC.B  "       /   i   \/  |   |/  :  \|\/  !   \Z!/   | /\/  __)  \   !   /",$D
+  ;DC.B  "      /    |/\  \  |   |       \       _/ /    |/       \_  >     <",$D
+  ;DC.B  "      \    \_ \ /  !   |   i    \   \   \/     |\        / /   i   \",$D
+  ;DC.B  "       \______ /______ |___| ___/___|\   /____ | \_____ / /    |____\",$D
+  ;DC.B  "=============\/=======\|===|/=========\_/=====\|======\/==\____|=============",$D
+  ;DC.B  $D
+  ;DC.B  "                        here we are. born to be kings.",$D
+  ;DC.B  "                      we're the princes of the universe.",$D
+  ;DC.B  "                    here we belong. fighting for survival.",$D
+  ;DC.B  "                      we got to be the rulers of you all",$D
+  ;DC.B  "                   we are immortal. we have inside us blood",$D
+  ;DC.B  "                                   of kings",$D
+  ;DC.B  "                   we have no rival no one can be our equal",$D
+  ;DC.B  "                        bring us the future of you all",$D
+  ;DC.B  $D
+  ;DC.B  "                                always remember",$D
+  ;DC.B  "                       there can be only one - quartex!",$D
+  ;DC.B  $D,0
   even
 
 memSafeReadByte:
@@ -15001,7 +15026,7 @@ ARInit:
   CLR.B currDriveNo
   SF  sqMemOverrideFlag
   ST  BurstNibblerFastStartPrefsFlag
-  ST  DisableVposWrite
+  ST  DisableVposWrite 
   
   CLR.L trackStartSkip
   MOVE.L #-1,trackMaxByteCount
