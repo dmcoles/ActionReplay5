@@ -8228,22 +8228,25 @@ CMD_G:
   BRA.W CMD_X
 CMD_AVAIL:
   JSR PrintAvailMem
-  BRA.W PrintReady
+  BRA.S prReady
 CMD_DEVICES:
   JSR PrintDevices
-  BRA.W PrintReady
+  BRA.S prReady
 CMD_LIBRARIES:
   JSR PrintLibraries
-  BRA.W PrintReady
+  BRA.S prReady
 CMD_PORTS:
   JSR PrintPorts
-  BRA.W PrintReady
+  BRA.S prReady
 CMD_RESOURCES:
   JSR PrintResources
-  BRA.W PrintReady
+  BRA.S prReady
 CMD_O:
   BSR.W MemFill
-  BRA.W PrintReady
+  ;BRA.S prReady
+
+prReady:
+  JMP PrintReady
 
 CMD_RC:
   JSR getVBR
