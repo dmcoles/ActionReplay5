@@ -8191,7 +8191,7 @@ CMD_N:
 n2:
   BSR.W ReadParameter
   TST.B ParamFound
-  BEQ.W PrintWTF
+  BEQ.S wtf
   MOVEA.L D0,A0
   BRA.W ShowMemAsAscii
 CMD_DOT:
@@ -8200,9 +8200,11 @@ CMD_DOT:
   BEQ.W arCommandLoop
   MOVEA.L D0,A1
   JSR SUB_A258C0
-  BMI.W PrintWTF
+  BMI.S wtf
   LEA $40(A1),A0
   BRA.W ShowMemAsAscii
+wtf:
+  JMP PrintWTF
 
 CMD_W:
   JMP EditCiaData
@@ -10275,7 +10277,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (02-Jun-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (10-Jun-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -16242,7 +16244,9 @@ LAB_A1845A:
 LAB_A18468:
   CMPA.L  A1,A2
   BEQ.S LAB_A18480
-  MOVEA.L (A1)+,A0
+  MOVE.L (A1)+,D0
+  BCLR  #$1F,D0
+  MOVE.L D0,A0
   BSR.W memSafeReadByte
   CMP.B trainerSearchVal,D0
   BEQ.S LAB_A18468
