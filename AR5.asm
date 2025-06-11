@@ -2740,7 +2740,7 @@ PrintCursor:
   ADD.W cursorX,D0
   ADDI.W  #$0230,D0
   LEA 0(A0,D0.W),A1
-  ADDQ.W  #8,LAB_A481E8
+  ADD.W  #1310,LAB_A481E8  ;was 8
   BPL.S LAB_A110C8
   CMPI.B  #$ff,(A1)
   BNE.S LAB_A110D6
@@ -3881,6 +3881,7 @@ LAB_A119D0:
   MOVE.W  (A7)+,D0
   RTE
 GetMappedKeyCode:
+  STOP #$2000
   MOVEM.L D1/A0,-(A7)
   TST.B serIO
   BEQ.S .noser
@@ -4194,7 +4195,7 @@ fontData:
   DC.L  $788078cc,$78047800,$7f414141,$41417f00
   DC.L  $03030303,$337f3000,$48241209,$12244800
   DC.L  $1c363078,$30307e00
-PrintInputChar:
+ReadInputLine:
   MOVE.L  D0,-(A7)
 LAB_A120BC:
   BSR.W GetMappedKeyCode
@@ -4256,7 +4257,7 @@ arCommandLoop:
 .2
   TST.B restartFlag
   BNE.W LAB_A12108
-  BSR.W PrintInputChar
+  BSR.W ReadInputLine
 LAB_A12160:
   ST  flashLedOnKey
   JSR readCmdCharSkipSpaces
@@ -13763,7 +13764,7 @@ AskYN:
   JSR PrintSpace
   MOVE.W  #$0082,D0
   BSR.W PrintChar
-  JSR PrintInputChar
+  JSR ReadInputLine
   MOVEQ #0,D0
   BSR.S readCmdChar
   MOVE.W  D0,D1
@@ -19121,7 +19122,7 @@ LAB_A1A64A:
   ADDQ.W  #1,D3
   DBF D2,LAB_A1A64A
   BSR.W PrintCrIfNotBlankLine
-  JSR PrintInputChar
+  JSR ReadInputLine
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
@@ -19130,7 +19131,7 @@ LAB_A1A64A:
   BEQ.W ShowRemarks
   LEA CounterLengthText(PC),A0
   JSR PrintText
-  JSR PrintInputChar
+  JSR ReadInputLine
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
@@ -19138,14 +19139,14 @@ LAB_A1A64A:
   ADDQ.W  #4,A4
   LEA MaxCountText(PC),A0
   JSR PrintText
-  JSR PrintInputChar
+  JSR ReadInputLine
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
   MOVE.L  D0,(A4)+
   LEA PlayerText(PC),A0
   JSR PrintText
-  JSR PrintInputChar
+  JSR ReadInputLine
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
@@ -26891,7 +26892,7 @@ SUB_412F72:
   BSR.W SUB_4139C4
   LEA LAB_41307D(PC),A0
   JSR PrintText
-  JSR PrintInputChar
+  JSR ReadInputLine
   SF  forceUpper
   BSR.W GetFilename
   ST  forceUpper
@@ -26936,7 +26937,7 @@ TrackerCalcLength:
 SUB_413018:
   LEA LAB_413058(PC),A0
   JSR PrintText
-  JSR PrintInputChar
+  JSR ReadInputLine
   MOVEA.L A0,A1
   MOVEA.L ModPointer,A0
   MOVEQ #$13,D1
@@ -34998,7 +34999,7 @@ SaveSampleMem:
   LEA LAB_41307D(PC),A0
   JSR PrintText
   ST  cursorEnabled
-  JSR PrintInputChar
+  JSR ReadInputLine
   SF  cursorEnabled
   SF  forceUpper
   BSR.W GetFilenameNoFsel
