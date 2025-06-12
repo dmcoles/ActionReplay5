@@ -10281,7 +10281,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.1.0-dev (10-Jun-2025)",$D
+  DC.B  "                  ACTION REPLAY AMIGA V5.1.0 (12-Jun-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -46247,7 +46247,7 @@ LAB_A2A340:
 .1
   JSR PrintCR
 .2
-  MOVE.L (A7)+,A0
+  MOVEM.L (A7)+,A0/D7
   MOVEQ #0,D0
   BRA.S LAB_A2A31C
   

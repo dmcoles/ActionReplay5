@@ -59,7 +59,7 @@ Action Replay 5 Complete Command List
     C <1|2|address>
 
   CACHE (Enable/disable cache)
-    CACHE (<0|1>)
+    CACHE (newval)
 
   CCOPY (Alias for CODECOPY)
     CCOPY <source-drive> <dest-drive>
@@ -528,8 +528,8 @@ Action Replay 5 Complete Command List
   SETAPI (Set api handler)
     SETAPI
 
-  SETTYPE (Set exception handler)
-    SETTYPE
+  SETEXCEPT (Set exception handler)
+    SETEXCEPT
 
   SETMAP (Keymap editor)
     SETMAP
