@@ -238,13 +238,28 @@ spr5pth  EQU $134
 spr6pth  EQU $138
 spr7pth  EQU $13C
 spr0pos  EQU $140
+spr0ctl  EQU $142
 spr0data EQU $144
+spr1pos  EQU $148
+spr1ctl  EQU $14A
 spr1data EQU $14C
+spr2pos  EQU $150
+spr2ctl  EQU $152
 spr2data EQU $154
+spr3pos  EQU $158
+spr3ctl  EQU $15A
 spr3data EQU $15C
+spr4pos  EQU $160
+spr4ctl  EQU $162
 spr4data EQU $164
+spr5pos  EQU $168
+spr5ctl  EQU $16A
 spr5data EQU $16C
+spr6pos  EQU $170
+spr6ctl  EQU $172
 spr6data EQU $174
+spr7pos  EQU $178
+spr7ctl  EQU $17A
 spr7data EQU $17C
 color00  EQU $180
 color01  EQU $182
@@ -939,7 +954,7 @@ NMI_Entry:
   if arhardware=1
   ORI.W #0,arramstart
   endc
-  
+
   if (arhardware+pistorm=1)
   MOVE.B  EXT_FC000D,kickstartVersion
   CMP.L #$ffff,EXT_FC0008
@@ -2054,10 +2069,10 @@ AREntry2:
   MOVE.W  #$7fff,intena+hardware
   MOVE.W  dmaconr+hardware,SaveDmaCon
   MOVE.W  #$0c40,bplcon3+hardware
-  MOVE.W  #$019f,dmacon+hardware
+  MOVE.W  #$01bf,dmacon+hardware
 
-  MOVE.L EXT_200.W,Save200
-  MOVE.L EXT_204.W,Save204
+  ;MOVE.L EXT_200.W,Save200
+  ;MOVE.L EXT_204.W,Save204
 
   MOVEM.L D0-D7/A0-A7,SaveCpuRegs
 
@@ -2174,14 +2189,7 @@ LAB_A10A88:
 
   LEA hardware,A5
   MOVE.L RegSnoopAddr,A6
-  CLR.L spr0data+hardware
-  CLR.L spr1data+hardware
-  CLR.L spr2data+hardware
-  CLR.L spr3data+hardware
-  CLR.L spr4data+hardware
-  CLR.L spr5data+hardware
-  CLR.L spr6data+hardware
-  CLR.L spr7data+hardware
+  JSR ClearSprites
   BSR.W SaveCIARegs
   if rsnoop=1
   BSR BlitterSave
@@ -2224,8 +2232,8 @@ LAB_A10A88:
   JSR setCACR
 
   MOVE.L Int5Save,AUTO_INT5.W
-  MOVE.L Save200,EXT_200.W
-  MOVE.L Save204,EXT_204.W
+  ;MOVE.L Save200,EXT_200.W
+  ;MOVE.L Save204,EXT_204.W
 
   MOVEM.L SaveCpuRegs,D0-D7/A0-A7
   MOVE.W  SaveOldSr,0(A7)
@@ -3686,7 +3694,7 @@ LAB_A1160C:
   LSL.W #1,D0          ;shift into place
   OR.W  D0,D1
 
-  MOVE.L  D1,$204.W
+  MOVE.L  D1,EXT_204.W
   CLR.L EXT_200.W
   MOVE.L #EXT_200,D0
   MOVE.L  D0,spr1pth(A5)
@@ -3696,22 +3704,43 @@ LAB_A1160C:
   MOVE.L  D0,spr5pth(A5)
   MOVE.L  D0,spr6pth(A5)
   MOVE.L  D0,spr7pth(A5)
-  MOVE.L  #$204,spr0pth(A5)
-  BRA.S LAB_A1170A
+  MOVE.L  #EXT_204,spr0pth(A5)
+  BRA.W LAB_A1170A
 LAB_A116E0:
-  CLR.L EXT_204.W
-  MOVE.L  #$204,spr1pth(A5)
-  MOVE.L  #$204,spr2pth(A5)
-  MOVE.L  #$204,spr3pth(A5)
-  MOVE.L  #$204,spr4pth(A5)
-  MOVE.L  #$204,spr5pth(A5)
-  MOVE.L  #$204,spr6pth(A5)
-  MOVE.L  #$204,spr7pth(A5)
-  MOVE.L  #$204,spr0pth(A5)
-
+  BSR ClearSprites
 LAB_A1170A:
   MOVEM.L (A7)+,D0-D3/A0/A5
   RTS
+
+;needs hardware base in A5
+ClearSprites:
+  moveq	#0,d1
+  MOVE.L D1,spr0data(A5)
+  MOVE.L D1,spr1data(A5)
+  MOVE.L D1,spr2data(A5)
+  MOVE.L D1,spr3data(A5)
+  MOVE.L D1,spr4data(A5)
+  MOVE.L D1,spr5data(A5)
+  MOVE.L D1,spr6data(A5)
+  MOVE.L D1,spr7data(A5)
+  MOVE.W D1,spr0ctl(A5)
+  MOVE.W D1,spr1ctl(A5)
+  MOVE.W D1,spr2ctl(A5)
+  MOVE.W D1,spr3ctl(A5)
+  MOVE.W D1,spr4ctl(A5)
+  MOVE.W D1,spr5ctl(A5)
+  MOVE.W D1,spr6ctl(A5)
+  MOVE.W D1,spr7ctl(A5)
+  MOVE.W D1,spr0pos(A5)
+  MOVE.W D1,spr1pos(A5)
+  MOVE.W D1,spr2pos(A5)
+  MOVE.W D1,spr3pos(A5)
+  MOVE.W D1,spr4pos(A5)
+  MOVE.W D1,spr5pos(A5)
+  MOVE.W D1,spr6pos(A5)
+  MOVE.W D1,spr7pos(A5)  
+  RTS
+
 MakeMempeekerDisplay:
   MOVEM.L D0-D4/A0/A3-A5,-(A7)
   LEA hardware,A5
@@ -8333,12 +8362,23 @@ CMD_RF:
   CLR.L tempD0
   MOVE.L #fmovetrap,LINEF_EMU(A0)
 
+  CMP.B #5,cpuType
+  BNE.S .not060
+
+  opt p=68060
+  MOVEC PCR,D0
+  BCLR #1,D0
+  MOVEC D0,PCR
+  opt p=68000
+
+.not060
+
+  LEA CMD_RF,A1
   OPT p=68040
   FMOVE.X FP0,(A1)
   OPT p=68000
   TST.B tempD0
   BNE.W nofpu
-
 
   LEA fp0Text(PC),A0
   JSR PrintText
@@ -8493,7 +8533,11 @@ initFloatData:
   RTS
 
 fmovetrap:
+  move.l 2(a7),a2
+  CMP.W  #$f211,(a2)
+  BNE.S .skip
   ADD.L  #4,2(a7)
+.skip
   ST.B tempD0
   RTE
 nofpuText DC.B "No FPU present",13,0
@@ -10281,7 +10325,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                  ACTION REPLAY AMIGA V5.1.0 (12-Jun-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.1.1-dev (05-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -14752,7 +14796,7 @@ LAB_407D34:
 LAB_407D40:
   MOVE.W  D1,memoryControlPrefsValue
   BSR ARInit
-  
+ 
   JSR setActivateMode
   TST.W acaflags
   BNE.S .1
@@ -15104,8 +15148,8 @@ ArEntry1:
   CLR.L AronFlag
   CLR.W arramstart+16384
 
-  MOVE.L EXT_200.W,Save200
-  MOVE.L EXT_204.W,Save204
+  ;MOVE.L EXT_200.W,Save200
+  ;MOVE.L EXT_204.W,Save204
   MOVEM.L D0-D7/A0-A6,SaveCpuRegs
   JSR FirstInit
   MOVE.L  D0,tempD0
@@ -15147,8 +15191,8 @@ LAB_A17C96:
   BSR.W calcArChecksum
 LAB_A17DDE:
   MOVEM.L SaveCpuRegs,D0-D7/A0-A6
-  MOVE.L Save200,EXT_200.W
-  MOVE.L Save204,EXT_204.W
+  ;MOVE.L Save200,EXT_200.W
+  ;MOVE.L Save204,EXT_204.W
   JMP AREntry2
 
 FirstInit:
@@ -22976,13 +23020,13 @@ LAB_A1D46A:
   MOVE.L  D1,LAB_A4835E
   MOVE.L  A0,LAB_A48362
   CMPI.L  #$00000400,D0
-  BLS.S LAB_A1D522
+  BLS.W LAB_A1D522
   MOVE.L  A1,-(A7)
   MOVEA.L A0,A1
   JSR SUB_A22F5A
   MOVEA.L (A7)+,A1
   CMPI.W  #$0400,D0
-  BHI.S LAB_A1D528
+  BHI.W LAB_A1D528
   SUBA.L  A0,A0
   MOVE.L  #$0001ffff,D0
 LAB_A1D4C0:
@@ -23015,15 +23059,19 @@ LAB_A1D510:
   MOVEM.L (A7)+,D0-D7/A0-A6
   RTS
 LAB_A1D516:
+  SF  restartFlag
   LEA NotEnoughRamText(PC),A0
   BRA.S LAB_A1D52E
 LAB_A1D51C:
+  SF  restartFlag
   LEA Logical1024Text(PC),A0
   BRA.S LAB_A1D52E
 LAB_A1D522:
+  SF  restartFlag
   LEA NoDataSpaceText(PC),A0
   BRA.S LAB_A1D53A
 LAB_A1D528:
+  SF  restartFlag
   LEA SystemErrorText(PC),A0
   BRA.S LAB_A1D53A
 LAB_A1D52E:
@@ -36923,6 +36971,7 @@ CMD_XCOPY:
   move.l #$4e714e71,$60c.w
   move.l #$4e714e71,$610.w
   move.l #$00400040,$4b0c.w
+  move.b #$1e,$54d.w      ;fix 8mb memory detection issue
 
 	jmp $00000400.w
   endc
@@ -37748,7 +37797,7 @@ readRNCTrack:
   TST.B EscapePressed
   BNE.W RNCREAD_DONE
   LEA hardware,A5
-  BSR.W SUB_A2084E
+  JSR SUB_A2084E
   BMI.W RNCREAD_DONE
   MOVE.B  currDriveNo,D0
   BTST  D0,LAB_A4824C
