@@ -8367,8 +8367,8 @@ CMD_RF:
 
   opt p=68060
   MOVEC PCR,D0
-  BCLR #1,D0
-  MOVEC D0,PCR
+  BTST #1,D0
+  BNE.W fpudisabled
   opt p=68000
 
 .not060
@@ -8522,8 +8522,13 @@ restorelinef:
 
 nofpu:
   LEA nofpuText(PC),A0
+printfpumsg:
   JSR PrintText
   BRA.W restorelinef
+
+fpudisabled:
+  LEA fpudisabledText(PC),A0
+  BRA.S printfpumsg
 
 initFloatData:
   LEA mt_samplestarts,A1
@@ -8541,6 +8546,7 @@ fmovetrap:
   ST.B tempD0
   RTE
 nofpuText DC.B "No FPU present",13,0
+fpudisabledText DC.B "FPU is disabled",13,0
 
 fp0Text DC.B "FP0=",0
 fp1Text DC.B "FP1=",0
@@ -10325,7 +10331,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.1.1-dev (05-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.1.1-dev (06-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -18593,7 +18599,7 @@ LAB_A19CDE:
   BRA.W PrintCrIfNotBlankLine
 
 PicHeightText:
-  DC.B  "picture heigth: !",0
+  DC.B  "picture height: !",0
 
 CopperPosText:
   DC.B  "Copper Position :",0
@@ -46725,8 +46731,8 @@ MemPeekerText:
   DC.B  "   DOWN - Scroll picture down",$D
   DC.B  "SH DOWN - Scroll picture down fast",$D
   DC.B  "    DEL - Hide helpscreen",$D
-  DC.B  "LEFT MOUSEBUTTON  - Picture heigth plus",$D
-  DC.B  "RIGHT MOUSEBUTTON - Picture heigth minus",$D
+  DC.B  "LEFT MOUSEBUTTON  - Picture height plus",$D
+  DC.B  "RIGHT MOUSEBUTTON - Picture height minus",$D
   DC.B  "Set helpscreen with mouse on position",$D
   DC.B  $D
   DC.B  "    ESC - Quit mempeeker",$D
