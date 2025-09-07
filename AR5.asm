@@ -2737,6 +2737,21 @@ UpdateSerCursor:
   MOVEM.L (A7)+,D0-D1
 .nomove
   RTS
+InsertSerLine:
+  TST.B serIO
+  BEQ.W .noinsert
+  MOVEM.L D0-D1,-(A7)
+  MOVE.B #27,D0
+  JSR RawPutChar
+  MOVE.B #"[",D0
+  JSR RawPutChar
+  MOVE.B #"1",D0
+  JSR RawPutChar
+  MOVE.B #"L",D0
+  JSR RawPutChar
+  MOVEM.L (A7)+,D0-D1
+.noinsert
+  RTS
 
 PrintCursor:
   MOVEM.L D0-D1/A0-A1,-(A7)
@@ -5380,6 +5395,11 @@ commandTable:
   DC.L  CMD_DATACHK
   DC.L cmd_datachk_help
 
+  DC.B  "KICKVER",0
+  even
+  DC.L  CMD_KICKVER
+  DC.L cmd_kickver_help
+
   DC.B  "MEMCODE",0
   even
   DC.L  CMD_MEMCODE
@@ -6963,6 +6983,11 @@ cmd_kickromadr_help:
   DC.B  "  KICKROMADR",13
   DC.B 0
   endc
+
+cmd_kickver_help:
+  DC.B  "KICKVER (Show Kickstart version number)",13
+  DC.B  "  KICKVER",13
+  DC.B 0
 
   if arsoft=1
 cmd_kill_help:
@@ -13692,6 +13717,7 @@ PrinterOffText:
   DC.B  "Printerdump off",$D,0
 
 PrintShiftLF
+  JSR InsertSerLine
   MOVEM.L D0-D1/A0-A1,-(A7)
   ADDQ.W  #1,LAB_A47F40
   MOVEA.L CurrentPage,A0
@@ -37935,6 +37961,35 @@ RNCREAD_DONE:
   MOVEM.L (A7)+,D1-D2/A0-A3/A5
   RTS
 
+CMD_KICKVER:
+  LEA kickromverText,A0
+  JSR PrintText
+  MOVE.W $f8000c,D0
+  JSR ConvertToBCD
+  MOVEQ #2,D1
+  JSR PrintValue
+  MOVEQ #".",D0
+  JSR PrintChar
+  
+  MOVE.W $f8000e,D0
+  JSR ConvertToBCD
+  MOVEQ #1,D1
+  CMP.W #10,D0
+  BLT.S .go
+  ADDQ #1,D1
+  CMP.W #100,D0
+  BLT.S .go
+  ADDQ #1,D1
+  CMP.W #1000,D0
+  BLT.S .go
+  ADDQ #1,D1
+.go
+  JSR PrintValue
+  JMP PrintReady
+
+
+kickromverText: DC.B "Kickstart ROM version is ",0
+
 CMD_RB:
   ST byteRead
   BRA.S CMD_RT
@@ -46580,6 +46635,7 @@ HelpText:
   DC.B  "   savecfg: Save current cfg (requires flash hw) - savecfg",$D
   endc
   DC.B  "    sysram: Display the system ram memory blocks - sysram",$D
+  DC.B  "   kickver: Show Kickstart version number        - kickver",$D
   DC.B  "        sy: Send memory via serial (ymodem)      - sy start end",$D
   DC.B  "       sfy: Send file via serial (ymodem)        - sfy (path)name",$D
   DC.B  "        ry: Receive memory via serial (ymodem)   - ry address",$D
