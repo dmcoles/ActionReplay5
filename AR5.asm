@@ -4244,6 +4244,8 @@ LAB_A120E4:
   JSR InsertSpaceChar
 LAB_A120E8:
   JSR PrintChar
+  TST.B ShiftKey
+  BNE.S LAB_A120BC
   CMPI.W  #$000d,D0
   BNE.S LAB_A120BC
   MOVEQ #$50,D0
@@ -10331,7 +10333,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.1.1-dev (06-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.1.1-dev (07-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -13087,6 +13089,13 @@ PrintChar:
   CMPI.B  #$7f,D1
   BLS.W LAB_A16C38
 LAB_A16B08:
+  TST.B ShiftKey
+  BEQ.S .noshift
+  CMPI.B  #$0d,D1
+  BEQ.W PrintShiftLF
+  CMPI.B  #$0a,D1
+  BEQ.W PrintShiftLF
+.noshift  
   CMPI.B  #$0d,D1
   BEQ.W PrintLF
   CMPI.B  #$0a,D1
@@ -13437,11 +13446,11 @@ LAB_A16F22:
   BRA.W LAB_A16C70
 PrintCursorUp:
   TST.B ShiftKey
-  BEQ.S LAB_A16F3C
+  BEQ.S PrintCursorUp2
   CLR.W cursorY
   JSR UpdateSerCursor
   BRA.W LAB_A16C70
-LAB_A16F3C:
+PrintCursorUp2:
   TST.W cursorY
   BNE.W LAB_A17046
   MOVEM.L D0-D1/D7/A0-A1,-(A7)
@@ -13610,6 +13619,13 @@ LAB_A1712E:
 PrintEsc:
   BRA.W PrintLF
 PrintTab:
+  TST.B ShiftKey
+  BEQ.S .noshift
+  MOVE.W #6,D0
+.printspaces
+  BSR.W InsertSpaceChar
+  DBF D0,.printspaces
+.noshift
   BSR.W InsertSpaceChar
   BRA.W LAB_A16C70
 ShowHelp:
@@ -13674,6 +13690,67 @@ PrinterOnText:
 
 PrinterOffText:
   DC.B  "Printerdump off",$D,0
+
+PrintShiftLF
+  MOVEM.L D0-D1/A0-A1,-(A7)
+  ADDQ.W  #1,LAB_A47F40
+  MOVEA.L CurrentPage,A0
+  MOVE.W PageHeight,D0
+  MULU #80,D0
+  ADD.L D0,A0
+  LEA $50(A0),A1
+  MOVE.W PageHeight,D0
+  SUB.W cursorY,D0
+  BEQ.S .noscroll
+  MULU #80/8,D0
+  SUB.W #1,D0
+.screenscroll1:
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  DBF D0,.screenscroll1
+.noscroll
+  MOVEQ #20-1,D0
+  MOVE.L  #$20202020,D1
+.insertblankrow:
+  MOVE.L  D1,-(A1)
+  DBF D0,.insertblankrow
+  LEA EXT_1000,A0
+  MOVE.W PageHeight,D0
+  MULU #80*8,D0
+  ADD.L D0,A0
+  LEA $280(A0),A1
+
+  MOVE.W PageHeight,D0
+  SUB.W cursorY,D0
+  BEQ.S .noscroll2
+  MULU #80*8/32,D0
+  SUB.W #1,D0
+.scroll2:
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  MOVE.L  -(A0),-(A1)
+  DBF D0,.scroll2
+.noscroll2
+  MOVEQ #16-1,D0
+.insertblankrow2:
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  CLR.L -(A1)
+  DBF D0,.insertblankrow2
+  MOVEM.L (A7)+,D0-D1/A0-A1
+  BRA.W LAB_A16C70
 
 Cls:
   MOVEM.L D0/A0,-(A7)
@@ -18599,7 +18676,7 @@ LAB_A19CDE:
   BRA.W PrintCrIfNotBlankLine
 
 PicHeightText:
-  DC.B  "picture height: !",0
+  DC.B  "Picture height: !",0
 
 CopperPosText:
   DC.B  "Copper Position :",0
