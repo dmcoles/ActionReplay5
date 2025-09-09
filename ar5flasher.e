@@ -41,7 +41,7 @@ ENDPROC id1,id2
 PROC checkArFlashId(arbase)
   DEF id1,id2
   id1,id2:=getFlashId(arbase)
-ENDPROC ((id1=$1FD5) OR (id1=$BFB5)) AND ((id2=$1FD5) OR (id2=$BFB5))
+ENDPROC (id1==[$1FD5,$BFB5,$0120]) AND (id2==[$1FD5,$BFB5,$120])
 
 PROC sendFlashWrite(arbase,chip)
   PutChar(arbase+chip+($5555*2),$AA)
@@ -72,7 +72,7 @@ PROC main()
   DEF id,id1,id2
   DEF response[100]:STRING
   
-  WriteF('Action Replay 5 Flash Tool v1.1 by REbEL/QTX\n\n')
+  WriteF('Action Replay 5 Flash Tool v1.2 by REbEL/QTX\n\n')
   
   IF StrLen(arg)=0
     WriteF('Usage: ar5flasher <filename>\n\n')
@@ -164,7 +164,7 @@ PROC main()
     IF chip=0 THEN id:=id1 ELSE id:=id2
 
     //sst chip needs to be erased first
-    IF id=$BFB5
+    IF id==[$BFB5,$0120]
       Forbid()
       Disable()
       sendFlashErase(arbase,chip)
@@ -189,7 +189,7 @@ PROC main()
         waitSectorComplete(arbase,chip)
       ENDIF
       
-      IF id=$BFB5
+      IF id==[$BFB5,$0120]
         FOR i:=0 TO 127
           IF dest>=(arbase+4)
             Forbid()
@@ -223,4 +223,4 @@ PROC main()
   Dispose(romFile)
 ENDPROC
 
-CHAR '$VER: ar5flasher 1.1.0-26052025',0
+CHAR '$VER: ar5flasher 1.2.0-08092025',0
