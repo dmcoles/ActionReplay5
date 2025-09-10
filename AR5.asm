@@ -10424,7 +10424,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (09-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (10-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -22261,7 +22261,7 @@ LAB_A1C6A0:
   CMPI.W  #$0041,D0
   BNE.W LAB_A1C424
   BSR.W readCmdChar
-  JSR AsciiCharToHexDigit(PC)
+  JSR AsciiCharToHexDigit
   CMPI.W  #7,D0
   BHI.W LAB_A1C424
   MOVE.L  D0,2(A1)
@@ -23468,6 +23468,7 @@ NoSaveQuickText:
 BadLoadText:
   DC.B  "No load possible - required system configuration:",$D,0
 
+  even
   dc.b 128,015,247,000,031,238,000,063,216,252,240,048,097,224,098,129
   dc.b 240,195,001,129,255,002,187,222,031,240,002,194,129,138,007,195
   dc.b 000,000,160,008,059,219,216,098,001,032,193,033,064,226,100,031
