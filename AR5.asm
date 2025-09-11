@@ -8212,7 +8212,7 @@ LAB_A12F6A:
   BSR.W SUB_A15324
   SF  decryptins
   SF  D1
-  MOVE.W  LAB_A47FB6,D0
+  MOVE.W  instructionNo,D0
   CMPI.W  #$003c,D0
   BEQ.S LAB_A12F9C
   CMPI.W  #$003e,D0
@@ -10424,7 +10424,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (10-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (11-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -11224,270 +11224,280 @@ SUB_A15324:
   ADDQ.W  #2,A0
   MOVE.L  D0,D7
   MOVE.W  #$ffff,BranchInstructionType
-  MOVE.W  #$ffff,LAB_A47FBA
-  MOVE.W  #$ffff,LAB_A47FCC
-  MOVE.W  #$ffff,LAB_A47FB8
+  MOVE.W  #$ffff,instructionDestAddrMode
+  MOVE.W  #$ffff,instructionSrcAddrMode
+  MOVE.W  #$ffff,instructionSize
   JSR SUB_A3187E
   TST.W D0
   BNE.W LAB_A15F80
   MOVE.L  D7,D0
-  MOVE.W  #$004f,LAB_A47FB6
+  MOVE.W  #$004f,instructionNo   ;ILLEGAL
   CMPI.W  #$4afc,D0
   BEQ.W LAB_A15F80
-  MOVE.W  #$0032,LAB_A47FB6
-  CMPI.W  #$4e71,D0
+  MOVE.W  #$0032,instructionNo  ;NOP
+  CMPI.W  #$4e71,D0             
   BEQ.W LAB_A15F80
-  MOVE.W  #$0037,LAB_A47FB6
-  CMPI.W  #$4e70,D0
+  MOVE.W  #$0037,instructionNo  ;RESET
+  CMPI.W  #$4e70,D0             
   BEQ.W LAB_A15F80
-  MOVE.W  #$003c,LAB_A47FB6
-  CMPI.W  #$4e73,D0
+  MOVE.W  #$003c,instructionNo   ;RTE
+  CMPI.W  #$4e73,D0            
   BEQ.W LAB_A15F80
-  MOVE.W  #$003d,LAB_A47FB6
-  CMPI.W  #$4e77,D0
+  MOVE.W  #$003d,instructionNo   ;RTR
+  CMPI.W  #$4e77,D0     
   BEQ.W LAB_A15F80
-  MOVE.W  #$003e,LAB_A47FB6
-  CMPI.W  #$4e75,D0
+  MOVE.W  #$003e,instructionNo  ;RTS
+  CMPI.W  #$4e75,D0             
   BEQ.W LAB_A15F80
-  MOVE.W  #$0041,LAB_A47FB6
-  CMPI.W  #$4e72,D0
+  MOVE.W  #$0041,instructionNo  ;STOP
+  CMPI.W  #$4e72,D0           
   BNE.S LAB_A153EA
-  MOVE.W  #$000b,LAB_A47FBA
+  MOVE.W  #$000b,instructionDestAddrMode
   BSR.W memSafeReadWord
   EXT.L D0
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   ADDQ.W  #2,A0
   BRA.W LAB_A15F80
 LAB_A153EA:
-  MOVE.W  #$004a,LAB_A47FB6
-  CMPI.W  #$4e76,D0
+  MOVE.W  #$004a,instructionNo  ;TRAPV
+  CMPI.W  #$4e76,D0           
   BEQ.W LAB_A15F80
-  MOVE.L  D7,D0
-  ANDI.W  #$fff8,D0
-  CMPI.W  #$4e50,D0
+
+	MOVE.L	D7,D0
+	ANDI.W	#$fff8,D0
+  CMPI.W  #$49C0,D0
+  BNE.S .notextb
+  MOVE.W  #$0051,instructionNo  ;EXTB (020+)
+  MOVE.W  #2,instructionSize   ;instruction size
+  MOVE.W  #0,instructionDestAddrMode
+  BSR.W SUB_A1608E      ;get data reg
+  MOVE.L  D0,instructionDestReg ;instruction reg
+  BRA.W LAB_A15F80
+.notextb
+  CMPI.W  #$4e50,D0          
   BNE.S LAB_A1543A
-  MOVE.W  #$0021,LAB_A47FB6
-  MOVE.W  #$000b,LAB_A47FCC
+  MOVE.W  #$0021,instructionNo ;LINK
+  MOVE.W  #$000b,instructionSrcAddrMode
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
-  MOVE.L  D0,LAB_A47FCE
-  MOVE.W  #1,LAB_A47FBA
+  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A1543A:
-  CMPI.W  #$4840,D0
+  CMPI.W  #$4840,D0       
   BNE.S LAB_A1545E
-  MOVE.W  #$0047,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #$0047,instructionNo  ;SWAP
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A1545E:
-  CMPI.W  #$4e58,D0
+  CMPI.W  #$4e58,D0       
   BNE.S LAB_A15482
-  MOVE.W  #$004c,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FBA
+  MOVE.W  #$004c,instructionNo  ;UNLK
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A15482:
   MOVE.L  D7,D0
   ANDI.W  #$ffb8,D0
-  CMPI.W  #$4880,D0
+  CMPI.W  #$4880,D0      
   BNE.S LAB_A154C2
-  MOVE.W  #$001d,LAB_A47FB6
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #$001d,instructionNo ;EXT
+  MOVE.W  #2,instructionSize
   BTST  #6,D7
   BNE.S LAB_A154AC
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #1,instructionSize
 LAB_A154AC:
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A154C2:
   MOVE.L  D7,D0
   ANDI.W  #$fff0,D0
-  CMPI.W  #$4e60,D0
+  CMPI.W  #$4e60,D0      
   BNE.S LAB_A1551A
-  MOVE.W  #$0028,LAB_A47FB6
-  MOVE.W  #2,LAB_A47FB8
-  MOVE.W  #$000c,LAB_A47FBA
-  MOVE.W  #1,LAB_A47FCC
+  MOVE.W  #$0028,instructionNo ;MOVE
+  MOVE.W  #2,instructionSize
+  MOVE.W  #$000c,instructionDestAddrMode
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BTST  #3,D7
   BNE.W LAB_A15F80
-  MOVE.W  #1,LAB_A47FBA
-  MOVE.L  D0,LAB_A47FBC
-  MOVE.W  #$000c,LAB_A47FCC
+  MOVE.W  #1,instructionDestAddrMode
+  MOVE.L  D0,instructionDestReg
+  MOVE.W  #$000c,instructionSrcAddrMode
   BRA.W LAB_A15F80
 LAB_A1551A:
   CMPI.W  #$4e40,D0
-  BNE.S LAB_A15540
-  MOVE.W  #$0049,LAB_A47FB6
-  MOVE.W  #$000b,LAB_A47FBA
+  BNE.S LAB_A15540        
+  MOVE.W  #$0049,instructionNo    ;TRAP
+  MOVE.W  #$000b,instructionDestAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$000f,D0
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A15540:
   MOVE.L  D7,D0
   ANDI.W  #$ffc0,D0
-  CMPI.W  #$4ec0,D0
+  CMPI.W  #$4ec0,D0      
   BNE.S LAB_A15576
-  MOVE.W  #$001e,LAB_A47FB6
+  MOVE.W  #$001e,instructionNo ;JMP
 LAB_A15554:
   MOVE.L  D7,D0
-  BSR.W SUB_A15F98
-  MOVE.W  D1,LAB_A47FBA
-  MOVE.L  D2,LAB_A47FBC
-  MOVE.L  D3,LAB_A47FC0
-  MOVE.L  D4,LAB_A47FC4
+  BSR.W decodeEA
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestReg
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   BRA.W LAB_A15F80
 LAB_A15576:
-  CMPI.W  #$4e80,D0
+  CMPI.W  #$4e80,D0      
   BNE.S LAB_A15586
-  MOVE.W  #$001f,LAB_A47FB6
+  MOVE.W  #$001f,instructionNo ;JSR
   BRA.S LAB_A15554
 LAB_A15586:
   CMPI.W  #$44c0,D0
   BNE.S LAB_A155C6
-  MOVE.W  #$0025,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FB8
-  MOVE.W  #$000d,LAB_A47FCC
+  MOVE.W  #$0025,instructionNo   ;MOVE
+  MOVE.W  #0,instructionSize
+  MOVE.W  #$000d,instructionSrcAddrMode
   MOVE.L  D7,D0
-  BSR.W SUB_A15F98
-  MOVE.W  D1,LAB_A47FBA
-  MOVE.L  D2,LAB_A47FBC
-  MOVE.L  D3,LAB_A47FC0
-  MOVE.L  D4,LAB_A47FC4
+  BSR.W decodeEA
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestReg
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   BRA.W LAB_A15F80
 LAB_A155C6:
   CMPI.W  #$46c0,D0
   BNE.S LAB_A15606
-  MOVE.W  #$0026,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FB8
-  MOVE.W  #$000e,LAB_A47FCC
+  MOVE.W  #$0026,instructionNo   ;MOVE
+  MOVE.W  #1,instructionSize
+  MOVE.W  #$000e,instructionSrcAddrMode
 LAB_A155E4:
   MOVE.L  D7,D0
-  BSR.W SUB_A15F98
-  MOVE.W  D1,LAB_A47FBA
-  MOVE.L  D2,LAB_A47FBC
-  MOVE.L  D3,LAB_A47FC0
-  MOVE.L  D4,LAB_A47FC4
+  BSR.W decodeEA
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestReg
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   BRA.W LAB_A15F80
 LAB_A15606:
   CMPI.W  #$40c0,D0
   BNE.S LAB_A1566A
-  MOVE.W  #$0027,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FB8
-  MOVE.W  #$000e,LAB_A47FBA
+  MOVE.W  #$0027,instructionNo   ;MOVE
+  MOVE.W  #1,instructionSize
+  MOVE.W  #$000e,instructionDestAddrMode
 LAB_A15624:
   MOVE.L  D7,D0
-  BSR.W SUB_A15F98
-  MOVE.W  D1,LAB_A47FCC
-  MOVE.L  D2,LAB_A47FCE
-  MOVE.L  D3,LAB_A47FD2
-  MOVE.L  D4,LAB_A47FD6
-  CMPI.W  #$000b,LAB_A47FCC
+  BSR.W decodeEA
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcReg
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W LAB_A15F80
-  MOVE.W  #$000e,LAB_A47FCC
+  MOVE.W  #$000e,instructionSrcAddrMode
   SUBQ.L  #2,A0
-  CMPI.W  #2,LAB_A47FB8
+  CMPI.W  #2,instructionSize
   BNE.W LAB_A15F80
   SUBQ.L  #2,A0
   BRA.W LAB_A15F80
 LAB_A1566A:
   CMPI.W  #$4800,D0
   BNE.S LAB_A15684
-  MOVE.W  #$002f,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FB8
+  MOVE.W  #$002f,instructionNo   ;NBCD
+  MOVE.W  #0,instructionSize
   BRA.W LAB_A155E4
 LAB_A15684:
   CMPI.W  #$4840,D0
   BNE.S LAB_A15696
-  MOVE.W  #$0036,LAB_A47FB6
+  MOVE.W  #$0036,instructionNo   ;PEA
   BRA.W LAB_A155E4
 LAB_A15696:
   CMPI.W  #$4ac0,D0
   BNE.S LAB_A156B0
-  MOVE.W  #$0048,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FB8
+  MOVE.W  #$0048,instructionNo   ;TAS
+  MOVE.W  #0,instructionSize
   BRA.W LAB_A155E4
 LAB_A156B0:
   MOVE.L  D7,D0
   ANDI.W  #$ffc0,D0
-  MOVE.W  #8,LAB_A47FB6
+  MOVE.W  #8,instructionNo         ;ASL
   CMPI.W  #$e1c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #9,LAB_A47FB6
+  MOVE.W  #9,instructionNo         ;ASR
   CMPI.W  #$e0c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$0022,LAB_A47FB6
+  MOVE.W  #$0022,instructionNo     ;LSL
   CMPI.W  #$e3c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$0023,LAB_A47FB6
+  MOVE.W  #$0023,instructionNo     ;LSR
   CMPI.W  #$e2c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$0038,LAB_A47FB6
+  MOVE.W  #$0038,instructionNo     ;ROL
   CMPI.W  #$e7c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$0039,LAB_A47FB6
+  MOVE.W  #$0039,instructionNo     ;ROR
   CMPI.W  #$e6c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$003a,LAB_A47FB6
+  MOVE.W  #$003a,instructionNo     ;ROXL
   CMPI.W  #$e5c0,D0
   BEQ.W LAB_A155E4
-  MOVE.W  #$003b,LAB_A47FB6
+  MOVE.W  #$003b,instructionNo     ;ROXR
   CMPI.W  #$e4c0,D0
   BEQ.W LAB_A155E4
   MOVE.L  D7,D0
   ANDI.W  #$f1f0,D0
   CMPI.W  #$c100,D0
   BNE.S LAB_A157A8
-  MOVE.W  #0,LAB_A47FB6
+  MOVE.W  #0,instructionNo
 LAB_A1574A:
-  MOVE.W  #0,LAB_A47FB8
+  MOVE.W  #0,instructionSize
 LAB_A15752:
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
-  MOVE.W  #0,LAB_A47FBA
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BTST  #3,D7
   BEQ.W LAB_A15F80
-  MOVE.W  #4,LAB_A47FBA
-  MOVE.W  #4,LAB_A47FCC
-  MOVE.L  LAB_A47FCE,D0
-  MOVE.L  LAB_A47FBC,LAB_A47FCE
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.W  #4,instructionDestAddrMode
+  MOVE.W  #4,instructionSrcAddrMode
+  MOVE.L  instructionSrcReg,D0
+  MOVE.L  instructionDestReg,instructionSrcReg
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A157A8:
   CMPI.W  #$8100,D0
   BNE.S LAB_A157B8
-  MOVE.W  #$003f,LAB_A47FB6
+  MOVE.W  #$003f,instructionNo     ;SBCD
   BRA.S LAB_A1574A
 LAB_A157B8:
   MOVE.L  D7,D0
   ANDI.W  #$f0f8,D0
   CMPI.W  #$50c8,D0
   BNE.S LAB_A15808
-  MOVE.W  #$0017,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #$0017,instructionNo     ;DB
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
-  MOVE.W  #$000f,LAB_A47FCC
-  MOVE.W  #1,LAB_A47FCE
+  MOVE.L  D0,instructionDestReg
+  MOVE.W  #$000f,instructionSrcAddrMode
+  MOVE.W  #1,instructionSrcReg
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
   SUBQ.L  #2,D0
   ADD.L A0,D0
-  MOVE.L  D0,LAB_A47FD2
+  MOVE.L  D0,instructionSrcDisplacement
   BSR.W GetBranchType
   BRA.W LAB_A15F80
 LAB_A15808:
@@ -11495,116 +11505,116 @@ LAB_A15808:
   ANDI.W  #$ff00,D0
   CMPI.W  #$0600,D0
   BNE.S LAB_A15842
-  MOVE.W  #3,LAB_A47FB6
+  MOVE.W  #3,instructionNo    ;ADDI
 LAB_A1581C:
   BSR.W SUB_A16096
   MOVEQ #$3C,D0
-  BSR.W SUB_A15F98
-  MOVE.W  D1,LAB_A47FBA
-  MOVE.L  D2,LAB_A47FBC
-  MOVE.L  D3,LAB_A47FC0
-  MOVE.L  D4,LAB_A47FC4
+  BSR.W decodeEA
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestReg
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   BRA.W LAB_A15624
 LAB_A15842:
   CMPI.W  #$0200,D0
   BNE.S LAB_A15852
-  MOVE.W  #7,LAB_A47FB6
+  MOVE.W  #7,instructionNo     ;ANDI
   BRA.S LAB_A1581C
 LAB_A15852:
-  MOVE.W  #$0015,LAB_A47FB6
+  MOVE.W  #$0015,instructionNo ;CMPI
   CMPI.W  #$0c00,D0
   BEQ.S LAB_A1581C
-  MOVE.W  #$001b,LAB_A47FB6
+  MOVE.W  #$001b,instructionNo ;EORI
   CMPI.W  #$0a00,D0
   BEQ.S LAB_A1581C
-  MOVE.W  #$0035,LAB_A47FB6
+  MOVE.W  #$0035,instructionNo ;ORI
   CMPI.W  #0,D0
   BEQ.S LAB_A1581C
-  MOVE.W  #$0044,LAB_A47FB6
+  MOVE.W  #$0044,instructionNo ;SUBI
   CMPI.W  #$0400,D0
   BEQ.S LAB_A1581C
   CMPI.W  #$6000,D0
   BNE.S LAB_A158EE
-  MOVE.W  #$000d,LAB_A47FB6
+  MOVE.W  #$000d,instructionNo ;BRA
 LAB_A15898:
-  MOVE.W  #$000f,LAB_A47FBA
-  MOVE.W  #0,LAB_A47FBC
+  MOVE.W  #$000f,instructionDestAddrMode
+  MOVE.W  #0,instructionDestReg
   MOVE.L  D7,D0
   ANDI.W  #$00ff,D0
   BEQ.S LAB_A158C8
   EXT.W D0
   EXT.L D0
   ADD.L A0,D0
-  MOVE.L  D0,LAB_A47FC0
-  MOVE.W  #0,LAB_A47FB8
+  MOVE.L  D0,instructionDestDisplacement
+  MOVE.W  #0,instructionSize
   BRA.W LAB_A15F80
 LAB_A158C8:
-  MOVE.W  #1,LAB_A47FBC
+  MOVE.W  #1,instructionDestReg
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
   ADD.L A0,D0
   SUBQ.L  #2,D0
-  MOVE.L  D0,LAB_A47FC0
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.L  D0,instructionDestDisplacement
+  MOVE.W  #1,instructionSize
   BRA.W LAB_A15F80
 LAB_A158EE:
-  MOVE.W  #$000f,LAB_A47FB6
+  MOVE.W  #$000f,instructionNo   ;BSR
   CMPI.W  #$6100,D0
   BEQ.S LAB_A15898
   CMPI.W  #$4200,D0
   BNE.S LAB_A15912
-  MOVE.W  #$0012,LAB_A47FB6
+  MOVE.W  #$0012,instructionNo   ;CLR
 LAB_A1590A:
   BSR.W SUB_A16096
   BRA.W LAB_A155E4
 LAB_A15912:
-  MOVE.W  #$0030,LAB_A47FB6
+  MOVE.W  #$0030,instructionNo   ;NEG
   CMPI.W  #$4400,D0
   BEQ.S LAB_A1590A
-  MOVE.W  #$0031,LAB_A47FB6
+  MOVE.W  #$0031,instructionNo   ;NEGX
   CMPI.W  #$4000,D0
   BEQ.S LAB_A1590A
-  MOVE.W  #$0033,LAB_A47FB6
+  MOVE.W  #$0033,instructionNo   ;NOT
   CMPI.W  #$4600,D0
   BEQ.S LAB_A1590A
-  MOVE.W  #$004b,LAB_A47FB6
+  MOVE.W  #$004b,instructionNo   ;TST
   CMPI.W  #$4a00,D0
   BEQ.S LAB_A1590A
   MOVE.L  D7,D0
   ANDI.W  #$f138,D0
   CMPI.W  #$b108,D0
   BNE.S LAB_A1598C
-  MOVE.W  #$0016,LAB_A47FB6
+  MOVE.W  #$0016,instructionNo   ;CMPM
   BSR.W SUB_A16096
   BCS.S LAB_A1598C
-  MOVE.W  #3,LAB_A47FBA
-  MOVE.W  #3,LAB_A47FCC
+  MOVE.W  #3,instructionDestAddrMode
+  MOVE.W  #3,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A1598C:
   CMPI.W  #$0108,D0
   BNE.S LAB_A159EA
-  MOVE.W  #$002b,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #$002b,instructionNo   ;MOVEP
+  MOVE.W  #1,instructionSize
   BTST  #6,D7
   BEQ.S LAB_A159B0
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #2,instructionSize
 LAB_A159B0:
   BTST  #7,D7
   BNE.S LAB_A159D0
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BSET  #5,D7
   BRA.W LAB_A155E4
 LAB_A159D0:
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BSET  #5,D7
   BRA.W LAB_A15624
 LAB_A159EA:
@@ -11612,45 +11622,45 @@ LAB_A159EA:
   ANDI.W  #$fb80,D0
   CMPI.W  #$4880,D0
   BNE.S LAB_A15A70
-  MOVE.W  #$002a,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #$002a,instructionNo   ;MOVEM
+  MOVE.W  #1,instructionSize
   BTST  #6,D7
   BEQ.S LAB_A15A14
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #2,instructionSize
 LAB_A15A14:
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   BTST  #$A,D7
   BEQ.S LAB_A15A32
-  MOVE.W  #$0010,LAB_A47FCC
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.W  #$0010,instructionSrcAddrMode
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15A32:
-  MOVE.W  #$0010,LAB_A47FBA
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.W  #$0010,instructionDestAddrMode
+  MOVE.L  D0,instructionDestReg
   MOVE.L  D7,D0
-  BSR.W SUB_A15F98
+  BSR.W decodeEA
   CMPI.W  #4,D1
   BNE.S LAB_A15A54
-  MOVE.W  #$0011,LAB_A47FBA
+  MOVE.W  #$0011,instructionDestAddrMode
 LAB_A15A54:
-  MOVE.W  D1,LAB_A47FCC
-  MOVE.L  D2,LAB_A47FCE
-  MOVE.L  D3,LAB_A47FD2
-  MOVE.L  D4,LAB_A47FD6
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcReg
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   BRA.W LAB_A15F80
 LAB_A15A70:
   MOVE.L  D7,D0
   ANDI.W  #$f130,D0
   CMPI.W  #$d100,D0
   BNE.S LAB_A15A8E
-  MOVE.W  #5,LAB_A47FB6
+  MOVE.W  #5,instructionNo    ;ADDX
 LAB_A15A84:
   BSR.W SUB_A16096
   BCS.S LAB_A15A9C
   BRA.W LAB_A15752
 LAB_A15A8E:
-  MOVE.W  #$0046,LAB_A47FB6
+  MOVE.W  #$0046,instructionNo  ;SUBX
   CMPI.W  #$9100,D0
   BEQ.S LAB_A15A84
 LAB_A15A9C:
@@ -11658,172 +11668,172 @@ LAB_A15A9C:
   ANDI.W  #$f1c0,D0
   CMPI.W  #$4180,D0
   BNE.S LAB_A15AC6
-  MOVE.W  #$0011,LAB_A47FB6
+  MOVE.W  #$0011,instructionNo  ;CHK
 LAB_A15AB0:
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15AC6:
-  MOVE.W  LAB_A47FB8,D1
-  MOVE.W  #1,LAB_A47FB8
-  MOVE.W  #$0018,LAB_A47FB6
+  MOVE.W  instructionSize,D1
+  MOVE.W  #1,instructionSize
+  MOVE.W  #$0018,instructionNo  ;DIVS
   CMPI.W  #$81c0,D0
   BEQ.S LAB_A15AB0
-  MOVE.W  #$0019,LAB_A47FB6
+  MOVE.W  #$0019,instructionNo  ;DIVU
   CMPI.W  #$80c0,D0
   BEQ.S LAB_A15AB0
-  MOVE.W  #$002d,LAB_A47FB6
+  MOVE.W  #$002d,instructionNo  ;MULS
   CMPI.W  #$c1c0,D0
   BEQ.S LAB_A15AB0
-  MOVE.W  #$002e,LAB_A47FB6
+  MOVE.W  #$002e,instructionNo  ;MULU
   CMPI.W  #$c0c0,D0
   BEQ.S LAB_A15AB0
-  MOVE.W  D1,LAB_A47FB8
+  MOVE.W  D1,instructionSize
   CMPI.W  #$41c0,D0
   BNE.S LAB_A15B36
-  MOVE.W  #$0020,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FCC
+  MOVE.W  #$0020,instructionNo  ;LEA
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15B36:
   MOVE.L  D7,D0
   ANDI.W  #$f130,D0
   CMPI.W  #$c100,D0
   BNE.S LAB_A15BA0
-  MOVE.W  #$001c,LAB_A47FB6
+  MOVE.W  #$001c,instructionNo  ;EXG
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
-  MOVE.W  #0,LAB_A47FBA
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$00c8,D0
   CMPI.W  #$0040,D0
   BEQ.W LAB_A15F80
-  MOVE.W  #1,LAB_A47FBA
-  MOVE.W  #1,LAB_A47FCC
+  MOVE.W  #1,instructionDestAddrMode
+  MOVE.W  #1,instructionSrcAddrMode
   CMPI.W  #$0048,D0
   BEQ.W LAB_A15F80
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #0,instructionSrcAddrMode
   BRA.W LAB_A15F80
 LAB_A15BA0:
   MOVE.L  D7,D0
   ANDI.W  #$f118,D0
   CMPI.W  #$e100,D0
   BNE.S LAB_A15BFE
-  MOVE.W  #8,LAB_A47FB6
+  MOVE.W  #8,instructionNo      ;ASL
 LAB_A15BB4:
   BSR.W SUB_A16096
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  #8,LAB_A47FBC
+  MOVE.L  #8,instructionDestReg
   TST.L D0
   BEQ.S LAB_A15BD8
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
 LAB_A15BD8:
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BTST  #5,D7
   BNE.W LAB_A15F80
-  MOVE.W  #$000b,LAB_A47FBA
+  MOVE.W  #$000b,instructionDestAddrMode
   BRA.W LAB_A15F80
 LAB_A15BFE:
-  MOVE.W  #9,LAB_A47FB6
+  MOVE.W  #9,instructionNo      ;ASR
   CMPI.W  #$e000,D0
   BEQ.S LAB_A15BB4
-  MOVE.W  #$0022,LAB_A47FB6
+  MOVE.W  #$0022,instructionNo  ;LSL
   CMPI.W  #$e108,D0
   BEQ.S LAB_A15BB4
-  MOVE.W  #$0023,LAB_A47FB6
+  MOVE.W  #$0023,instructionNo  ;LSR
   CMPI.W  #$e008,D0
   BEQ.S LAB_A15BB4
-  MOVE.W  #$0038,LAB_A47FB6
+  MOVE.W  #$0038,instructionNo  ;ROL
   CMPI.W  #$e118,D0
   BEQ.W LAB_A15BB4
-  MOVE.W  #$0039,LAB_A47FB6
+  MOVE.W  #$0039,instructionNo  ;ROR
   CMPI.W  #$e018,D0
   BEQ.W LAB_A15BB4
-  MOVE.W  #$003a,LAB_A47FB6
+  MOVE.W  #$003a,instructionNo  ;ROXL
   CMPI.W  #$e110,D0
   BEQ.W LAB_A15BB4
-  MOVE.W  #$003b,LAB_A47FB6
+  MOVE.W  #$003b,instructionNo  ;ROXR
   CMPI.W  #$e010,D0
   BEQ.W LAB_A15BB4
   MOVE.L  D7,D0
   ANDI.W  #$f0c0,D0
   CMPI.W  #$d0c0,D0
   BNE.S LAB_A15CA8
-  MOVE.W  #2,LAB_A47FB6
+  MOVE.W  #2,instructionNo      ;ADDA
 LAB_A15C7C:
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #1,instructionSize
   BTST  #8,D7
   BEQ.S LAB_A15C92
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #2,instructionSize
 LAB_A15C92:
-  MOVE.W  #1,LAB_A47FCC
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15CA8:
-  MOVE.W  #$0014,LAB_A47FB6
+  MOVE.W  #$0014,instructionNo  ;CMPA
   CMPI.W  #$b0c0,D0
   BEQ.S LAB_A15C7C
-  MOVE.W  #$0043,LAB_A47FB6
+  MOVE.W  #$0043,instructionNo  ;SUBA
   CMPI.W  #$90c0,D0
   BEQ.S LAB_A15C7C
   MOVE.L  D7,D0
   ANDI.W  #$f0c0,D0
   CMPI.W  #$0040,D0
   BNE.S LAB_A15D0E
-  MOVE.W  #$000b,LAB_A47FB6
+  MOVE.W  #$000b,instructionNo  ;BCHG
 LAB_A15CD8:
   BTST  #8,D7
   BNE.S LAB_A15CF8
-  MOVE.W  #$000b,LAB_A47FBA
+  MOVE.W  #$000b,instructionDestAddrMode
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15624
 LAB_A15CF8:
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15624
 LAB_A15D0E:
-  MOVE.W  #$000c,LAB_A47FB6
+  MOVE.W  #$000c,instructionNo    ;BCLR
   CMPI.W  #$0080,D0
   BEQ.S LAB_A15CD8
-  MOVE.W  #$000e,LAB_A47FB6
+  MOVE.W  #$000e,instructionNo    ;BSET
   CMPI.W  #$00c0,D0
   BEQ.S LAB_A15CD8
-  MOVE.W  #$0010,LAB_A47FB6
+  MOVE.W  #$0010,instructionNo    ;BTST
   CMPI.W  #0,D0
   BEQ.S LAB_A15CD8
   MOVE.L  D7,D0
   ANDI.W  #$e1c0,D0
   CMPI.W  #$2040,D0
   BNE.S LAB_A15D78
-  MOVE.W  #$0029,LAB_A47FB6
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #$0029,instructionNo      ;MOVEA
+  MOVE.W  #1,instructionSize
   BTST  #$C,D7
   BNE.S LAB_A15D62
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #2,instructionSize
 LAB_A15D62:
-  MOVE.W  #1,LAB_A47FCC
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15D78:
   MOVE.L  D7,D0
   ANDI.W  #$f0c0,D0
   CMPI.W  #$50c0,D0
   BNE.S LAB_A15D94
-  MOVE.W  #$0040,LAB_A47FB6
+  MOVE.W  #$0040,instructionNo    ;Scc
   BSR.W GetBranchType
   BRA.W LAB_A155E4
 LAB_A15D94:
@@ -11831,90 +11841,90 @@ LAB_A15D94:
   ANDI.W  #$f100,D0
   CMPI.W  #$5000,D0
   BNE.S LAB_A15DD0
-  MOVE.W  #4,LAB_A47FB6
+  MOVE.W  #4,instructionNo      ;ADDQ
 LAB_A15DA8:
   BSR.W SUB_A16096
-  MOVE.W  #$000b,LAB_A47FBA
+  MOVE.W  #$000b,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  #8,LAB_A47FBC
+  MOVE.L  #8,instructionDestReg
   TST.L D0
   BEQ.S LAB_A15DCC
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
 LAB_A15DCC:
   BRA.W LAB_A15624
 LAB_A15DD0:
-  MOVE.W  #$0045,LAB_A47FB6
+  MOVE.W  #$0045,instructionNo  ;SUBQ
   CMPI.W  #$5100,D0
   BEQ.S LAB_A15DA8
   MOVE.L  D7,D0
   ANDI.W  #$f100,D0
   CMPI.W  #$b000,D0
   BNE.S LAB_A15E0C
-  MOVE.W  #$0013,LAB_A47FB6
+  MOVE.W  #$0013,instructionNo  ;CMP
   BSR.W SUB_A16096
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15E0C:
   CMPI.W  #$b100,D0
   BNE.S LAB_A15E34
-  MOVE.W  #$001a,LAB_A47FB6
+  MOVE.W  #$001a,instructionNo  ;EOR
   BSR.W SUB_A16096
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15624
 LAB_A15E34:
   CMPI.W  #$7000,D0
   BNE.S LAB_A15E70
-  MOVE.W  #$002c,LAB_A47FB6
-  MOVE.W  #0,LAB_A47FCC
+  MOVE.W  #$002c,instructionNo  ;MOVEQ
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FCE
-  MOVE.W  #$000b,LAB_A47FBA
+  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #$000b,instructionDestAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$00ff,D0
   EXT.W D0
   EXT.L D0
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BRA.W LAB_A15F80
 LAB_A15E70:
   MOVE.L  D7,D0
   ANDI.W  #$f000,D0
   CMPI.W  #$d000,D0
   BNE.S LAB_A15EB4
-  MOVE.W  #1,LAB_A47FB6
+  MOVE.W  #1,instructionNo  ;ADD
 LAB_A15E84:
   BSR.W SUB_A16096
-  MOVE.W  #0,LAB_A47FBA
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
   BTST  #8,D7
   BNE.W LAB_A15624
-  MOVE.W  #0,LAB_A47FCC
-  MOVE.L  D0,LAB_A47FCE
+  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.L  D0,instructionSrcReg
   BRA.W LAB_A155E4
 LAB_A15EB4:
-  MOVE.W  #$0042,LAB_A47FB6
+  MOVE.W  #$0042,instructionNo  ;SUB
   CMPI.W  #$9000,D0
   BEQ.S LAB_A15E84
-  MOVE.W  #6,LAB_A47FB6
+  MOVE.W  #6,instructionNo      ;AND
   CMPI.W  #$c000,D0
   BEQ.S LAB_A15E84
-  MOVE.W  #$0034,LAB_A47FB6
+  MOVE.W  #$0034,instructionNo  ;OR
   CMPI.W  #$8000,D0
   BEQ.S LAB_A15E84
   CMPI.W  #$6000,D0
   BNE.S LAB_A15EF4
-  MOVE.W  #$000a,LAB_A47FB6
+  MOVE.W  #$000a,instructionNo  ;Bcc
   BSR.W GetBranchType
   BRA.W LAB_A15898
 LAB_A15EF4:
-  MOVE.W  #$004d,LAB_A47FB6
+  MOVE.W  #$004d,instructionNo  ;LINEA
   CMPI.W  #$a000,D0
   BEQ.S LAB_A15F80
-  MOVE.W  #$004e,LAB_A47FB6
+  MOVE.W  #$004e,instructionNo  ;LINEF
   CMPI.W  #$f000,D0
   BEQ.S LAB_A15F80
   MOVE.L  D7,D0
@@ -11923,19 +11933,19 @@ LAB_A15EF4:
   MOVE.L  D7,D0
   ANDI.W  #$3000,D0
   BEQ.S LAB_A15F80
-  MOVE.W  #$0024,LAB_A47FB6
+  MOVE.W  #$0024,instructionNo  ;MOVE
   ROL.W #4,D0
   SUBQ.W  #1,D0
   BEQ.S LAB_A15F32
   EORI.W  #3,D0
 LAB_A15F32:
-  MOVE.W  D0,LAB_A47FB8
+  MOVE.W  D0,instructionSize
   MOVE.L  D7,D0
-  BSR.S SUB_A15F98
-  MOVE.W  D1,LAB_A47FBA
-  MOVE.L  D2,LAB_A47FBC
-  MOVE.L  D3,LAB_A47FC0
-  MOVE.L  D4,LAB_A47FC4
+  BSR.S decodeEA
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestReg
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   MOVE.L  D7,D0
   ROL.W #7,D0
   ANDI.W  #7,D0
@@ -11943,11 +11953,11 @@ LAB_A15F32:
   LSR.W #3,D1
   ANDI.W  #$0038,D1
   OR.W  D1,D0
-  BSR.S SUB_A15F98
-  MOVE.W  D1,LAB_A47FCC
-  MOVE.L  D2,LAB_A47FCE
-  MOVE.L  D3,LAB_A47FD2
-  MOVE.L  D4,LAB_A47FD6
+  BSR.S decodeEA
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcReg
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
 LAB_A15F80:
   MOVE.L  (A7)+,D7
   RTS
@@ -11959,7 +11969,7 @@ GetBranchType:
   MOVE.W  D0,BranchInstructionType
   MOVE.W  (A7)+,D0
   RTS
-SUB_A15F98:
+decodeEA:
   MOVE.L  D7,-(A7)
   ANDI.L  #$0000003f,D0
   MOVE.L  D0,D7
@@ -11994,7 +12004,7 @@ LAB_A15FD2:
   EXT.L D3
   MOVE.L  D7,D0
   LSR.W #8,D0
-  ANDI.W  #$00f8,D0
+  ANDI.W  #$00fb,D0
   MOVE.L  D0,D4
   BRA.W LAB_A16080
 LAB_A15FF8:
@@ -12036,10 +12046,10 @@ LAB_A1602C:
 LAB_A1604C:
   CMPI.W  #$000b,D1
   BNE.S LAB_A16080
-  CMPI.W  #1,LAB_A47FB8
+  CMPI.W  #1,instructionSize
   BHI.S LAB_A16078
   BSR.W memSafeReadWord
-  CMPI.W  #0,LAB_A47FB8
+  CMPI.W  #0,instructionSize
   BNE.S LAB_A16070
   ANDI.W  #$00ff,D0
   EXT.W D0
@@ -12069,7 +12079,7 @@ SUB_A16096:
   MOVE.W  D7,D0
   LSR.W #6,D0
   ANDI.W  #3,D0
-  MOVE.W  D0,LAB_A47FB8
+  MOVE.W  D0,instructionSize
   CMPI.W  #3,D0
   EORI.B  #1,CCR
   MOVEM.L (A7)+,D0-D1
@@ -12131,7 +12141,7 @@ memSafeReadLong:
 SUB_A1613A:
   MOVEM.L D0-D2/A0,-(A7)
   MOVE.L  D0,D2
-  MOVE.W  LAB_A47FB6,D0
+  MOVE.W  instructionNo,D0
   LEA AsmInstructions(PC),A0
 LAB_A1614A:
   TST.W D0
@@ -12152,7 +12162,7 @@ LAB_A16158:
   LEA 0(A0,D0.W),A0
   BSR.W PrintText
 LAB_A1617A:
-  MOVE.W  LAB_A47FB8,D0
+  MOVE.W  instructionSize,D0
   BMI.S LAB_A16192
   MULU  #3,D0
   LEA InstructionLengths(PC),A0
@@ -12166,13 +12176,13 @@ LAB_A16192:
   MOVE.W (A7)+,D0
   JSR UpdateSerCursor
   JSR PrintSpace
-  LEA LAB_A47FBA,A1
+  LEA instructionDestAddrMode,A1
   BSR.S decodeAddressingMode
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BMI.S LAB_A161BE
   MOVEQ #$2C,D0
   BSR.W PrintChar
-  LEA LAB_A47FCC,A1
+  LEA instructionSrcAddrMode,A1
   BSR.S decodeAddressingMode
 LAB_A161BE:
   MOVEM.L (A7)+,D0-D2/A0
@@ -12224,23 +12234,23 @@ LAB_A16222:
 LAB_A1623C:
   CMPI.W  #2,D0
   BNE.S LAB_A1625E
-  LEA LAB_A164CC(PC),A0
+  LEA LAB_A164CC(PC),A0     ;(A
   BSR.W PrintText
   MOVE.L  2(A1),D0
   MOVEQ #1,D1
   BSR.W PrintValue
-  MOVEQ #$29,D0
+  MOVEQ #$29,D0   ; )
   BSR.W PrintChar
   BRA.W LAB_A1643C
 LAB_A1625E:
   CMPI.W  #3,D0
   BNE.S LAB_A16282
-  LEA LAB_A164CC(PC),A0
+  LEA LAB_A164CC(PC),A0     ;(A
   BSR.W PrintText
   MOVE.L  2(A1),D0
   MOVEQ #1,D1
   BSR.W PrintValue
-  LEA LAB_A164CF(PC),A0
+  LEA LAB_A164CF(PC),A0     ;)+
   BSR.W PrintText
   BRA.W LAB_A1643C
 LAB_A16282:
@@ -12259,12 +12269,12 @@ LAB_A162A4:
   BNE.S LAB_A162CE
   MOVE.L  6(A1),D0
   BSR.W SUB_A1669A
-  LEA LAB_A164CC(PC),A0
+  LEA LAB_A164CC(PC),A0 ;(A
   BSR.W PrintText
   MOVE.L  2(A1),D0
   MOVEQ #1,D1
   BSR.W PrintValue
-  MOVEQ #$29,D0
+  MOVEQ #$29,D0     ;)
   BSR.W PrintChar
   BRA.W LAB_A1643C
 LAB_A162CE:
@@ -12272,18 +12282,18 @@ LAB_A162CE:
   BNE.W LAB_A1635E
   MOVE.L  6(A1),D0
   BSR.W SUB_A1669A
-  LEA LAB_A164CC(PC),A0
+  LEA LAB_A164CC(PC),A0   ;(A
   BSR.W PrintText
   MOVE.L  2(A1),D0
   MOVEQ #1,D1
   BSR.W PrintValue
 LAB_A162F0:
-  MOVEQ #$2C,D0
+  MOVEQ #$2C,D0   ; comma
   BSR.W PrintChar
-  MOVEQ #$41,D0
+  MOVEQ #$41,D0   ;A
   BTST  #7,$D(A1)
   BNE.S LAB_A16302
-  MOVEQ #$44,D0
+  MOVEQ #$44,D0   ;D
 LAB_A16302:
   BSR.W PrintChar
   MOVE.L  $A(A1),D0
@@ -12299,21 +12309,31 @@ LAB_A16322:
   LEA InstructionLengths(PC),A0
   LEA 0(A0,D0.W),A0
   BSR.W PrintText
-  MOVE.L  LAB_A47FC4,D0
-  ANDI.W  #7,D0
-  BEQ.S LAB_A16354
-  MOVE.W  D0,D1
-  MOVEQ #$2A,D0
-  BSR.W PrintChar
-  CMPI.W  #6,D1
-  BNE.S LAB_A1634A
-  MOVEQ #8,D1
-LAB_A1634A:
-  ORI.W #$0030,D1
-  MOVE.W  D1,D0
-  BSR.W PrintChar
-LAB_A16354:
-  MOVEQ #$29,D0
+  MOVEQ #0,D0
+  MOVE.B $D(A1),D0
+  LSR.B #1,D0
+  AND.B #3,D0
+  BEQ.S .noscale
+  MULU #3,D0
+  LEA InstructionScales(PC),A0
+  LEA (A0,D0),A0
+  BSR.W PrintText
+.noscale
+;  MOVE.L  instructionDestExtData,D0
+;  ANDI.W  #7,D0
+;  BEQ.S LAB_A16354
+;  MOVE.W  D0,D1
+;  MOVEQ #$2A,D0   ;*
+;  BSR.W PrintChar
+;  CMPI.W  #6,D1
+;  BNE.S LAB_A1634A
+;  MOVEQ #8,D1
+;LAB_A1634A:
+;  ORI.W #$0030,D1
+;  MOVE.W  D1,D0
+;  BSR.W PrintChar
+;LAB_A16354:
+  MOVEQ #$29,D0   ;)
   BSR.W PrintChar
   BRA.W LAB_A1643C
 LAB_A1635E:
@@ -12490,6 +12510,11 @@ InstructionLengths:
   DC.B  ".L",0
   DC.B  ".?",0
 
+InstructionScales:
+  DC.B  "*2",0
+  DC.B  "*4",0
+  DC.B  "*8",0
+
 AsmInstructions:
   DC.B  "ABCD",0
   DC.B  "ADD",0
@@ -12572,16 +12597,17 @@ AsmInstructions:
   DC.B  "LINEF",0
   DC.B  "ILLEGAL",0
   DC.B  "MOVEC",0
+  DC.B  "EXTB",0
   DC.B  $ff
   even
 
 SUB_A16676:
   MOVEM.L D0-D1,-(A7)
-  CMPI.W  #1,LAB_A47FB8
+  CMPI.W  #1,instructionSize
   BNE.S LAB_A1668A
   ANDI.L  #$0000ffff,D0
 LAB_A1668A:
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BNE.S LAB_A166B0
   ANDI.L  #$000000ff,D0
   BRA.S LAB_A166B0
@@ -13579,7 +13605,7 @@ LAB_A16FA2:
   JSR SUB_A11244
   CLR.W cursorX
   JSR UpdateSerCursor
-  MOVE.W  LAB_A47FB6,D1
+  MOVE.W  instructionNo,D1
   CMPI.W  #$003c,D1
   BEQ.S LAB_A16FD6
   CMPI.W  #$003e,D1
@@ -21011,11 +21037,11 @@ LAB_A1B59A:
   MOVEM.L D0-D3/A1-A4,-(A7)
   JSR SUB_A15324
   MOVEM.L (A7)+,D0-D3/A1-A4
-  LEA LAB_A47FBA,A3
+  LEA instructionDestAddrMode,A3
   BSR.S SUB_A1B622
   CMP.L D0,D1
   BEQ.S LAB_A1B60A
-  LEA LAB_A47FCC,A3
+  LEA instructionSrcAddrMode,A3
   BSR.S SUB_A1B622
   CMP.L D0,D1
   BEQ.S LAB_A1B60A
@@ -21135,52 +21161,52 @@ LAB_A1B714:
   SWAP  D0
   MOVE.L  D0,D2
   SWAP  D0
-  BSR.W SUB_A1C7B6
+  BSR.W FindAsmCommand
   TST.W D0
   BMI.W PrintWTF
   MOVE.W  D1,LAB_A480CA
-  MOVE.W  D0,LAB_A47FB6
-  SUBI.W  #$003a,LAB_A47FB6
-  MOVE.W  #$ffff,LAB_A47FB8
-  CMPI.W  #$002e,D2
+  MOVE.W  D0,instructionNo
+  SUBI.W  #$003a,instructionNo
+  MOVE.W  #$ffff,instructionSize
+  CMPI.W  #$002e,D2   ; dot
   BNE.S LAB_A1B788
-  BSR.W readCmdChar
-  MOVE.W  #0,LAB_A47FB8
+  BSR.W readCmdChar   ; READ b/W/L
+  MOVE.W  #0,instructionSize
   CMPI.B  #$42,D0
   BEQ.S LAB_A1B788
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #1,instructionSize
   CMPI.B  #$57,D0
   BEQ.S LAB_A1B788
-  MOVE.W  #2,LAB_A47FB8
+  MOVE.W  #2,instructionSize
   CMPI.B  #$4c,D0
   BNE.W PrintWTF
 LAB_A1B788:
   BSR.W SUB_A1C374
-  CMPI.W  #9,LAB_A47FBA
+  CMPI.W  #9,instructionDestAddrMode
   BNE.S LAB_A1B7A6
-  MOVE.L  LAB_A47FBC,D0
+  MOVE.L  instructionDestReg,D0
   SUB.L A1,D0
   SUBQ.L  #2,D0
-  MOVE.L  D0,LAB_A47FBC
+  MOVE.L  D0,instructionDestReg
 LAB_A1B7A6:
   LEA 2(A1),A4
-  MOVE.W  LAB_A47FB6,D0
+  MOVE.W  instructionNo,D0
   ADDI.W  #$003a,D0
   BNE.W LAB_A1B848
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W PrintWTF
   MOVE.W  #$6100,D0
 LAB_A1B7D0:
-  SUBQ.W  #1,LAB_A47FBA
-  ORI.W #1,LAB_A47FBA
-  CMPI.W  #7,LAB_A47FBA
+  SUBQ.W  #1,instructionDestAddrMode
+  ORI.W #1,instructionDestAddrMode
+  CMPI.W  #7,instructionDestAddrMode
   BNE.W PrintWTF
-  MOVE.L  LAB_A47FBC,D1
+  MOVE.L  instructionDestReg,D1
   SUB.L A1,D1
   SUBQ.L  #2,D1
-  CMPI.W  #1,LAB_A47FB8
+  CMPI.W  #1,instructionSize
   BEQ.S LAB_A1B810
   MOVE.L  D1,D2
   ANDI.L  #$ffffff80,D2
@@ -21209,11 +21235,11 @@ LAB_A1B83E:
 LAB_A1B848:
   CMPI.W  #$0010,D0
   BHI.S LAB_A1B88C
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W PrintWTF
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  #$01fd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
@@ -21221,15 +21247,15 @@ LAB_A1B848:
   SUBQ.W  #1,D1
   MOVE.W  #$50c0,D0
   BSR.W SUB_A1C17E
-  LEA LAB_A47FBA,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionDestAddrMode,A0
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1B88C:
   CMPI.W  #$0020,D0
   BHI.S LAB_A1B8BA
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W PrintWTF
-  CMPI.W  #8,LAB_A47FBA
+  CMPI.W  #8,instructionDestAddrMode
   BNE.W PrintWTF
   MOVE.W  D0,D1
   SUBI.W  #$0011,D1
@@ -21244,17 +21270,17 @@ LAB_A1B8BA:
 LAB_A1B8C6:
   CMPI.W  #$0022,D0
   BNE.S LAB_A1B90E
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W PrintWTF
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e72,D0
   BSR.W memSafeWriteWordA1
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  LAB_A47FBE,D0
+  MOVE.W  instructionDestRegWordLo,D0
   BSR.W memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
@@ -21262,27 +21288,27 @@ LAB_A1B8C6:
 LAB_A1B90E:
   CMPI.W  #$0023,D0
   BNE.S LAB_A1B946
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W PrintWTF
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e40,D0
-  OR.L  LAB_A47FBC,D0
+  OR.L  instructionDestReg,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1B946:
   CMPI.W  #$0024,D0
   BNE.W LAB_A1BAE8
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BHI.S LAB_A1B9C2
-  CMPI.W  #8,LAB_A47FCC
+  CMPI.W  #8,instructionSrcAddrMode
   BHI.S LAB_A1B9C2
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   BPL.S LAB_A1B972
   MOVEQ #1,D1
-  MOVE.W  D1,LAB_A47FB8
+  MOVE.W  D1,instructionSize
 LAB_A1B972:
   CMPI.W  #2,D1
   BEQ.S LAB_A1B97E
@@ -21291,16 +21317,16 @@ LAB_A1B972:
 LAB_A1B97E:
   ROR.W #4,D1
   MOVE.W  D1,D0
-  LEA LAB_A47FBA,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionDestAddrMode,A0
+  BSR.W BuildOpcode
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A1,A0
   BSR.W memSafeReadWord
   MOVE.W  D0,D2
   MOVEM.L (A7)+,D0/A0
   MOVEQ #0,D0
-  LEA LAB_A47FCC,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionSrcAddrMode,A0
+  BSR.W BuildOpcode
   MOVE.W  D0,D1
   LSL.W #3,D0
   ANDI.W  #$01c0,D0
@@ -21311,132 +21337,132 @@ LAB_A1B97E:
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1B9C2:
-  CMPI.W  #$000c,LAB_A47FCC
+  CMPI.W  #$000c,instructionSrcAddrMode
   BNE.S LAB_A1BA00
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  #$0ffd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  LEA LAB_A47FBA,A0
-  MOVE.W  #1,LAB_A47FB8
+  LEA instructionDestAddrMode,A0
+  MOVE.W  #1,instructionSize
   MOVE.W  #$44c0,D0
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA00:
-  CMPI.W  #$000d,LAB_A47FCC
+  CMPI.W  #$000d,instructionSrcAddrMode
   BNE.S LAB_A1BA56
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  #$0ffd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
   MOVE.W  #$46c0,D0
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BMI.S LAB_A1BA40
-  CMPI.W  #1,LAB_A47FB8
+  CMPI.W  #1,instructionSize
   BEQ.S LAB_A1BA40
-  CMPI.W  #0,LAB_A47FB8
+  CMPI.W  #0,instructionSize
   BNE.W PrintWTF
   MOVE.W  #$44c0,D0
 LAB_A1BA40:
-  LEA LAB_A47FBA,A0
-  MOVE.W  #1,LAB_A47FB8
-  BSR.W SUB_A1C1E2
+  LEA instructionDestAddrMode,A0
+  MOVE.W  #1,instructionSize
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA56:
-  CMPI.W  #$000d,LAB_A47FBA
+  CMPI.W  #$000d,instructionDestAddrMode
   BNE.S LAB_A1BA8C
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  MOVE.W  LAB_A47FCC,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  #$01fd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
-  LEA LAB_A47FCC,A0
+  LEA instructionSrcAddrMode,A0
   MOVE.W  #$40c0,D0
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA8C:
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  CMPI.W  #$000f,LAB_A47FBA
+  CMPI.W  #$000f,instructionDestAddrMode
   BNE.S LAB_A1BABE
-  CMPI.W  #1,LAB_A47FCC
+  CMPI.W  #1,instructionSrcAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e68,D0
-  OR.L  LAB_A47FCE,D0
+  OR.L  instructionSrcReg,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1BABE:
-  CMPI.W  #$000f,LAB_A47FCC
+  CMPI.W  #$000f,instructionSrcAddrMode
   BNE.W PrintWTF
-  CMPI.W  #1,LAB_A47FBA
+  CMPI.W  #1,instructionDestAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e60,D0
-  OR.L  LAB_A47FBC,D0
+  OR.L  instructionDestReg,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1BAE8:
   CMPI.W  #$0025,D0
   BNE.S LAB_A1BB44
-  CMPI.W  #1,LAB_A47FCC
+  CMPI.W  #1,instructionSrcAddrMode
   BNE.W PrintWTF
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  #$0fff,D0
   BTST  D1,D0
   BEQ.W PrintWTF
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   BEQ.W PrintWTF
   BPL.S LAB_A1BB1E
   MOVEQ #1,D1
-  MOVE.W  D1,LAB_A47FB8
+  MOVE.W  D1,instructionSize
 LAB_A1BB1E:
   MOVE.W  #$3040,D0
   CMPI.W  #1,D1
   BEQ.S LAB_A1BB2C
   MOVE.W  #$2040,D0
 LAB_A1BB2C:
-  MOVE.L  LAB_A47FCE,D1
+  MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionDestAddrMode,A0
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BB44:
   CMPI.W  #$0027,D0
   BNE.W LAB_A1BBE6
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   BEQ.W PrintWTF
   BPL.S LAB_A1BB60
   MOVEQ #1,D1
-  MOVE.W  D1,LAB_A47FB8
+  MOVE.W  D1,instructionSize
 LAB_A1BB60:
   SUBQ.W  #1,D1
   LSL.W #6,D1
   MOVE.W  #$0188,D0
   OR.W  D1,D0
-  MOVE.L  LAB_A47FCE,D2
-  OR.L  LAB_A47FD2,D0
-  MOVE.L  LAB_A47FBC,D3
+  MOVE.L  instructionSrcReg,D2
+  OR.L  instructionSrcDisplacement,D0
+  MOVE.L  instructionDestReg,D3
   ROR.W #7,D3
   OR.W  D3,D0
-  CMPI.W  #0,LAB_A47FBA
+  CMPI.W  #0,instructionDestAddrMode
   BEQ.S LAB_A1BBC0
   MOVE.W  #$0108,D0
   OR.W  D1,D0
-  MOVE.L  LAB_A47FBC,D2
-  OR.L  LAB_A47FC0,D0
-  MOVE.L  LAB_A47FCE,D1
+  MOVE.L  instructionDestReg,D2
+  OR.L  instructionDestDisplacement,D0
+  MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  CMPI.W  #0,LAB_A47FCC
+  CMPI.W  #0,instructionSrcAddrMode
   BNE.W PrintWTF
-  CMPI.W  #5,LAB_A47FBA
+  CMPI.W  #5,instructionDestAddrMode
   BNE.W PrintWTF
   BRA.S LAB_A1BBCC
 LAB_A1BBC0:
-  CMPI.W  #5,LAB_A47FCC
+  CMPI.W  #5,instructionSrcAddrMode
   BNE.W PrintWTF
 LAB_A1BBCC:
   BSR.W memSafeWriteWordA1
@@ -21450,17 +21476,17 @@ LAB_A1BBCC:
 LAB_A1BBE6:
   CMPI.W  #$0028,D0
   BNE.S LAB_A1BC38
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W PrintWTF
-  CMPI.W  #0,LAB_A47FCC
+  CMPI.W  #0,instructionSrcAddrMode
   BNE.W PrintWTF
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
   MOVE.W  #$7000,D0
-  MOVE.L  LAB_A47FCE,D1
+  MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  MOVE.L  LAB_A47FBC,D1
+  MOVE.L  instructionDestReg,D1
   CMPI.W  #$00ff,D1
   BHI.W PrintWTF
   ANDI.W  #$00ff,D1
@@ -21470,21 +21496,21 @@ LAB_A1BBE6:
 LAB_A1BC38:
   CMPI.W  #$0026,D0
   BNE.W LAB_A1BD06
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   BEQ.W PrintWTF
   BPL.S LAB_A1BC50
   MOVE.W  #1,D1
 LAB_A1BC50:
   LSR.W #1,D1
   LSL.W #6,D1
-  CMPI.W  #$000e,LAB_A47FBA
+  CMPI.W  #$000e,instructionDestAddrMode
   BNE.S LAB_A1BCB2
-  MOVE.W  LAB_A47FCC,D2
+  MOVE.W  instructionSrcAddrMode,D2
   MOVE.W  #$01f4,D3
   BTST  D2,D3
   BEQ.W PrintWTF
-  MOVE.L  LAB_A47FBC,D2
-  CMPI.W  #4,LAB_A47FCC
+  MOVE.L  instructionDestReg,D2
+  CMPI.W  #4,instructionSrcAddrMode
   BEQ.S LAB_A1BC8C
   MOVE.W  D2,D3
   MOVEQ #0,D2
@@ -21502,17 +21528,17 @@ LAB_A1BC8C:
   MOVEM.L (A7)+,D0/A0
   MOVE.W  #$4880,D0
   OR.W  D1,D0
-  LEA LAB_A47FCC,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionSrcAddrMode,A0
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BCB2:
-  CMPI.W  #$000e,LAB_A47FCC
+  CMPI.W  #$000e,instructionSrcAddrMode
   BNE.W PrintWTF
-  MOVE.W  LAB_A47FBA,D2
+  MOVE.W  instructionDestAddrMode,D2
   MOVE.W  #$07ec,D3
   BTST  D2,D3
   BEQ.W PrintWTF
-  MOVE.L  LAB_A47FCE,D2
+  MOVE.L  instructionSrcReg,D2
   MOVEQ #0,D3
   MOVEQ #$F,D4
 LAB_A1BCD8:
@@ -21527,24 +21553,24 @@ LAB_A1BCD8:
   MOVEM.L (A7)+,D0/A0
   MOVE.W  #$4c80,D0
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
-  BSR.W SUB_A1C1E2
+  LEA instructionDestAddrMode,A0
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BD06:
   CMPI.W  #$0038,D0
   BHI.S LAB_A1BD76
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W PrintWTF
-  TST.W LAB_A47FBA
+  TST.W instructionDestAddrMode
   BNE.W PrintWTF
-  CMPI.W  #8,LAB_A47FCC
+  CMPI.W  #8,instructionSrcAddrMode
   BNE.W PrintWTF
   SUBI.W  #$0029,D0
   MOVE.W  D0,D1
   MOVE.W  #$50c8,D0
   BSR.W SUB_A1C17E
-  OR.L  LAB_A47FBC,D0
-  MOVE.L  LAB_A47FCE,D1
+  OR.L  instructionDestReg,D0
+  MOVE.L  instructionSrcReg,D1
   SUB.L A4,D1
   MOVE.L  D1,D2
   ANDI.L  #$ffff8000,D2
@@ -21566,7 +21592,7 @@ LAB_A1BD76:
   MOVE.W  #$002a,D0
   BRA.S LAB_A1BD06
 LAB_A1BD82:
-  MOVE.W  LAB_A47FB6,D0
+  MOVE.W  instructionNo,D0
   MULU  #6,D0
   SUBA.L  A4,A4
   LEA LAB_A1CA90(PC),A3
@@ -21576,11 +21602,11 @@ LAB_A1BD9C:
   MOVEQ #0,D0
   MOVE.B  (A3),D0
   BNE.S LAB_A1BDD0
-  TST.W LAB_A47FB8
+  TST.W instructionSize
   BPL.W LAB_A1C158
-  TST.W LAB_A47FBA
+  TST.W instructionDestAddrMode
   BPL.W LAB_A1C158
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
@@ -21589,66 +21615,66 @@ LAB_A1BD9C:
 LAB_A1BDD0:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BE24
-  TST.W LAB_A47FBA
+  TST.W instructionDestAddrMode
   BNE.W LAB_A1C158
-  MOVE.W  LAB_A47FCC,D0
+  MOVE.W  instructionSrcAddrMode,D0
   MOVE.W  2(A3),D1
   BTST  D0,D1
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
+  LEA instructionDestAddrMode,A0
   MOVE.L  2(A0),D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA LAB_A47FCC,A0
+  LEA instructionSrcAddrMode,A0
   LEA 2(A1),A4
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BE24:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BE78
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BNE.W LAB_A1C158
-  MOVE.W  LAB_A47FBA,D0
+  MOVE.W  instructionDestAddrMode,D0
   MOVE.W  2(A3),D1
   BTST  D0,D1
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA LAB_A47FCC,A0
+  LEA instructionSrcAddrMode,A0
   MOVE.L  2(A0),D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
+  LEA instructionDestAddrMode,A0
   LEA 2(A1),A4
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BE78:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BEC8
-  CMPI.W  #4,LAB_A47FBA
+  CMPI.W  #4,instructionDestAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #4,LAB_A47FCC
+  CMPI.W  #4,instructionSrcAddrMode
   BNE.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  MOVE.L  LAB_A47FBC,D1
+  MOVE.L  instructionDestReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  MOVE.L  LAB_A47FCE,D1
+  MOVE.L  instructionSrcReg,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
   LEA 2(A1),A4
@@ -21656,48 +21682,48 @@ LAB_A1BE78:
 LAB_A1BEC8:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BF1A
-  CMPI.W  #1,LAB_A47FCC
+  CMPI.W  #1,instructionSrcAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #7,D1
   OR.W  D1,D0
-  MOVE.L  LAB_A47FCE,D1
+  MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
+  LEA instructionDestAddrMode,A0
   LEA 2(A1),A4
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BF1A:
   SUBQ.W  #1,D0
   BNE.W LAB_A1BF9C
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
   MOVE.W  D2,D0
-  MOVE.W  LAB_A47FCC,D1
+  MOVE.W  instructionSrcAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA LAB_A47FCC,A0
+  LEA instructionSrcAddrMode,A0
   LEA 2(A1),A4
-  CMPI.W  #2,LAB_A47FB8
+  CMPI.W  #2,instructionSize
   BNE.S LAB_A1BF7E
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.L  LAB_A47FBC,D0
+  MOVE.L  instructionDestReg,D0
   JSR memSafeWriteLong
   ADDQ.W  #4,A4
   MOVEM.L (A7)+,D0/A0
@@ -21705,49 +21731,49 @@ LAB_A1BF1A:
 LAB_A1BF7E:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  LAB_A47FBE,D0
+  MOVE.W  instructionDestRegWordLo,D0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
 LAB_A1BF94:
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BF9C:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BFF2
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
-  MOVE.W  LAB_A47FCC,D1
+  MOVE.W  instructionSrcAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  MOVE.L  LAB_A47FBC,D1
+  MOVE.L  instructionDestReg,D1
   ANDI.W  #7,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA LAB_A47FCC,A0
+  LEA instructionSrcAddrMode,A0
   LEA 2(A1),A4
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BFF2:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C032
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #$000c,LAB_A47FCC
+  CMPI.W  #$000c,instructionSrcAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
-  MOVE.W  LAB_A47FBE,D0
+  MOVE.W  instructionDestRegWordLo,D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
   MOVEA.L A1,A4
@@ -21755,16 +21781,16 @@ LAB_A1BFF2:
 LAB_A1C032:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C072
-  CMPI.W  #$000b,LAB_A47FBA
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #$000d,LAB_A47FCC
+  CMPI.W  #$000d,instructionSrcAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
-  MOVE.W  LAB_A47FBE,D0
+  MOVE.W  instructionDestRegWordLo,D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
   MOVEA.L A1,A4
@@ -21776,37 +21802,37 @@ LAB_A1C072:
 LAB_A1C07A:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C0C0
-  TST.W LAB_A47FCC
+  TST.W instructionSrcAddrMode
   BPL.W LAB_A1C158
-  MOVE.W  LAB_A47FBA,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  2(A3),D2
   BTST  D1,D2
   BEQ.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
   MOVE.W  4(A3),D0
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA LAB_A47FBA,A0
+  LEA instructionDestAddrMode,A0
   LEA 2(A1),A4
-  BSR.W SUB_A1C1E2
+  BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1C0C0:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C108
-  CMPI.W  #3,LAB_A47FBA
+  CMPI.W  #3,instructionDestAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #3,LAB_A47FCC
+  CMPI.W  #3,instructionSrcAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.S LAB_A1C158
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   MOVE.W  4(A3),D0
   OR.W  D1,D0
-  OR.L  LAB_A47FBC,D0
-  MOVE.L  LAB_A47FCE,D1
+  OR.L  instructionDestReg,D0
+  MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
@@ -21815,22 +21841,22 @@ LAB_A1C0C0:
 LAB_A1C108:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C158
-  CMPI.W  #1,LAB_A47FBA
+  CMPI.W  #1,instructionDestAddrMode
   BNE.S LAB_A1C158
-  CMPI.W  #$000b,LAB_A47FCC
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.S LAB_A1C158
   BSR.S SUB_A1C184
   BCS.S LAB_A1C158
   MOVE.W  4(A3),D0
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  OR.L  LAB_A47FBC,D0
+  OR.L  instructionDestReg,D0
   BSR.W memSafeWriteWordA1
   LEA 2(A1),A4
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  LAB_A47FD0,D0
+  MOVE.W  instructionSrcRegWordLo,D0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
@@ -21855,7 +21881,7 @@ SUB_A1C184:
   MOVEM.L D1-D2,-(A7)
   MOVEQ #0,D2
   MOVE.B  1(A3),D2
-  MOVE.W  LAB_A47FB8,D1
+  MOVE.W  instructionSize,D1
   BMI.S LAB_A1C1A4
   BTST  D1,D2
   BEQ.S LAB_A1C1D8
@@ -21864,32 +21890,32 @@ LAB_A1C19A:
   MOVEM.L (A7)+,D1-D2
   RTS
 LAB_A1C1A4:
-  MOVE.W  #1,LAB_A47FB8
+  MOVE.W  #1,instructionSize
   BTST  #1,D2
   BNE.S LAB_A1C19A
-  MOVE.W  #0,LAB_A47FB8
+  MOVE.W  #0,instructionSize
   CMPI.W  #0,D2
   BEQ.S LAB_A1C19A
   SUBQ.W  #1,D2
-  MOVE.W  D2,LAB_A47FB8
+  MOVE.W  D2,instructionSize
   CMPI.W  #3,D2
   BNE.S LAB_A1C19A
   SUBQ.W  #1,D2
-  MOVE.W  D2,LAB_A47FB8
+  MOVE.W  D2,instructionSize
   BRA.S LAB_A1C19A
 LAB_A1C1D8:
   ORI.W #1,SR
   MOVEM.L (A7)+,D1-D2
   RTS
-SUB_A1C1E2:
+BuildOpcode:
   MOVEM.L D1-D3,-(A7)
-  MOVE.W  (A0),D1
+  MOVE.W  (A0),D1       ;instructionAddrMode
   CMPI.W  #6,D1
   BHI.W LAB_A1C274
   LSL.W #3,D1
   CMPI.W  #$0020,D1
   BHI.S LAB_A1C208
-  MOVE.L  2(A0),D2
+  MOVE.L  2(A0),D2      ;instructionReg
   OR.W  D2,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
@@ -21897,8 +21923,8 @@ SUB_A1C1E2:
 LAB_A1C208:
   CMPI.W  #$0028,D1
   BHI.S LAB_A1C234
-  MOVE.L  2(A0),D2
-  MOVE.L  6(A0),D3
+  MOVE.L  2(A0),D2      ;instructionReg
+  MOVE.L  6(A0),D3      ;instructionDisplacement
   OR.W  D3,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
@@ -21910,16 +21936,16 @@ LAB_A1C208:
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C36E
 LAB_A1C234:
-  MOVE.L  2(A0),D2
-  MOVE.L  6(A0),D3
+  MOVE.L  2(A0),D2      ;instructionReg
+  MOVE.L  6(A0),D3      ;instructionDisplacement
   OR.W  D3,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
   ANDI.W  #$00ff,D2
-  MOVE.L  $A(A0),D3
+  MOVE.L  $A(A0),D3     ;instructionExtData
   ROR.W #1,D3
   OR.W  D3,D2
-  MOVE.L  $E(A0),D3
+  MOVE.L  $E(A0),D3     ;instructionExtData2
   ROR.W #4,D3
   OR.W  D3,D2
   SWAP  D3
@@ -21938,7 +21964,7 @@ LAB_A1C274:
   ORI.W #$0038,D0
   BSR.W memSafeWriteWordA1
   MOVEM.L D0/A0,-(A7)
-  MOVE.W  4(A0),D0
+  MOVE.W  4(A0),D0        ;instructionRegWordLo
   MOVEA.L A4,A0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
@@ -21950,7 +21976,7 @@ LAB_A1C29A:
   ORI.W #$0039,D0
   BSR.W memSafeWriteWordA1
   MOVEM.L D0/A0,-(A7)
-  MOVE.L  2(A0),D0
+  MOVE.L  2(A0),D0      ;instructionReg
   MOVEA.L A4,A0
   JSR memSafeWriteLong
   ADDQ.W  #4,A4
@@ -21962,7 +21988,7 @@ LAB_A1C2C0:
   ORI.W #$003a,D0
   BSR.W memSafeWriteWordA1
   MOVEM.L D0/A0,-(A7)
-  MOVE.W  4(A0),D0
+  MOVE.W  4(A0),D0     ;instructionRegWordLo
   MOVEA.L A4,A0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
@@ -21973,12 +21999,12 @@ LAB_A1C2E6:
   BNE.S LAB_A1C326
   ORI.W #$003b,D0
   BSR.W memSafeWriteWordA1
-  MOVE.L  2(A0),D1
+  MOVE.L  2(A0),D1          ;instructionReg
   ANDI.W  #$00ff,D1
-  MOVE.L  6(A0),D2
+  MOVE.L  6(A0),D2          ;instructionDisplacement
   ROR.W #1,D2
   OR.W  D2,D1
-  MOVE.L  $A(A0),D2
+  MOVE.L  $A(A0),D2         ;instructionExtData
   ROR.W #4,D2
   OR.W  D2,D1
   SWAP  D2
@@ -21996,10 +22022,10 @@ LAB_A1C326:
   BNE.S LAB_A1C36A
   ORI.W #$003c,D0
   BSR.W memSafeWriteWordA1
-  CMPI.W  #1,LAB_A47FB8
+  CMPI.W  #1,instructionSize
   BHI.S LAB_A1C354
   MOVEM.L D0/A0,-(A7)
-  MOVE.W  4(A0),D0
+  MOVE.W  4(A0),D0          ;instructionRegWordLo
   MOVEA.L A4,A0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
@@ -22007,7 +22033,7 @@ LAB_A1C326:
   BRA.S LAB_A1C36E
 LAB_A1C354:
   MOVEM.L D0/A0,-(A7)
-  MOVE.L  2(A0),D0
+  MOVE.L  2(A0),D0          ;instructionReg
   MOVEA.L A4,A0
   JSR memSafeWriteLong
   ADDQ.W  #4,A4
@@ -22020,19 +22046,19 @@ LAB_A1C36E:
   RTS
 SUB_A1C374:
   MOVEM.L D0/A1,-(A7)
-  MOVE.W  #$ffff,LAB_A47FBA
-  MOVE.W  #$ffff,LAB_A47FCC
+  MOVE.W  #$ffff,instructionDestAddrMode
+  MOVE.W  #$ffff,instructionSrcAddrMode
   JSR readCmdCharSkipSpaces
   TST.B endOfCmdString
   BNE.S LAB_A1C3C2
   BSR.W SUB_A1827E
-  LEA LAB_A47FBA,A1
+  LEA instructionDestAddrMode,A1
   BSR.S SUB_A1C3C8
   TST.B endOfCmdString
   BNE.S LAB_A1C3C2
   CMPI.W  #$002c,D0
   BNE.W PrintWTF
-  LEA LAB_A47FCC,A1
+  LEA instructionSrcAddrMode,A1
   BSR.S SUB_A1C3C8
   TST.B endOfCmdString
   BEQ.W PrintWTF
@@ -22346,7 +22372,7 @@ LAB_A1C7AA:
 LAB_A1C7B0:
   ORI.W #1,SR
   RTS
-SUB_A1C7B6:
+FindAsmCommand:
   MOVEM.L D2-D4/A0-A1,-(A7)
   MOVE.W  D0,D1
   SUBQ.W  #1,D1
@@ -22435,9 +22461,8 @@ AsmCommandsTable:
 
   DC.B  "SLS"
   DC.B  $01
-  DC.B  $53
 
-  DC.B  "CC"
+  DC.B  "SCC"
   DC.B  $01
 
   DC.B  "SCS"
@@ -22786,60 +22811,76 @@ AsmCommandsTable:
   DC.B  $01
 
   DC.B  "LINEF"
-  DC.W  $01ff
+  DC.B  $01
 
+  DC.B  "EXTB"
+  DC.B  $01
+  DC.B  $ff
+
+  even
 LAB_A1CA90:
-  DC.L  $02010001,$c1000301,$0000c108,$02070fff
-  DC.L  $d0000107,$01fcd100,$04060fff,$d0c00507
-  DC.L  $01fd0600,$04060fff,$d0c00507,$01fd0600
-  DC.L  $060701ff,$50000207,$0001d100,$03070000
-  DC.L  $d1080207,$0ffdc000,$010701fc,$c1000507
-  DC.L  $01fc0200,$07010000,$023c0802,$0000027c
-  DC.L  $08010000,$023c0507,$01fc0200,$07010000
-  DC.L  $023c0802,$0000027c,$08010000,$023c0107
-  DC.L  $0001e120,$06070001,$e1000a01,$01fce1c0
-  DC.L  $01070001,$e0200607,$0001e000,$0a0101fc
-  DC.L  $e0c00100,$01fd0140,$050001fd,$08400100
-  DC.L  $01fd0180,$050001fd,$08800100,$01fd01c0
-  DC.L  $050001fd,$08c00100,$01fd0100,$050001fd
-  DC.L  $08000200,$0ffd4180,$0a0701fd,$42000207
-  DC.L  $0fffb000,$04060fff,$b0c00507,$01fd0c00
-  DC.L  $04060fff,$b0c00507,$01fd0c00,$0b070000
-  DC.L  $b1080200,$0ffd81c0,$02000ffd,$80c00107
-  DC.L  $01fdb100,$050701fd,$0a000700,$00000a3c
-  DC.L  $08020000,$0a7c0801,$00000a3c,$050701fd
-  DC.L  $0a000700,$00000a3c,$08020000,$0a7c0801
-  DC.L  $00000a3c,$02000001,$c1400200,$0002c188
-  DC.L  $04000002,$c1480a06,$00014880
-  DS.L  1
-  DC.L  $4afc0a00,$07e44ec0,$0a0007e4,$4e800400
-  DC.L  $07e441c0,$0c000000,$4e500107,$0001e128
-  DC.L  $06070001,$e1080a00,$01fce3c0,$01070001
-  DC.L  $e0280607,$0001e008,$0a0001fc,$e2c00200
-  DC.L  $0ffdc1c0,$02000ffd,$c0c00a01,$01fd4800
-  DC.L  $0a0701fd,$44000a07,$01fd4000
-  DS.L  1
-  DC.L  $4e710a07,$01fd4600,$02070ffd,$80000107
-  DC.L  $01fc8100,$050701fd,$00000700,$0000003c
-  DC.L  $08020000,$007c0801,$0000003c,$050701fd
-  DC.L  $00000700,$0000003c,$08020000,$007c0801
-  DC.L  $0000003c,$0a0007e4,$48400000,$00004e70
-  DC.L  $01070001,$e1380607,$0001e118,$0a0101fc
-  DC.L  $e7c00107,$0001e038,$06070001,$e0180a01
-  DC.L  $01fce6c0,$01070001,$e1300607,$0001e110
-  DC.L  $0a0101fc,$e5c00107,$0001e030,$06070001
-  DC.L  $e0100a01,$01fce4c0
-  DS.L  1
-  DC.L  $4e730000,$00004e77
-  DS.L  1
-  DC.L  $4e750201,$00018100,$03010000,$81080207
-  DC.L  $0fff9000,$010701fc,$91000406,$0fff90c0
-  DC.L  $050701fd,$04000406,$0fff90c0,$050701fd
-  DC.L  $04000607,$01ff5100,$02070001,$91000307
-  DC.L  $00009108,$0a000001,$48400a00,$01fd4ac0
-  DS.L  1
-  DC.L  $4e760a07,$01fd4a00,$0a000002
-  DC.W  $4e58
+  DC.W  $0201,$0001,$c100,$0301,$0000,$c108
+  DC.W  $0207,$0fff,$d000,$0107,$01fc,$d100
+  DC.W  $0406,$0fff,$d0c0,$0507,$01fd,$0600
+  DC.W  $0406,$0fff,$d0c0,$0507,$01fd,$0600
+  DC.W  $0607,$01ff,$5000,$0207,$0001,$d100
+  DC.W  $0307,$0000,$d108,$0207,$0ffd,$c000
+  DC.W  $0107,$01fc,$c100,$0507,$01fc,$0200
+  DC.W  $0701,$0000,$023c,$0802,$0000,$027c
+  DC.W  $0801,$0000,$023c,$0507,$01fc,$0200
+  DC.W  $0701,$0000,$023c,$0802,$0000,$027c
+  DC.W  $0801,$0000,$023c,$0107,$0001,$e120
+  DC.W  $0607,$0001,$e100,$0a01,$01fc,$e1c0
+  DC.W  $0107,$0001,$e020,$0607,$0001,$e000
+  DC.W  $0a01,$01fc,$e0c0,$0100,$01fd,$0140
+  DC.W  $0500,$01fd,$0840,$0100,$01fd,$0180
+  DC.W  $0500,$01fd,$0880,$0100,$01fd,$01c0
+  DC.W  $0500,$01fd,$08c0,$0100,$01fd,$0100
+  DC.W  $0500,$01fd,$0800,$0200,$0ffd,$4180
+  DC.W  $0a07,$01fd,$4200,$0207,$0fff,$b000
+  DC.W  $0406,$0fff,$b0c0,$0507,$01fd,$0c00
+  DC.W  $0406,$0fff,$b0c0,$0507,$01fd,$0c00
+  DC.W  $0b07,$0000,$b108,$0200,$0ffd,$81c0
+  DC.W  $0200,$0ffd,$80c0,$0107,$01fd,$b100
+  DC.W  $0507,$01fd,$0a00,$0700,$0000,$0a3c
+  DC.W  $0802,$0000,$0a7c,$0801,$0000,$0a3c
+  DC.W  $0507,$01fd,$0a00,$0700,$0000,$0a3c
+  DC.W  $0802,$0000,$0a7c,$0801,$0000,$0a3c
+  DC.W  $0200,$0001,$c140,$0200,$0002,$c188
+  DC.W  $0400,$0002,$c148,$0a06,$0001,$4880
+  DC.W  $0000,$0000,$4afc,$0a00,$07e4,$4ec0
+  DC.W  $0a00,$07e4,$4e80,$0400,$07e4,$41c0
+  DC.W  $0c00,$0000,$4e50,$0107,$0001,$e128
+  DC.W  $0607,$0001,$e108,$0a00,$01fc,$e3c0
+  DC.W  $0107,$0001,$e028,$0607,$0001,$e008
+  DC.W  $0a00,$01fc,$e2c0,$0200,$0ffd,$c1c0
+  DC.W  $0200,$0ffd,$c0c0,$0a01,$01fd,$4800
+  DC.W  $0a07,$01fd,$4400,$0a07,$01fd,$4000
+  DC.W  $0000,$0000,$4e71,$0a07,$01fd,$4600
+  DC.W  $0207,$0ffd,$8000,$0107,$01fc,$8100
+  DC.W  $0507,$01fd,$0000,$0700,$0000,$003c
+  DC.W  $0802,$0000,$007c,$0801,$0000,$003c
+  DC.W  $0507,$01fd,$0000,$0700,$0000,$003c
+  DC.W  $0802,$0000,$007c,$0801,$0000,$003c
+  DC.W  $0a00,$07e4,$4840,$0000,$0000,$4e70
+  DC.W  $0107,$0001,$e138,$0607,$0001,$e118
+  DC.W  $0a01,$01fc,$e7c0,$0107,$0001,$e038
+  DC.W  $0607,$0001,$e018,$0a01,$01fc,$e6c0
+  DC.W  $0107,$0001,$e130,$0607,$0001,$e110
+  DC.W  $0a01,$01fc,$e5c0,$0107,$0001,$e030
+  DC.W  $0607,$0001,$e010,$0a01,$01fc,$e4c0
+  DC.W  $0000,$0000,$4e73,$0000,$0000,$4e77
+  DC.W  $0000,$0000,$4e75,$0201,$0001,$8100
+  DC.W  $0301,$0000,$8108,$0207,$0fff,$9000
+  DC.W  $0107,$01fc,$9100,$0406,$0fff,$90c0
+  DC.W  $0507,$01fd,$0400,$0406,$0fff,$90c0
+  DC.W  $0507,$01fd,$0400,$0607,$01ff,$5100
+  DC.W  $0207,$0001,$9100,$0307,$0000,$9108
+  DC.W  $0a00,$0001,$4840,$0a00,$01fd,$4ac0
+  DC.W  $0000,$0000,$4e76,$0a07,$01fd,$4a00
+  DC.W  $0a00,$0002,$4e58,$0000,$0000,$a000
+  DC.W  $0000,$0000,$f000,$0a04,$0001,$49c0
+  
 BootScreenShow:
   MOVE.W  #$0020,intreq+hardware
 LAB_40D56A:
@@ -23179,7 +23220,7 @@ LAB_A1D2EA:
   RTS
 SUB_A1D2F6:
   MOVEM.L D0/A0-A1,-(A7)
-  LEA LAB_A47FB6,A0
+  LEA instructionNo,A0
   LEA CopyColor,A1
   MOVEQ #$F,D0
 LAB_A1D308:
@@ -23195,7 +23236,7 @@ LAB_A1D31C:
   RTS
 SUB_A1D328:
   MOVEM.L D0/A0-A1,-(A7)
-  LEA LAB_A47FB6,A0
+  LEA instructionNo,A0
   LEA color00+hardware,A1
   MOVEQ #$F,D0
 LAB_A1D33A:
@@ -38071,6 +38112,8 @@ CMD_RNC:
   DBF D6,.retry
   JSR PrintCR
   JSR PrintDiskOpResult
+
+  LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
   RTS
 
@@ -39454,18 +39497,18 @@ CMD_TYPE:
   LEA stringWorkspace,A1
   MOVE.B  currDriveNo,-(A7)
   BSR.W OpenFile
-  BMI.S filecrcdone
+  BMI.S fileTypeDone
   MOVE.L  fileSize,D5
-  BEQ.S filecrcdone
+  BEQ.S fileTypeDone
 LAB_A25830:
   LEA EXT_7000.W,A0
-  LEA LAB_A47FB6,A2
+  LEA instructionNo,A2
   MOVEQ #1,D0
   BSR.W readFileData
-  BMI.S filecrcdone
+  BMI.S fileTypeDone
   SUBQ.L  #1,D5
   ST  scrollLock
-  LEA LAB_A47FB6,A4
+  LEA instructionNo,A4
   MOVE.B  (A4)+,D0
   CMPI.W  #9,D0
   BNE.S LAB_A25876
@@ -39488,11 +39531,11 @@ LAB_A25882:
 LAB_A25892:
   MOVEQ #-8,D0
   TST.B EscapePressed
-  BNE.S filecrcdone
+  BNE.S fileTypeDone
   TST.L D5
   BNE.S LAB_A25830
   MOVEQ #0,D0
-filecrcdone:
+fileTypeDone:
   MOVE.W  D0,D1
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
@@ -45199,10 +45242,10 @@ LAB_A2999E:
   MOVEM.L (A7)+,D1-D3
   RTS
 SUB_A299B8:
-  ST  LAB_A47FB6
+  ST  instructionNo
   BRA.S LAB_A299C6
 SUB_A299C0:
-  SF  LAB_A47FB6
+  SF  instructionNo
 LAB_A299C6:
   MOVEM.L D1/A0-A2/A4,-(A7)
   MOVEA.L DiskMonBuffer,A2
@@ -45601,7 +45644,7 @@ LAB_A29DD0:
   LSL.W #2,D6
   RTS
 SUB_A29DD6:
-  TST.B LAB_A47FB6
+  TST.B instructionNo
   BNE.S LAB_A29DE6
 LAB_A29DDE:
   JSR SUB_A1B0EE
@@ -45618,7 +45661,7 @@ LAB_A29DE6:
   ORI.W #4,SR
   RTS
 SUB_A29E06:
-  TST.B LAB_A47FB6
+  TST.B instructionNo
   BNE.S LAB_A29E16
 LAB_A29E0E:
   JSR SUB_A1B0BC
@@ -52681,19 +52724,19 @@ SUB_A3187E:
   ANDI.W  #$fffe,D0
   CMPI.W  #$4e7a,D0
   BNE.W LAB_A31946
-  MOVE.W  #$0050,LAB_A47FB6
+  MOVE.W  #$0050,instructionNo      ;MOVEC
   MOVEQ #0,D1
   MOVE.L  D7,D0
   ANDI.W  #1,D0
   BEQ.S LAB_A318A4
   MOVEQ #1,D1
 LAB_A318A4:
-  LEA LAB_A47FBA,A1
-  LEA LAB_A47FCC,A2
+  LEA instructionDestAddrMode,A1
+  LEA instructionSrcAddrMode,A2
   TST.W D1
   BEQ.S LAB_A318C0
-  LEA LAB_A47FCC,A1
-  LEA LAB_A47FBA,A2
+  LEA instructionSrcAddrMode,A1
+  LEA instructionDestAddrMode,A2
 LAB_A318C0:
   JSR memSafeReadWord
   ADDQ.L  #2,A0
@@ -54322,35 +54365,39 @@ asciiDumpOffset:
 AsciiDumpOffset1:
   DS.B  1
   even
-LAB_A47FB6:
+  ;dont split also used as temporary space
+instructionNo:
   DS.W  1
-LAB_A47FB8:
+instructionSize:
   DS.W  1
-LAB_A47FBA:
+instructionDestAddrMode:
   DS.W  1
-LAB_A47FBC:
+instructionDestReg:
   DS.W  1
-LAB_A47FBE:
+instructionDestRegWordLo:
   DS.W  1
-LAB_A47FC0:
+instructionDestDisplacement:
   DS.L  1
-LAB_A47FC4:
+instructionDestExtData:
   DS.L  1
+instructionDestExtData2:  
   DS.L  1
-LAB_A47FCC:
+instructionSrcAddrMode:
   DS.W  1
-LAB_A47FCE:
+instructionSrcReg:
   DS.W  1
-LAB_A47FD0:
+instructionSrcRegWordLo:
   DS.W  1
-LAB_A47FD2:
+instructionSrcDisplacement:
   DS.L  1
-LAB_A47FD6:
+instructionSrcExtData:
   DS.L  1
+instructionSrcExtData2:
   DS.L  1
 BranchInstructionType:
   DS.W  1
   DS.L  8
+;dont split end
 DefaultAddress:
   DS.L  1
 SAVE_VPOS:
