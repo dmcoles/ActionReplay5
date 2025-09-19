@@ -317,6 +317,8 @@ USBReg2 EQU arhardwarebase+$13fff3
   RSRESET 900*1024
 demonBreakPointList RS.B 20*6
 demonMemWatchAddrs  RS.L  20
+demonTrainerWorkspace RS.B 10240
+demonTrainerWorkspaceEnd RS.B 0
 
 rsnoop SET 0
   if (arhardware+pistorm=1)
@@ -6064,6 +6066,26 @@ commandTable:
   DC.L   CMD_RPB
   DC.L cmd_rpb_help
 
+  DC.B  "WDS",0
+  even
+  DC.L  CMD_WDS
+  DC.L cmd_wds_help
+
+  DC.B  "WDB",0
+  even
+  DC.L  CMD_WDB
+  DC.L cmd_wdb_help
+
+  DC.B  "WPS",0
+  even
+  DC.L  CMD_WPS
+  DC.L cmd_wps_help
+
+  DC.B  "WPB",0
+  even
+  DC.L  CMD_WPB
+  DC.L cmd_wpb_help
+
   DC.B  "CD",0
   even
   DC.L  CMD_CD
@@ -7354,7 +7376,7 @@ cmd_rps_help:
 
 cmd_rr_help:
   DC.B  "RR (Read raw mfm tracks from active drive)",13
-  DC.B  "  RR <start-track> (<num-tracks> <mfm-sync> <readlen> <dest-addr>)",13
+  DC.B  "  RR <start-track> <num-tracks> <mfm-sync> <readlen> <dest-addr>",13
   DC.B 0
 
 cmd_rs_help:
@@ -7671,9 +7693,29 @@ cmd_w_help:
   DC.B  "  W (<register>)",13
   DC.B 0
 
+cmd_wdb_help:
+  DC.B  "WDB (Write AmigaDOS bytes to active drive)",13
+  DC.B  "  WDB <start-offset> <num-bytes> <src-addr>",13
+  DC.B 0
+
+cmd_wds_help:
+  DC.B  "WDS (Write AmigaDOS sectors to active drive)",13
+  DC.B  "  WDS <start-sector> <num-sectors> <src-addr>",13
+  DC.B 0
+
 cmd_wp_help:
   DC.B  "WP (Write pdos tracks to active drive)",13
   DC.B  "  WP <start-track> <num-tracks> <src-addr> <pdos-key>",13
+  DC.B 0
+
+cmd_wpb_help:
+  DC.B  "WPB (Write pdos bytes to active drive)",13
+  DC.B  "  WPB <start-offset> <num-bytes> <src-addr> <pdos-key>",13
+  DC.B 0
+
+cmd_wps_help:
+  DC.B  "WPS (Write pdos sectors to active drive)",13
+  DC.B  "  WPS <start-sector> <num-sectors> <src-addr> <pdos-key>",13
   DC.B 0
 
 cmd_wr_help:
@@ -10042,7 +10084,7 @@ LAB_A13854:
   ADD.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D1
   CLR.W repeatCount
   RTS
@@ -10424,7 +10466,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (11-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (14-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -10705,7 +10747,7 @@ LAB_A14766:
   MOVE.L  D2,D0
   SWAP  D0
   ROR.W #8,D0
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -10722,7 +10764,7 @@ LAB_A14766:
   MOVE.W  D2,D0
   ROR.W #8,D0
   BCLR  #7,D0
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -16441,13 +16483,21 @@ LAB_A182C4:
   BHS.W PrintWTF
 
   ST  LAB_A481DC
-  MOVE.W  #((trainerAreaEnd-mt_sin)/4)-1,D0
-  LEA mt_sin,A1
-LAB_A182DE:
-  CLR.L (A1)+
-  DBF D0,LAB_A182DE
   ST  trainerModeActive
-  MOVE.L  #mt_sin,trainerWorkspacePtr
+  MOVE.W  #((trainerAreaEnd-mt_sin)/4)-1,D0
+  LEA mt_sin,A0
+
+  TST.L newRamdiskAddr
+  BEQ.S .nodemon
+  MOVE.L newRamdiskAddr,A0
+  ADD.L #demonTrainerWorkspace,A0
+  MOVE.W #((demonTrainerWorkspaceEnd-demonTrainerWorkspace)/4)-1,D0
+.nodemon
+  MOVE.L  A0,trainerWorkspacePtr
+LAB_A182DE:
+  CLR.L (A0)+
+  DBF D0,LAB_A182DE
+
   LEA FirstTrainpassText(PC),A0
   BSR.W PrintText
   MOVE.L  trainerContinueAddress,D0
@@ -16487,6 +16537,11 @@ LAB_A18348:
   MOVE.L  ChipMemEnd,D6
 LAB_A1837A:
   MOVE.L  #trainerAreaEnd,D5
+  TST.L   newRamdiskAddr
+  BEQ.S .nodemon
+  MOVE.L  newRamdiskAddr,D5
+  ADD.L   #demonTrainerWorkspaceEnd,D5
+.nodemon
   MOVE.L  ChipMemEnd,D7
   CMPA.L  D7,A0
   BCS.S LAB_A183AE
@@ -16514,7 +16569,7 @@ LAB_A183C0:
   ADDQ.W  #1,A0
 LAB_A183C2:
   TST.B EscapePressed
-  BNE.S LAB_A1843A
+  BNE.W LAB_A1843A
   CMP.L trainerEndAddress,A0
   BHS.W LAB_A18404
   
@@ -16549,7 +16604,12 @@ LAB_A18410:
   JSR PrintAddressHex
   BSR.W PrintCrIfNotBlankLine
   CMPI.L  #mt_sin,trainerWorkspacePtr
-  BNE.S LAB_A18442
+  BEQ.S LAB_A1843A
+  MOVE.L newRamdiskAddr,A0
+  ADD.L #demonTrainerWorkspace,A0
+  CMP.L trainerWorkspacePtr,A0
+  BEQ.S LAB_A1843A  
+  BRA.S LAB_A18442
 LAB_A1843A:
   LEA TrainerFailText(PC),A0
   BRA.W PrintText
@@ -16567,6 +16627,11 @@ LAB_A18454:
 LAB_A1845A:
   SF  D4
   LEA mt_sin,A1
+  TST.L newRamdiskAddr
+  BEQ.S .nodemon1
+  MOVE.L newRamdiskAddr,A1
+  ADD.L #demonTrainerWorkspace,A1
+.nodemon1
   MOVEA.L trainerWorkspacePtr,A2
 LAB_A18468:
   CMPA.L  A1,A2
@@ -16581,6 +16646,11 @@ LAB_A18468:
   BRA.S LAB_A18468
 LAB_A18480:
   LEA mt_sin,A1
+  TST.L newRamdiskAddr
+  BEQ.S .nodemon2
+  MOVE.L newRamdiskAddr,A1
+  ADD.L #demonTrainerWorkspace,A1
+.nodemon2
   MOVEA.L A1,A2
 LAB_A18488:
   MOVEA.L A2,A0
@@ -16597,6 +16667,11 @@ LAB_A1849E:
 LAB_A184A2:
   MOVE.L  A1,trainerWorkspacePtr
   LEA mt_sin,A1
+  TST.L newRamdiskAddr
+  BEQ.S .nodemon3
+  MOVE.L newRamdiskAddr,A1
+  ADD.L #demonTrainerWorkspace,A1
+.nodemon3
 LAB_A184AE:
   CMPA.L  trainerWorkspacePtr,A1
   BEQ.S LAB_A184DA
@@ -21469,7 +21544,7 @@ LAB_A1BBCC:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D2,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C162
@@ -27897,7 +27972,10 @@ SUB_413A54:
   RTS
 SUB_413A62:
   MOVEM.L D0/A0-A1,-(A7)
+  TST.L newRamdiskAddr
+  BNE.S .demon
   SF  trainerModeActive
+.demon
   LEA mt_chan1,A0
   MOVE.W  #$0190,D0
 LAB_413A76:
@@ -28878,7 +28956,10 @@ LAB_A1F9D6:
   BRA.S LAB_A1F9CA
 backupMfmBuffer:
   MOVEM.L D0-D1/A0-A1,-(A7)
+  TST.L newRamdiskAddr
+  BNE.S .demon
   SF  trainerModeActive
+.demon
   MOVE.W  #$085f,D0
   LEA ChipRamSave2,A1
 LAB_A1F9F2:
@@ -38690,6 +38771,43 @@ SUB_A24E64:
   MOVEA.L (A7)+,A0
   RTS
 
+CMD_WDB:
+  TST.L newRamdiskAddr
+  BNE.S .demon
+  SF  trainerModeActive
+.demon
+  ST byteRead
+  BRA.S CMD_WT
+
+CMD_WDS:
+  TST.L newRamdiskAddr
+  BNE.S .demon
+  SF  trainerModeActive
+.demon
+  ST sectorRead
+  BRA.S CMD_WT
+
+CMD_WPB:
+  TST.L newRamdiskAddr
+  BNE.S .demon
+  SF  trainerModeActive
+.demon
+  ST pdosRead
+  ST byteRead
+  CLR.L pdosKey
+  BRA.S CMD_WT
+
+CMD_WPS:
+  TST.L newRamdiskAddr
+  BNE.S .demon
+  SF  trainerModeActive
+.demon
+  ST pdosRead
+  ST sectorRead
+  CLR.L pdosKey
+  BRA.S CMD_WT
+
+
 CMD_WP:
   ST pdosRead
   CLR.L pdosKey
@@ -38701,6 +38819,9 @@ CMD_WR:
   CLR.W mfmLength
 
 CMD_WT:
+  CLR.L trackStartSkip
+  MOVE.L #-1,trackMaxByteCount
+
   JSR ReadParameter
   TST.B ParamFound
   BEQ.W wtWtf
@@ -38754,13 +38875,20 @@ apiWriteTracks2:
   ADD.L D0,D0
   BRA.S .2
 .0
+  TST.B byteRead
+  BNE.S .2
+  
+  MULU #512,D0
+  TST.B sectorRead
+  BNE.S .2
+  
   TST.B pdosRead
   BEQ.S .1
 
-  MULU  #$1800,D0
+  MULU  #12,D0
   BRA.S .2
 .1
-  MULU  #$1600,D0
+  MULU  #11,D0
 .2
   ADD.L A1,D0
   CMPA.L  #ChipramSave1,A1
@@ -38768,40 +38896,189 @@ apiWriteTracks2:
   CMPI.L  #SECSTRT_0,D0
   BHI.W wtWtf
 LAB_A24EC4:
+  
+  MOVE.L  D2,D3
+  ADD.L D1,D3
+
+  MOVE.W #11*160-1,D4
+  TST.B pdosRead
+  BEQ.S .1
+  MOVE.W #12*160-1,D4
+  
+.1
+  TST.B sectorRead
+  BNE.S .checkmax
+  
+  MOVE.L #11*160*512-1,D4
+  TST.B pdosRead
+  BEQ.S .2
+  MOVE.L #12*160*512-1,D4  
+.2
+  TST.B byteRead
+  BNE.S .checkmax
+
+  MOVE.W #159,D4
+
+.checkmax
+
+  CMP.L  D4,D1
+  BHI.W wtWtf
+  CMP.L  D4,D3
+  BHI.W wtWtf
+
+  ;convert sectors to bytes
+  ;so we dont have to handle sectors case anymore
+  TST.B sectorRead
+  BEQ.S .3
+  MULU #$200,D1
+  MULU #$200,D2
+  MULU #$200,D3
+  CLR.B sectorRead
+  ST.B byteRead
+.3
+
+  MOVE.L #$1600,D4
+  TST.B pdosRead
+  BEQ.S .dostrack
+  MOVE.L #$1800,D4
+.dostrack
+  TST.B byteRead
+  BEQ.S .5
+
+  MOVE.L D1,-(A7)
+  DIVU D4,D1
+  CLR.W D1
+  SWAP D1
+  MOVE.L D1,trackStartSkip
+  MOVE.L (A7)+,D1
+
+  MOVE.L D2,trackMaxByteCount
+  
+  DIVU D4,D1
+
+  ADD.L D4,D3
+  SUBQ.L #1,D3
+  DIVU D4,D3  ;find end track
+  SUB.L D1,D3 ;subtract start track
+  MOVE.L D3,D2
+.5
   SUBQ.W  #1,D2
-  CMPI.W  #$009f,D1
-  BHI.W wtWtf
-  MOVE.W  D2,D3
-  ADD.W D1,D3
-  CMPI.W  #$009f,D3
-  BHI.W wtWtf
   CMP.L #EXT_A700-1,A1
-  BHI.S .1
+  BHI.S .6
+  SF sectorRead
+  SF byteRead
+  SF pdosRead
+  SF mfmRead
   LEA saveErr(PC),A0
   JSR PrintText
   LEA addressMinErr(PC),A0
   JSR PrintText
   RTS
-.1
+.6
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
-  BSR.S SUB_A24EF0
+  BSR.S doTrackWrite
   MOVE.L  D0,-(A7)
   JSR restoreMfmBuffer
   MOVE.L  (A7)+,D0
-  JMP PrintDiskOpResult
-
-wtWtf:
+.dopdone
+  SF sectorRead
+  SF byteRead
   SF pdosRead
   SF mfmRead
-  BRA.W LAB_A21070
+  JMP PrintDiskOpResult
+
+  even
+wtWtf:
+  SF sectorRead
+  SF byteRead
+  SF pdosRead
+  SF mfmRead
+  JMP LAB_A21070
 
 
-SUB_A24EF0:
+doTrackWrite:
   MOVEM.L D1-D7/A0-A6,-(A7)
   ;a0=mfm buffer (7000)
   ;a1=data to write
-LAB_A24EF4:
+nextTrack:
+  LEA mt_sin,A4
+  SF.B tempD0 ;partial track flag
+    
+  TST.L trackStartSkip
+  BNE.S .partialtrack
+
+  TST.L trackMaxByteCount
+  BMI.W .notpartialtrack
+
+  CMP.L #$1600,trackMaxByteCount
+  BLT.S .partialtrack
+  TST.B pdosRead
+  BEQ.W .notpartialtrack
+  CMP.L #$1800,trackMaxByteCount
+  BGE.W .notpartialtrack
+
+.partialtrack  
+  ST.B tempD0 ;partial track flag
+
+  ;first track partial
+  ;read track to dmon buffer
+  
+  MOVE.L trackStartSkip,-(A7)
+  MOVE.L trackMaxByteCount,-(A7)
+  MOVE.B sectorRead,-(A7)
+  MOVE.B byteRead,-(A7)
+  MOVEM.L D2/A1,-(A7)
+ 
+  CLR.B sectorRead
+  CLR.B byteRead
+  MOVE.L A4,A1
+  CLR.L D2
+  CLR.L trackStartSkip
+  MOVE.L #-1,trackMaxByteCount
+  
+  BSR.W SUB_A24E64
+  BSR ReadTracks
+  MOVEM.L (A7)+,D2/A1
+  MOVE.B (A7)+,byteRead
+  MOVE.B (A7)+,sectorRead
+  MOVE.L (A7)+,trackMaxByteCount
+  MOVE.L (A7)+,trackStartSkip
+  TST.W D0
+  BPL.S .trackok
+  RTS
+  
+.trackok
+  MOVEM.L A1/A4,-(A7)
+  ADD.L trackStartSkip,A4
+
+  MOVE.L #$1600,D4
+  SUB.L trackStartSkip,D4
+  TST.B pdosRead
+  BEQ.S .notpdos
+  ADD.L #$200,D4
+.notpdos
+  TST.L trackMaxByteCount
+  BMI.S .copy
+  
+  CMP.L trackMaxByteCount,D4
+  BLE.S .copy
+
+  MOVE.L trackMaxByteCount,D4
+  
+.copy
+  MOVE.B (A1)+,(A4)+
+  TST.L trackMaxByteCount
+  BMI.S .nomax
+  SUB.L #1,trackMaxByteCount
+.nomax
+  SUBQ.L #1,D4
+  BNE.S .copy
+  CLR.L trackStartSkip
+  MOVEM.L (A7)+,A1/A4
+  EXG A1,A4
+
+.notpartialtrack
   MOVEQ #9,D4
   MOVEA.L A1,A3
   MOVEA.L A0,A2
@@ -38820,14 +39097,21 @@ LAB_A24EFC:
 LAB_A24F0A:
   CLR.L (A2)+
   DBF D0,LAB_A24F0A
-  MOVEQ #$7F,D0
+  MOVE.W #512/4-1,D0
 LAB_A24F12:
-  MOVE.L  (A1)+,(A2)+
+  MOVE.L (A1)+,(A2)+
+  ADDQ.L #4,A4
   DBF D0,LAB_A24F12
   ADDQ.W  #1,D3
   CMP.W  #11,D3
   BNE.S LAB_A24EFC
   ;a2=8760
+  TST.B tempD0  ;partial track flag
+  BNE.S done
+  TST.L trackMaxByteCount
+  BMI.S .nomax2
+  SUB.L #$1600,trackMaxByteCount
+.nomax2
   BRA.S done
 
 pdos:
@@ -38836,13 +39120,20 @@ pdosSector:
   MOVE.B  D3,(A2)+    ;sector
   MOVE.B  D1,(A2)+    ;track
 
-  MOVEQ #$7F,D0
+  MOVE.W #512/4-1,D0
 pdosData:
   MOVE.L  (A1)+,(A2)+
+  ADDQ.L #4,A4
   DBF D0,pdosData
   ADDQ.W  #1,D3
   CMP.W  #12,D3
   BNE.S pdosSector
+  TST.B tempD0  ;partial track flag
+  BNE.S done
+  TST.L trackMaxByteCount
+  BMI.S .nomax3
+  SUB.L #$1800,trackMaxByteCount
+.nomax3
   BRA.S done
 
 mfm:
@@ -38863,7 +39154,7 @@ mfm:
 done
   MOVE.B  D1,currTrackNo
   MOVE.B  currDriveNo,LAB_A4824A
-LAB_A24F30:
+retryTrack:
   MOVEM.L D0/A0,-(A7)
   LEA WritingText2(PC),A0
   JSR PrintText
@@ -38896,14 +39187,18 @@ LAB_A24F7A:
   BSR.W SUB_A24FD6    ;verify data
   EXG A1,A3
   BPL.S LAB_A24F88
-  DBF D4,LAB_A24F30
+  DBF D4,retryTrack
   BRA.S LAB_A24F9A
 LAB_A24F88:
   ADDQ.W  #1,D1
   MOVEQ #-8,D0
   TST.B EscapePressed
   BNE.S LAB_A24F9A
-  DBF D2,LAB_A24EF4
+  TST.B tempD0    ;partial track flag
+  BEQ.S .nopartial2
+  EXG A1,A4
+.nopartial2
+  DBF D2,nextTrack
   MOVEQ #0,D0
 LAB_A24F9A:
   MOVEM.L (A7)+,D1-D7/A0-A6
@@ -39028,7 +39323,7 @@ LAB_A250F8:
   BSR.W ReadTracks
   BMI.S LAB_A2511A
   MOVE.B  D5,currDriveNo
-  BSR.W SUB_A24EF0
+  BSR.W doTrackWrite
   BPL.S LAB_A25126
 LAB_A2511A:
   MOVE.L  D0,-(A7)
@@ -39095,7 +39390,7 @@ LAB_A251BA:
   JSR PrintText
   BSR.W WaitKeypress
   LEA EXT_7000.W,A0
-  BSR.W SUB_A24EF0
+  BSR.W doTrackWrite
   BMI.W LAB_A25282
   CMPI.W  #$0050,D1
   BEQ.S LAB_A25200
@@ -39136,7 +39431,7 @@ LAB_A2523A:
   LEA EXT_A700,A1
   MOVEQ #0,D1
   MOVEQ #$4F,D2
-  BSR.W SUB_A24EF0
+  BSR.W doTrackWrite
   BMI.S LAB_A25282
   
   LEA EXT_80000,A1
@@ -39151,7 +39446,7 @@ LAB_A2523A:
 LAB_A2527A:
   MOVEQ #$50,D1
   MOVEQ #$4F,D2
-  BSR.W SUB_A24EF0
+  BSR.W doTrackWrite
 LAB_A25282:
   LEA EXT_7000.W,A0
   MOVE.W  D0,-(A7)
@@ -46827,11 +47122,15 @@ HelpText:
   DC.B  "        rs: Read sectors from active drive       - rs start-sector (num dest)",$D
   DC.B  "        rb: Read bytes from active drive         - rb start-offset (num dest)",$D
   DC.B  "        rp: Read pdos tracks from active drive   - rp strack (num dest key)",$D
-  DC.B  "       rps: Read pdos sectors from active drive  - rps start-sector (num dest)",$D
-  DC.B  "       rpb: Read pdos bytes from active drive    - rpb start-offset (num dest)",$D
+  DC.B  "       rps: Read pdos sectors from active drive  - rps ssector (num dest key)",$D
+  DC.B  "       rpb: Read pdos bytes from active drive    - rpb soffset (num dest key)",$D
   DC.B  "        rr: Read raw mfm tracks from active dr   - rr st sync words (num dest)",$D
   DC.B  "        wt: Write tracks to active drive         - wt strack num source",$D
   DC.B  "        wp: Write pdos tracks to active drive    - wp strack num src key",$D
+  DC.B  "       wds: Write sectors to active drive        - wds ssector num src",$D
+  DC.B  "       wdb: Write bytes to active drive          - wdb soffset num src",$D
+  DC.B  "       wps: Write pdos sectors to active drive   - wps ssector num src key",$D
+  DC.B  "       wpb: Write pdos bytes to active drive     - wpb soffset num src key",$D
   DC.B  "        wr: Write raw mfm data to active drive   - wr strack num src words",$D
   DC.B  "       mfm: Decode mfm data                      - mfm src tlen tcnt dest",$D
   DC.B  "                                                     sync soff scnt slen",$D
