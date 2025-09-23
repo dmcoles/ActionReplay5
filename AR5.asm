@@ -314,7 +314,8 @@ arhardwarebase EQU $a80000
 USBReg1 EQU arhardwarebase+$13fff1
 USBReg2 EQU arhardwarebase+$13fff3
 
-  RSRESET 900*1024
+  RSRESET
+  RS.B 900*1024
 demonBreakPointList RS.B 20*6
 demonMemWatchAddrs  RS.L  20
 demonTrainerWorkspace RS.B 10240
@@ -1257,7 +1258,7 @@ LAB_40051E:
   BTST  D0,D1
   BEQ.W LAB_400538
   BCHG  #2,(A0)
-  BRA.W LAB_400538
+  ;BRA.W LAB_400538
 LAB_400538:
   MOVEM.L SaveCpuRegs,D0-D1/A0-A1
   RTE
@@ -10255,7 +10256,7 @@ LAB_A13A6E:
   TST.L newRamdiskAddr
   BEQ.S LAB_A13A7E
   MOVE.L newRamdiskAddr,A0
-  LEA demonBreakPointList(A0),A0
+  ADD.L #demonBreakPointList,A0
   MOVEQ #19,D0
 LAB_A13A7E:
   CLR.L (A0)+
@@ -10267,7 +10268,7 @@ LAB_A13A7E:
   TST.L newRamdiskAddr
   BEQ.S LAB_A13A90
   MOVE.L newRamdiskAddr,A0
-  LEA demonMemWatchAddrs(A0),A0
+  ADD.L #demonMemWatchAddrs,A0
   MOVEQ #19,D0
 LAB_A13A90:
   MOVE.L  D1,(A0)+
@@ -10743,7 +10744,7 @@ LAB_A146AE:
   BNE.S LAB_A146C0
   MOVE.L RegSnoopAddr,A1
   MOVE.L  cop2lch(A1),D0
-  BRA.W LAB_A146C0
+  ;BRA.W LAB_A146C0
 LAB_A146C0:
   BCLR  #0,D0
   BSR.S ShowCopperList
@@ -16558,7 +16559,7 @@ LAB_A182C4:
   TST.L newRamdiskAddr
   BEQ.S .nodemon
   MOVE.L newRamdiskAddr,A0
-  LEA demonTrainerWorkspace(A0),A0
+  ADD.L #demonTrainerWorkspace,A0
   MOVE.W #((demonTrainerWorkspaceEnd-demonTrainerWorkspace)/4)-1,D0
 .nodemon
   MOVE.L  A0,trainerWorkspacePtr
@@ -16674,7 +16675,7 @@ LAB_A18410:
   CMPI.L  #mt_sin,trainerWorkspacePtr
   BEQ.S LAB_A1843A
   MOVE.L newRamdiskAddr,A0
-  LEA demonTrainerWorkspace(A0),A0
+  ADD.L #demonTrainerWorkspace,A0
   CMP.L trainerWorkspacePtr,A0
   BEQ.S LAB_A1843A  
   BRA.S LAB_A18442
@@ -16698,7 +16699,7 @@ LAB_A1845A:
   TST.L newRamdiskAddr
   BEQ.S .nodemon1
   MOVE.L newRamdiskAddr,A1
-  LEA demonTrainerWorkspace(A1),A1
+  ADD.L #demonTrainerWorkspace,A1
 .nodemon1
   MOVEA.L trainerWorkspacePtr,A2
 LAB_A18468:
@@ -16717,7 +16718,7 @@ LAB_A18480:
   TST.L newRamdiskAddr
   BEQ.S .nodemon2
   MOVE.L newRamdiskAddr,A1
-  LEA demonTrainerWorkspace(A1),A1
+  ADD.L #demonTrainerWorkspace,A1
 .nodemon2
   MOVEA.L A1,A2
 LAB_A18488:
@@ -16738,7 +16739,7 @@ LAB_A184A2:
   TST.L newRamdiskAddr
   BEQ.S .nodemon3
   MOVE.L newRamdiskAddr,A1
-  LEA demonTrainerWorkspace(A1),A1
+  ADD.L #demonTrainerWorkspace,A1
 .nodemon3
 LAB_A184AE:
   CMPA.L  trainerWorkspacePtr,A1
@@ -16833,7 +16834,7 @@ CMD_BS:
   TST.L newRamdiskAddr
   BEQ.S LAB_A18662
   MOVE.L newRamdiskAddr,A3
-  LEA demonBreakPointList(A3),A3
+  ADD.L #demonBreakPointList,A3
   MOVEQ #19,D3
 LAB_A18662:
   TST.L (A3)+
@@ -16864,7 +16865,7 @@ CMD_BD:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186A8
   MOVE.L newRamdiskAddr,A3
-  LEA demonBreakPointList(A3),A3
+  ADD.L #demonBreakPointList,A3
   MOVEQ #19,D2
 LAB_A186A8:
   MOVE.L  (A3)+,D1
@@ -16881,7 +16882,7 @@ CMD_BDA:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186CA
   MOVE.L newRamdiskAddr,A0
-  LEA demonBreakPointList(A0),A0
+  ADD.L #demonBreakPointList,A0
   MOVEQ #19,D0
 LAB_A186CA:
   CLR.L (A0)+
@@ -16903,7 +16904,7 @@ CMD_B:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186FE
   MOVE.L newRamdiskAddr,A2
-  LEA demonBreakPointList(a2),a2
+  ADD.L #demonBreakPointList,A2
   MOVEQ #19,D3
 LAB_A186FE:
   MOVE.L  (A2)+,D0
@@ -16945,7 +16946,7 @@ SetupBreakpoints:
   TST.L newRamdiskAddr
   BEQ.S LAB_A187B6
   MOVE.L newRamdiskAddr,A3
-  LEA demonBreakPointList(A3),A3
+  ADD.L #demonBreakPointList,A3
   MOVEQ #19,D3
 LAB_A187B6:
   TST.L (A3)+
@@ -16980,7 +16981,7 @@ LAB_A18804:
   TST.L newRamdiskAddr
   BEQ.S LAB_A18812
   MOVE.L newRamdiskAddr,A3
-  LEA demonBreakPointList(A3),A3
+  ADD.L #demonBreakPointList,A3
   MOVEQ #19,D3
 LAB_A18812:
   MOVE.L  SaveOldPc,D0
@@ -17079,7 +17080,7 @@ SUB_A188F0:
   TST.L newRamdiskAddr
   BEQ.S LAB_A188F8
   MOVE.L newRamdiskAddr,A0
-  LEA demonBreakPointList(A0),A0
+  ADD.L #demonBreakPointList,A0
   MOVEQ #19,D1
 LAB_A188F8:
   MOVE.L  (A0)+,D2
@@ -17766,7 +17767,7 @@ LAB_A1917A:
   BRA.S LAB_A19188
 LAB_A19180:
   LEA HalfBrText(PC),A0
-  BRA.W LAB_A19188
+  ;BRA.W LAB_A19188
 LAB_A19188:
   BSR.W PrintMemPeekerHelpValue
   MOVE.W  #$0017,memPeekHelpX
@@ -19079,7 +19080,7 @@ LAB_A19D9E:
   BRA.S LAB_A19DAC
 LAB_A19DA4:
   MOVE.B  #$25,D0
-  BRA.W LAB_A19DAC
+  ;BRA.W LAB_A19DAC
 LAB_A19DAC:
   RTS
 PrintMemPeekerHelpValue:
@@ -19725,7 +19726,7 @@ EditCiaData:
   MOVE.W  D0,D1
 LAB_A1A818:
   MOVE.W  D1,D0
-  BRA.W LAB_A1A81E
+  ;BRA.W LAB_A1A81E
 LAB_A1A81E:
   MOVE.W  D0,D2
   MOVE.W  #$0027,D0
@@ -19973,7 +19974,7 @@ LAB_A1ABA2:
   ADD.L $20(A3,D1.W),D0
   CMPA.L  D0,A1
   BEQ.S LAB_A1ABCC
-  BRA.W LAB_A1ABC2
+  ;BRA.W LAB_A1ABC2
 LAB_A1ABC2:
   MOVEA.L LAB_A480DA,A0
   BRA.W LAB_A1AAC6
@@ -20833,7 +20834,7 @@ SUB_A1B2EC:
   RTS
 LAB_A1B2FC:
   SF  LAB_A481E1
-  BRA.W LAB_A1B306
+  ;BRA.W LAB_A1B306
 LAB_A1B306:
   MOVE.L  A0,-(A7)
   MOVE.L  D0,D1
@@ -23270,7 +23271,7 @@ LAB_A1D10A:
   BRA.S LAB_A1D118
   MOVEQ #6,D0
   MOVEQ #5,D1
-  BRA.W LAB_A1D118
+  ;BRA.W LAB_A1D118
 LAB_A1D118:
   ADD.W vbrflag,D0
   ADD.W vbrflag,D0
@@ -26592,7 +26593,7 @@ LAB_A1F1B6:
   SUBI.W  #9,D3
   ORI.W #$0700,D3
   MOVEQ #$B,D0
-  BRA.W LAB_A1F1CA
+  ;BRA.W LAB_A1F1CA
 LAB_A1F1CA:
   SUBQ.W  #1,D0
 LAB_A1F1CC:
@@ -27455,7 +27456,7 @@ LAB_412FB8:
   BSR.W HandleDiskFull
   BMI.W LAB_412FEE
   BSR.W AddFileToDirBlock
-  BMI.W LAB_412FEE
+  ;BMI.W LAB_412FEE
 LAB_412FEE:
   MOVE.L  D0,D1
   BSR.W restoreMfmBuffer
@@ -27841,7 +27842,7 @@ LAB_413646:
   BRA.W LAB_41366E
 LAB_413668:
   MOVEQ #0,D0
-  BRA.W LAB_41366E
+  ;BRA.W LAB_41366E
 LAB_41366E:
   MOVEM.L (A7)+,D1-D2/A0-A2
   RTS
@@ -28917,7 +28918,7 @@ LAB_A1F75A:
   BTST  #4,D0
   BEQ.S LAB_A1F770
   BSET  #4,$D(A1)
-  BRA.W LAB_A1F770
+  ;BRA.W LAB_A1F770
 LAB_A1F770:
   BSET  #6,$E00(A0)
   MOVE.B  #0,$500(A0)
@@ -29334,7 +29335,7 @@ SUB_A1FD00:
   BRA.S LAB_A1FD0A
 SUB_A1FD04:
   MOVEQ #0,D0
-  BRA.W LAB_A1FD0A
+  ;BRA.W LAB_A1FD0A
 LAB_A1FD0A:
   MOVEQ #0,D1
   MOVE.B  currDriveNo,D1
@@ -29667,7 +29668,7 @@ LAB_A1FF10:
   MOVE.L  (A0)+,D1
   MOVE.L  (A0)+,D2
   CMPI.W  #1,D0
-  BLS.W LAB_A1FF1C
+  ;BLS.W LAB_A1FF1C
 LAB_A1FF1C:
   AND.L D6,D1
   AND.L D6,D2
@@ -31658,7 +31659,7 @@ LAB_A21680:
   BNE.S LAB_A216A8
   DBF D0,LAB_A21680
   MOVE.L (A7)+,A0
-  BRA.W LAB_A21690
+ ; BRA.W LAB_A21690
 LAB_A21690:
   MOVE.L A0,-(A7)
   LEA DiskBitmap,A0
@@ -31991,7 +31992,7 @@ SUB_A2197A:
 LAB_A2198C:
   MOVE.L  D3,D0
   MOVE.L  (A7)+,D3
-  BRA.W SUB_A21994
+  ;BRA.W SUB_A21994
 SUB_A21994:
   MOVE.L  D6,-(A7)
   MOVEQ #-3,D6
@@ -39877,7 +39878,7 @@ LAB_A256A8:
   CMPI.W  #$0244,D2
   BLE.S LAB_A25688
   JSR PrintCR
-  BRA.W LAB_A256BA
+  ;BRA.W LAB_A256BA
 LAB_A256BA:
   LEA DangerText,A0
   JSR PrintText
@@ -40007,8 +40008,8 @@ LAB_A25876:
   JSR InvalidAsciiToDot
 LAB_A25882:
   JSR PrintChar
-  TST.B EscapePressed
-  BNE.W LAB_A25892
+  ;TST.B EscapePressed
+  ;BNE.W LAB_A25892
 LAB_A25892:
   MOVEQ #-8,D0
   TST.B EscapePressed
@@ -43869,7 +43870,7 @@ LAB_A27F38:
   TST.L newRamdiskAddr
   BEQ.S LAB_A27F52
   MOVE.L newRamdiskAddr,A0
-  LEA demonMemWatchAddrs(A0),A0
+  ADD.L #demonMemWatchAddrs,A0
   MOVEQ #19,D2
 LAB_A27F52:
   TST.L (A0)+
@@ -43908,7 +43909,7 @@ CMD_MD:
   TST.L newRamdiskAddr
   BEQ.S LAB_A27FF8
   MOVE.L newRamdiskAddr,A0
-  LEA demonMemWatchAddrs(A0),A0
+  ADD.L #demonMemWatchAddrs,A0
   MOVEQ #19,D1
 LAB_A27FF8:
   CMP.L (A0)+,D0
@@ -43941,7 +43942,7 @@ CMD_MW:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2806C
   MOVE.L newRamdiskAddr,A0
-  LEA demonMemWatchAddrs(A0),A0
+  ADD.L #demonMemWatchAddrs,A0
   MOVEQ #19,D1
 LAB_A2806C:
   MOVE.L  (A0)+,D0
@@ -43966,7 +43967,7 @@ CMD_MDA:
   TST.L newRamdiskAddr
   BEQ.S LAB_A280B6
   MOVE.L newRamdiskAddr,A0
-  LEA demonMemWatchAddrs(A0),A0
+  ADD.L #demonMemWatchAddrs,A0
   MOVEQ #19,D0
 LAB_A280B6:
   MOVE.L  #$ffffffff,(A0)+
@@ -43985,7 +43986,7 @@ RestoreMemWatch:
   TST.L newRamdiskAddr
   BEQ.S LAB_A280FA
   MOVE.L newRamdiskAddr,A2
-  LEA demonMemWatchAddrs(A2),A2
+  ADD.L #demonMemWatchAddrs,A2
   MOVE.L A2,A3
   MOVEQ #19,D1
 LAB_A280FA:
@@ -48096,7 +48097,7 @@ CMD_ST:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2DBFC
   MOVE.L newRamdiskAddr,A2
-  LEA demonMemWatchAddrs(A2),A2
+  ADD.L #demonMemWatchAddrs,A2
   MOVEQ #19,D1
 LAB_A2DBFC:
   TST.L (A2)+
@@ -48137,7 +48138,7 @@ CMD_TR:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2DCBC
   MOVE.L newRamdiskAddr,A2
-  LEA demonMemWatchAddrs(A2),A2
+  ADD.L #demonMemWatchAddrs,A2
   MOVEQ #19,D1
 LAB_A2DCBC:
   TST.L (A2)+
