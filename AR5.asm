@@ -1,4 +1,4 @@
- ;Action Replay 5
+;Action Replay 5
 dbg=0
 pistorm=0
 arhardware=1
@@ -988,7 +988,7 @@ NMI_Entry:
   BGT.W nmi1
   CMPI.L  #$100,2(A7)
   BLS.W nmi1
-  jmp ExceptionEntry
+  BRA.W ExceptionEntry
 nmi1:
   tst.b breakpointsActive
   beq.s nmi2
@@ -997,7 +997,7 @@ nmi1:
   CMPI.L  #$46,2(A7)
   bne.s nmi2
 .isbp
-  jmp ExceptionEntry2
+  bra.w ExceptionEntry2
 
 nmi2:
   tst.b MemwatchActive
@@ -1007,7 +1007,7 @@ nmi2:
   cmp.l #$136,2(a7)
   bne.s nmi3
 .ismw
-  jmp ExceptionEntry2
+  bra.w ExceptionEntry2
 nmi3:
   tst.b apiActive
   beq.s nmi4
@@ -1016,7 +1016,7 @@ nmi3:
   cmp.l #$106,2(a7)
   bne.s nmi4
 .isapi
-  jmp ApiEntry
+  bra.w ApiEntry
 
 nmi4:
   cmp.l #$150,2(a7)
@@ -1025,15 +1025,15 @@ nmi4:
   bne.s x
 .istr
   MOVE.L A0,D0
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L D0,A0
   MOVE.W vbrflag,D0
   ADD.W D0,D0
-  ADD.W #6,D0
+  ADDQ.W #6,D0
   lea (a7,d0.w),a7
-  JMP DoArTrace
+  BRA.W DoArTrace
 nmi:
-  JMP Freeze
+  BRA.W Freeze
   endc
 x:
   if arhardware=1
@@ -1094,7 +1094,7 @@ LAB_4001B4:
   MOVE.B  (A7)+,$E00(A4)
   MOVEM.L SaveCpuRegs,D0-D1/A0/A4-A5
 LAB_4001C0:
-  JSR setActivateMode
+  BSR.W setActivateMode
   JMP exit_rte
   endc
 
@@ -1104,7 +1104,7 @@ LAB_4001C0:
   if arhardware=1
 reset:
   BTST #0,tempD1    ;check copy of freeze state
-  BEQ SecondBootIntercept
+  BEQ.S SecondBootIntercept
   JMP BootIntercept
 
 SecondBootIntercept:
@@ -1124,7 +1124,7 @@ LAB_400314:
   BEQ.W LAB_40032C
   CMPI.L  #$00000120,2(A7)
   BNE.S LAB_40032C
-  JMP AREntry2
+  BRA.W AREntry2
 LAB_40032C:
   TST.B LAB_A48391
   BEQ.W LAB_400348
@@ -1138,7 +1138,7 @@ LAB_400348:
   BEQ.W LAB_40070E
   TST.B LAB_A48336
   BEQ.W LAB_40036E
-  JSR SUB_400622
+  BSR.W SUB_400622
 LAB_40036E:
   TST.B doPatchingFlag
   BNE.W LAB_400810
@@ -1311,7 +1311,7 @@ LAB_400606:
   CMPI.W  #$00bf,D3
   BNE.W LAB_400620
   SF  updateDrivesConnectedFlag
-  JSR setActivateMode
+  BSR.W setActivateMode
 LAB_400620:
   RTS
 SUB_400622:
@@ -1432,7 +1432,7 @@ LAB_4007BE:
   MOVEM.L (A7)+,D0-D7/A0-A6
   MOVE.L  EXT_20C.W,2(A7)
   SF  OSPatchesInstalledFlag
-  JSR setActivateMode
+  BSR.W setActivateMode
   RTE
 LAB_4007D6:
   TST.B SetmapDPrefsFlag
@@ -1497,12 +1497,12 @@ LAB_4008B2:
   MOVE.L  saveOldDoIo,2(A0)
   MOVEA.L (A7)+,A0
   MOVE.L  saveOldDoIo,2(A7)
-  JSR setActivateMode
+  BSR.W setActivateMode
   RTE
 LAB_40091A:
   CMPI.W  #2,$1C(A1)
   BNE.W LAB_400988
-  CMPI.L  #0,$2C(A1)
+  TST.L $2C(A1)
   BNE.W LAB_400988
   SF  LAB_A4838F
   ST  LAB_A4838E
@@ -1512,7 +1512,7 @@ LAB_40091A:
   MOVE.W  (A7),-4(A7)
   MOVE.L  2(A7),-2(A7)
   MOVE.L  #$00000080,2(A7)
-  LEA -4(A7),A7
+  SUBQ.L #4,A7
   MOVE.L  A0,-(A7)
   BRA.W LAB_400974
 LAB_400968:
@@ -1546,7 +1546,7 @@ LAB_4009BC:
   BTST  #5,(A7)
   BEQ.W LAB_4009F6
   MOVE.W  (A7),4(A7)
-  LEA 4(A7),A7
+  ADDQ.L #4,A7
   MOVE.L  A0,-(A7)
   MOVEA.L EXT_4.W,A0
   SUBA.W  #$01c8,A0
@@ -1710,7 +1710,7 @@ LAB_400C04:
   MOVE.L  saveOldDoIo,2(A0)
   MOVEA.L (A7)+,A0
 LAB_400C18:
-  JSR setActivateMode
+  BSR.W setActivateMode
   RTE
 LAB_400C20:
   MOVE.L  USP,A2
@@ -1721,7 +1721,7 @@ LAB_400C20:
   CLR.W (A7)
   ST  LAB_A48392
   MOVEQ #0,D0
-  JMP AREntry2
+  BRA.W AREntry2
 LAB_400C3C:
   DC.L  $00390000
 LAB_400C40:
@@ -1838,7 +1838,7 @@ LAB_400D92:
   ST  LAB_A48392
   MOVEQ #0,D0
   MOVEM.L CopySpr0Pt,D0-D2/A0-A3
-  JMP AREntry2
+  BRA.W AREntry2
 LAB_400DB6:
   MOVEM.L CopySpr0Pt,D0-D2/A0-A3
   TST.B SetmapDPrefsFlag
@@ -1887,7 +1887,7 @@ LAB_400E6A:
   SUBA.W  #$01c8,A0
   MOVE.L  saveOldDoIo,2(A0)
 LAB_400E7A:
-  JSR setActivateMode
+  BSR.W setActivateMode
   MOVEM.L LAB_A480CA,A0-A1
   RTE
 LAB_400E8A:
@@ -1896,7 +1896,7 @@ LAB_400E8A:
   BTST  #5,(A7)
   BEQ.W LAB_400EC4
   MOVE.W  (A7),4(A7)
-  LEA 4(A7),A7
+  ADDQ.L #4,A7
   MOVE.L  A0,-(A7)
   MOVEA.L EXT_4.W,A0
   SUBA.W  #$01c8,A0
@@ -1935,9 +1935,9 @@ LAB_A10230:
   if arsoft=1
   CMP.B #3,imode
   BNE.S LAB_A10240
-  JMP RomEntry
+  BRA.S RomEntry
   else
-  JMP RomEntry
+  BRA.S RomEntry
   endc
 LAB_A10240:
   JMP exit_rte
@@ -1955,14 +1955,14 @@ actual_rte:
 RomEntry:
   CLR.B TraceActive
   CMP.L #BRON_TAG,bronFlag
-  BEQ RomEntry_2
+  BEQ.S RomEntry_2
   JMP ArEntry1
 RomEntry_2:
-  JMP AREntry2
+  BRA.W AREntry2
 
 ApiEntry:
   ST.B apiCall
-  JMP ExceptionEntry2
+  BRA.S ExceptionEntry2
 
 ExceptionEntry:
   TST.B ignoreExceptions
@@ -1983,7 +1983,7 @@ LAB_A103D0:
   BLT.W LAB_A103E2
 LAB_A103DC:
   CLR.B TraceActive
-  JMP RomEntry
+  BRA.S RomEntry
 LAB_A103E2:
   TST.B deepMemWatch
   BEQ.S LAB_A10400
@@ -2009,7 +2009,7 @@ DoArTrace:
 LAB_A108BA:
   SUBQ.L  #1,TraceStepCount
   BNE.S LAB_A108C8
-  JMP AREntry2
+  BRA.W AREntry2
 LAB_A108C8:
   TST.B TraceSkipSubs
   BEQ.S LAB_A10932
@@ -2079,7 +2079,7 @@ AREntry2:
 
   ;MOVE.L  2(A7),SaveOldStk1
   MOVE.L  2(A7),SaveOldPc
-  MOVE.W  0(A7),SaveOldSr
+  MOVE.W  (A7),SaveOldSr
   MOVE  #$2000,SR
   LEA StackEnd,A7
 
@@ -2101,14 +2101,14 @@ AREntry2:
 
 .1
   MOVE.L  D0,tempD0
-  JSR getCACR
+  BSR.W getCACR
   MOVE.L  D0,SAVE_CACR
 
 
   MOVEQ #0,D0
 
   SF.B tempD1
-  JSR setCACR
+  BSR.W setCACR
 
   TST.B tempD1
   BNE.S .2
@@ -2184,13 +2184,13 @@ LAB_A10A76:
 LAB_A10A88:
   MOVE.W  #$7fff,intreq+hardware
   MOVE.W  #$c000,intena+hardware
-  JSR GetChipsetInfo
-  JSR saveAgaColors
+  BSR.W GetChipsetInfo
+  BSR.W saveAgaColors
   MOVE.L  #0,color00+hardware
 
   LEA hardware,A5
   MOVE.L RegSnoopAddr,A6
-  JSR ClearSprites
+  BSR.W ClearSprites
   BSR.W SaveCIARegs
   if rsnoop=1
   BSR BlitterSave
@@ -2230,14 +2230,14 @@ LAB_A10A88:
 
   MOVE.L  SAVE_CACR,D0
   OR.W #$808,D0   ;clear data and instruction cache
-  JSR setCACR
+  BSR.W setCACR
 
   MOVE.L Int5Save,AUTO_INT5.W
   ;MOVE.L Save200,EXT_200.W
   ;MOVE.L Save204,EXT_204.W
 
   MOVEM.L SaveCpuRegs,D0-D7/A0-A7
-  MOVE.W  SaveOldSr,0(A7)
+  MOVE.W  SaveOldSr,(A7)
   MOVE.L  SaveOldPc,2(A7)
   BSET  #7,SaveIntreq
   BSET  #7,SaveIntena
@@ -2342,17 +2342,17 @@ getVBR:
   RTS
 vbrtrap:
   MOVE.W #0,vbrflag
-  ADD.L  #4,2(a7)
+  ADDQ.L  #4,2(a7)
   RTE
 
 cacrtrap:
   ST.B tempD1
-  ADD.L  #4,2(a7)
+  ADDQ.L  #4,2(a7)
   RTE
 
 vbrtrap2:
   ST.B tempD0
-  ADD.L  #4,2(a7)
+  ADDQ.L  #4,2(a7)
   RTE
 
 getCACR:
@@ -2622,7 +2622,7 @@ SerialInt:
   MOVE.L #serDataBuff,A0
 .2
   MOVE.L A0,serDataWritePtr
-  ADD.W #1,serBufUsed
+  ADDQ.W #1,serBufUsed
 .1 
   MOVE.W #$800,intreq+hardware
   MOVE.W #$800,intreq+hardware
@@ -2759,7 +2759,7 @@ PrintCursor:
   MOVEM.L D0-D1/A0-A1,-(A7)
   MOVEQ #0,D0
   MOVEQ #0,D1
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W  #$0280,D0
   MULU  cursorY,D0
   ADD.W cursorX,D0
@@ -2806,27 +2806,27 @@ moveCursorRight:
   CMPI.W  #$004f,cursorX
   BEQ.S LAB_A11134
   ADDQ.W  #1,cursorX
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
   RTS
 LAB_A11134:
   CLR.W cursorX
   BSR.W moveCursorDown
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
   RTS
 moveCursorLeft:
-  CMPI.W  #0,cursorX
+  TST.W  cursorX
   BEQ.S LAB_A11152
   SUBQ.W  #1,cursorX
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
   RTS
 LAB_A11152:
   MOVE.W  #$004f,cursorX
   BSR.W moveCursorUp
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
   RTS
 CursorHome:
   CLR.L cursorX
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
   RTS
 SUB_A11168:
   MOVEM.L D0-D3/A0,-(A7)
@@ -2885,13 +2885,13 @@ LAB_A1121A:
   BNE.S LAB_A111FE
 LAB_A11222:
   MOVE.L  (A7)+,cursorX
-  JSR UpdateSerCursor
+  BSR.W UpdateSerCursor
 LAB_A11228:
   MOVE.B  (A7)+,printerDumpToggle
   MOVE.L  (A7)+,D0
   RTS
 moveCursorUp:
-  CMPI.W  #0,cursorY
+  TST.W  cursorY
   BEQ.S SUB_A11244
   SUBQ.W  #1,cursorY
   JSR UpdateSerCursor
@@ -2916,7 +2916,7 @@ LAB_A1125E:
 LAB_A11278:
   MOVE.L  (A7)+,D0
   BSR.S SUB_A1127A
-  JMP UpdateSerCursor 
+  BRA.W UpdateSerCursor 
   
 SUB_A1127A:
   SUBQ.W  #1,LAB_A47F40
@@ -2940,11 +2940,11 @@ LAB_A112A8:
   SF  LAB_A483CB
 LAB_A112BE:
   MOVE.W  PageHeight,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
   CMP.B  LAB_A483CB,D0
   BHI.S LAB_A112D8
 LAB_A112C8:
-  JSR GetMappedKeyCode
+  BSR.W GetMappedKeyCode
   TST.B D0
   BEQ.S LAB_A112C8
   SF  LAB_A483CB
@@ -2953,7 +2953,7 @@ LAB_A112D8:
   LEA $50(A0),A1
   MOVE.W PageHeight,D0
   MULU #80/8,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A112E6:
   MOVE.L  (A1)+,(A0)+
   MOVE.L  (A1)+,(A0)+
@@ -2963,11 +2963,11 @@ LAB_A112E6:
 LAB_A112F6:
   MOVE.L  D1,(A0)+
   DBF D0,LAB_A112F6
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   LEA $280(A0),A1
   MOVE.W PageHeight,D0
   MULU #80*8/32,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A1130A:
   MOVE.L  (A1)+,(A0)+
   MOVE.L  (A1)+,(A0)+
@@ -3023,7 +3023,7 @@ LAB_A11382:
 LAB_A11392:
   MOVE.L  D1,-(A1)
   DBF D0,LAB_A11392
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W PageHeight,D0
   MULU #80*8,D0
   ADD.L D0,A0
@@ -3031,7 +3031,7 @@ LAB_A11392:
 
   MOVE.W PageHeight,D0
   MULU #80*8/32,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A113AA:
   MOVE.L  -(A0),-(A1)
   MOVE.L  -(A0),-(A1)
@@ -3062,7 +3062,7 @@ InstallVblank:
   ST  cursorEnabled
   LEA hardware,A5
   MOVE.L RegSnoopAddr,A6
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   LEA ChipramSave1,A1
 LAB_A11406:
   MOVE.L  (A0),D1
@@ -3093,7 +3093,7 @@ LAB_A11406:
   MOVE.L  $92(A6),SaveDdfStrt
   MOVE.W  $1e4(A6),SaveDiwHigh
 
-  JSR CalcBeamCon0
+  BSR.W CalcBeamCon0
 
   MOVE.L  AUTO_INT3.W,Int3Save
   BSR.W MakeMainDisplay
@@ -3151,7 +3151,7 @@ CalcBeamCon0
 
   MOve.L RegSnoopAddr,A0
   MOVE.W beamcon0(A0),D0
-  CMP.W #0,D0
+  TST.W D0
   BEQ.S .0
 
   CMP.W #$20,D0
@@ -3278,7 +3278,7 @@ saveAgaColors:
   MOVE.L D3,SaveAgaColor1
 
   MOVE.L AgaPaletteSave,D5
-  BEQ .2
+  BEQ.S .2
   MOVE.L D5,A4
   MOVE.W #0,D5
 
@@ -3302,7 +3302,7 @@ saveAgaColors:
   DBF D1,.nextcol
 
   ADD.W #$2000,D5
-  BCC .nextbank
+  BCC.S .nextbank
 
 .2
   MOVE.W D4,bplcon3(A5)
@@ -3368,7 +3368,7 @@ agarest:
   DBF D1,.nextcol
 
   ADD.W #$2000,D5
-  BCC .nextbank
+  BCC.S .nextbank
 
 restskip:
   MOVE.W #0,bplcon3(A5)
@@ -3409,7 +3409,7 @@ RestoreDisplay1:
   LEA hardware,A5
   MOVE.W  #$0300,$96(A5)
   MOVE.W  #$7fff,$9A(A5)
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   LEA ChipramSave1,A1
 LAB_A119F6:
   MOVE.L  (A0),D1
@@ -3476,7 +3476,7 @@ LAB_A11A5A:
   endc
   MOVE.W  D0,$182(A5)
 LAB_A11A66:
-  JSR restoreAgaColors
+  BSR.W restoreAgaColors
   MOVE.W  SaveBplCon0,D0
   if rsnoop=0
   BEQ.S LAB_A11A72
@@ -3724,7 +3724,7 @@ LAB_A1160C:
   MOVE.L  #EXT_204,spr0pth(A5)
   BRA.W LAB_A1170A
 LAB_A116E0:
-  BSR ClearSprites
+  BSR.S ClearSprites
 LAB_A1170A:
   MOVEM.L (A7)+,D0-D3/A0/A5
   RTS
@@ -3993,10 +3993,10 @@ getKeymap:
   TST.B keymap
   BEQ.S LAB_A11B44
   CMP.B #1,keymap
-  BEQ LAB_A11B44_2
+  BEQ.S LAB_A11B44_2
 
   CMP.B #2,keymap
-  BEQ LAB_A11B44_3
+  BEQ.S LAB_A11B44_3
   LEA keymapUK(PC),A0
   TST.B IgnoreShift
   BNE.S LAB_A11B54
@@ -4297,11 +4297,11 @@ arCommandLoop:
   TST.B debuggerMode
   BEQ.S .1
 
-  JSR debugger
+  BSR.W debugger
 .1
   TST.B apiCall
   BEQ.S .2
-  JSR handleApiCall
+  BSR.W handleApiCall
 .2
   TST.B restartFlag
   BNE.W LAB_A12108
@@ -4368,7 +4368,7 @@ LAB_A121C4:
   CMP.B #"A",D0
   BNE.W .1
 
-  LEA dira_help_dummy,A2
+  LEA dira_help_dummy(PC),A2
   BRA.W .0
 
 .notdir
@@ -4381,7 +4381,7 @@ LAB_A121C4:
   CMP.B #"K",D0
   BNE.W .1
 
-  LEA gk_help_dummy,A2
+  LEA gk_help_dummy(PC),A2
   BRA.S .0
 
 .notgo
@@ -4394,7 +4394,7 @@ LAB_A121C4:
   CMP.B #"G",D0
   BNE.S .1
 
-  LEA ryg_help_dummy,A2
+  LEA ryg_help_dummy(PC),A2
   BRA.S .0
 .notry
   CMP.L #CMD_RFY,A1
@@ -4406,7 +4406,7 @@ LAB_A121C4:
   CMP.B #"G",D0
   BNE.S .1
 
-  LEA rfyg_help_dummy,A2
+  LEA rfyg_help_dummy(PC),A2
   BRA.S .0
 .notrfy
   CMP.L #CMD_FORMAT,A1
@@ -4423,11 +4423,11 @@ LAB_A121C4:
   BRA.S .1
 
 .formatq
-  LEA formatq_help_dummy,A2
+  LEA formatq_help_dummy(PC),A2
   BRA.S .0
 
 .formatv
-  LEA formatv_help_dummy,A2
+  LEA formatv_help_dummy(PC),A2
 .0
   JSR readCmdCharSkipSpaces
 .1
@@ -4445,15 +4445,15 @@ LAB_A121C4:
   BNE.S .helpPrint
 
   LEA noHelpText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BRA.W arCommandLoop
 
 .helpPrint
   MOVE.L A0,-(A7)
   LEA helpHeaderText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVE.L (A7)+,A0
-  JSR PrintText
+  BSR.W PrintText
   JSR PrintCR
   BRA.W arCommandLoop
 
@@ -4497,11 +4497,11 @@ handleApiCall
   MOVE.L SaveCpuRegs,D0
   CMP.W #maxApiCall,D0
   BGT.S .1
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   TST.W D0
   BMI.S .1
   
-  LEA apiTable,A0
+  LEA apiTable(PC),A0
   ADD.W D0,D0
   ADD.W D0,D0
   MOVE.L (A0,D0.W),A0
@@ -4547,7 +4547,7 @@ apiSaveFile:
   LEA stringWorkspace,A2
   MOVE.W #-1,D2
 .copyfname
-  ADD.W #1,D2
+  ADDQ.W #1,D2
   MOVE.B (A0)+,(A2)+
   BNE.S .copyfname
 
@@ -4562,7 +4562,7 @@ apiSaveData:
   LEA stringWorkspace,A2
   MOVE.W #-1,D2
 .copyfname
-  ADD.W #1,D2
+  ADDQ.W #1,D2
   MOVE.B (A0)+,(A2)+
   BNE.S .copyfname
 
@@ -4606,12 +4606,12 @@ apiWriteTracks:
 apiReadPdosTracks
   ST.B pdosRead
   MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
-  BRA apiReadTracks
+  BRA.S apiReadTracks
 
 apiWritePdosTracks
   ST.B pdosRead
   MOVE.L SaveCpuRegs+12,pdosKey  ;pdos key from D3
-  BRA apiWriteTracks
+  BRA.S apiWriteTracks
 
 apiReadSectors
   MOVE.L SaveCpuRegs+4,D1  ;start sector from D1 to D1
@@ -4645,10 +4645,10 @@ apiReadSectors
   LSL.L #4,D1
   LSL.L #5,D1
 
-  ADD.L #1,D2
+  ADDQ.L #1,D2
   LSL.L #4,D2
   LSL.L #5,D2
-  SUB.L #1,D2 
+  SUBQ.L #1,D2 
 
   MOVE.L D1,D0    
   DIVU D3,D0      ;calculate start track
@@ -4812,72 +4812,72 @@ debugger:
   JSR Cls
   LEA debuggerPage(PC),A0
   JSR DrawPrefsPage
-  JSR DrawDebuggerFocus
+  BSR.W DrawDebuggerFocus
 
   LEA SaveCpuRegs,A1
   MOVE.L  (A1)+,D0
   MOVE.L #$00060002,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060003,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060004,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060005,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060006,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060007,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060008,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$00060009,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.W  SaveOldSr,D0
   MOVE.L #$0006000A,cursorX
-  JSR Print4DigitHex
+  BSR.W Print4DigitHex
 
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0002,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0003,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0004,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0005,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0006,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0007,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0008,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L  (A1)+,D0
   MOVE.L #$001D0009,cursorX
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
 
   MOVE.L  SaveOldPc,D0
   MOVE.L #$001D000A,cursorX
-  JSR Print8DigitHex
-  JSR DebuggerDisasm
+  BSR.W Print8DigitHex
+  BSR.W DebuggerDisasm
 
 redoMem:
-  JSR DebuggerShowMem
+  BSR.W DebuggerShowMem
 
 DebuggerCheckKeys:
-  JSR GetMappedKeyCode
+  BSR.W GetMappedKeyCode
   TST.B EscapePressed
   BNE.S DebuggerEscape
   CMPI.W  #"m",D0
@@ -4906,8 +4906,8 @@ DebuggerCheckKeys:
 
 DebuggerEscape
   MOVE.L SaveOldPc,dbgDisasmBase
-  JSR DebuggerDisasm
-  BRA DebuggerCheckKeys
+  BSR.W DebuggerDisasm
+  BRA.S DebuggerCheckKeys
 
 DebuggerM:
   MOVE.L #$1e000b,cursorX
@@ -4966,10 +4966,10 @@ DebuggerShowMem:
   MOVE.L D7,cursorX
   MOVEM.L D6/D7,-(Sp)
   MOVE.L A0,D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   JSR memSafeReadWord
   JSR PrintSpace
-  JSR Print4DigitHex
+  BSR.W Print4DigitHex
   ADDQ.L #2,A0
   JSR memSafeReadWord
   JSR PrintSpace
@@ -5004,7 +5004,7 @@ DebuggerDisasm:
   MOVEA.L D0,A1
   MOVE.L D7,cursorX
   MOVEM.L D6/D7,-(Sp)
-  JSR SUB_A12F08
+  BSR.W SUB_A12F08
   TST.L dbgSecondLineAddr
   BNE.S .1
   MOVE.L DefaultAddress,dbgSecondLineAddr
@@ -5034,10 +5034,10 @@ debuggerLeft
   TST.B debuggerFocus
   BEQ.S .1
 
-  SUB.L #2,dbgMemBase
+  SUBQ.L #2,dbgMemBase
   BRA redoMem
 .1
-  SUB.L #2,dbgDisasmBase
+  SUBQ.L #2,dbgDisasmBase
   BSR DebuggerDisasm
   BRA DebuggerCheckKeys
 
@@ -5045,27 +5045,27 @@ debuggerRight
   TST.B debuggerFocus
   BEQ.S .1
 
-  ADD.L #2,dbgMemBase
+  ADDQ.L #2,dbgMemBase
   BRA redoMem
 .1
-  ADD.L #2,dbgDisasmBase
+  ADDQ.L #2,dbgDisasmBase
   BSR DebuggerDisasm
   BRA DebuggerCheckKeys
 
 debuggerUp
   TST.B debuggerFocus
-  BEQ .1
+  BEQ.S .1
 
-  SUB.L #4,dbgMemBase
+  SUBQ.L #4,dbgMemBase
   TST.B ShiftKey
   BEQ redoMem
   SUB.L #$28,dbgMemBase
   BRA redoMem
 
 .1
-  SUB.L #4,dbgDisasmBase
+  SUBQ.L #4,dbgDisasmBase
   TST.B ShiftKey
-  BEQ .2
+  BEQ.S .2
 
   SUB.L #$28,dbgDisasmBase
 .2
@@ -5076,7 +5076,7 @@ debuggerDown
   TST.B debuggerFocus
   BEQ.S .1
 
-  ADD.L #4,dbgMemBase
+  ADDQ.L #4,dbgMemBase
   TST.B ShiftKey
   BEQ redoMem
   ADD.L #$28,dbgMemBase
@@ -5091,13 +5091,13 @@ debuggerDown
   BRA DebuggerCheckKeys
 
 debuggerTab
-  BSR DrawDebuggerFocus
+  BSR.S DrawDebuggerFocus
   BCHG #0,debuggerFocus
-  BSR DrawDebuggerFocus
+  BSR.S DrawDebuggerFocus
   BRA DebuggerCheckKeys
 
 DrawDebuggerFocus:
-  LEA focusTable,A0
+  LEA focusTable(PC),A0
   MOVEQ #0,D0
   MOVE.B debuggerFocus,D0
   LSL.W #3,D0
@@ -7416,7 +7416,7 @@ cmd_savecfg_help
 
 cmd_scan_help:
   DC.B  "SCAN (Scan memory for samples)",13
-  DC.B  "  SCAN",13
+  DC.B  "  SCAN (start-address) (end-address)",13
   DC.B 0
 
 cmd_schar_help:
@@ -7533,7 +7533,7 @@ cmd_sr_help:
 
 cmd_srip_help:
   DC.B  "SRIP (Alias for TRACKER)",13
-  DC.B  "  SRIP (<start-addr>)",13
+  DC.B  "  SRIP (<start-addr>) (<end-addr>)",13
   DC.B 0
 
 cmd_sspd_help:
@@ -7638,7 +7638,7 @@ cmd_tr_help:
 
 cmd_tracker_help:
   DC.B  "TRACKER (Rips soundtracker-modules in memory)",13
-  DC.B  "  TRACKER (<start-addr>)",13
+  DC.B  "  TRACKER (<start-addr>) (<end-addr>)",13
   DC.B 0
 
 cmd_trans_help:
@@ -7772,7 +7772,7 @@ CMD_X:
   TST.B LAB_A48393
   BNE.S LAB_A12A58
   LEA resetTBufferText(PC),A0
-  JSR AskYN
+  BSR.W AskYN
   TST.W D0
   BNE.S LAB_A12A58
   JSR CMD_CLRDMON(PC)
@@ -7802,13 +7802,13 @@ LAB_A12ABE:
   even
 CMD_KILLMEM:
   LEA killMemText(PC),A0
-  JSR AskYN
+  BSR.W AskYN
   TST.W D0
   BEQ.S .2
   JSR getKillBuffer
   JMP LAB_A25C66
 .2
-  MOVE.L #-8,D0
+  MOVEQ.L #-8,D0
   JMP PrintDiskOpResult
   
 killMemText: DC.B "Are you sure you wish to kill the running program?",$D,0
@@ -7902,9 +7902,9 @@ LAB_A12BCC:
   MOVEQ #0,D0
   MOVE.B cpuType,D0
   MOVE.B (A0,D0.W),D0
-  JSR PrintChar
+  BSR.W PrintChar
   MOVE.B #"0",D0
-  JSR PrintChar
+  BSR.W PrintChar
   
   LEA ChipsetHeaderText(PC),A0
   BSR.W PrintText
@@ -7913,7 +7913,7 @@ LAB_A12BCC:
 
   LEA agaText(PC),A0
   BSR.W PrintText
-  BRA .chipsetdone
+  BRA.S .chipsetdone
 
 .notaga
   BTST.B #0,ChipsetIdValue
@@ -7923,7 +7923,7 @@ LAB_A12BCC:
 
   LEA ocsText(PC),A0
   BSR.W PrintText
-  BRA .chipsetdone
+  BRA.S .chipsetdone
 
 .notocs
   BTST.B #0,ChipsetIdValue
@@ -7934,12 +7934,12 @@ LAB_A12BCC:
 
   LEA ecsText(PC),A0
   BSR.W PrintText
-  BRA .chipsetdone
+  BRA.S .chipsetdone
 
 .ecsAgnus
   LEA ecsAgnusText(PC),A0
   BSR.W PrintText
-  BRA .chipsetdone
+  BRA.S .chipsetdone
 
 .ecsDenise
   LEA ecsDeniseText(PC),A0
@@ -7954,17 +7954,17 @@ LAB_A12BE0:
   MOVE.W  (A0)+,D0
   BSR.W Print4DigitHex
   MOVEQ #4,D0
-  JSR PrintSpaces
+  BSR.W PrintSpaces
   DBF D1,LAB_A12BE0
   
   MOVE.W  CopyDiwHigh,D0
   BSR.W Print4DigitHex
   MOVEQ #4,D0
-  JSR PrintSpaces
+  BSR.W PrintSpaces
 
   MOVE.W  CopyFmode,D0
   BSR.W Print4DigitHex
-  JSR PrintCR
+  BSR.W PrintCR
   LEA BitplanesHeaderText(PC),A0
   BSR.W PrintText
   MOVE.W  CopyBplCon0,D1
@@ -7981,14 +7981,14 @@ LAB_A12BE0:
   LEA CopyBpl1Pth,A0
 LAB_A12C18:
   MOVE.L  (A0)+,D0
-  JSR Print6DigitHex
+  BSR.W Print6DigitHex
   MOVEQ #$20,D0
   BSR.W PrintChar
   BSR.W PrintChar
   DBF D1,LAB_A12C18
   TST.W cursorX
   BEQ.S LAB_A12C3A
-  JSR PrintCR
+  BSR.W PrintCR
 LAB_A12C3A:
   LEA ColorsHeaderText(PC),A0
   BSR.W PrintText
@@ -7997,7 +7997,7 @@ LAB_A12C3A:
 LAB_A12C4C:
   MOVE.W  (A0)+,D0
   BSR.W Print4DigitHex
-  JSR PrintSpace
+  BSR.W PrintSpace
   DBF D1,LAB_A12C4C
 LAB_A12C5C:
   LEA SpritesHeaderText(PC),A0
@@ -8006,7 +8006,7 @@ LAB_A12C5C:
   LEA CopySpr0Pt,A0
 LAB_A12C6C:
   MOVE.L  (A0)+,D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVEQ #$20,D0
   BSR.W PrintChar
   BSR.W PrintChar
@@ -8124,7 +8124,7 @@ LAB_A12D9C:
   BSR.W Print4DigitHex
   LEA LAB_A12E77(PC),A0
   BSR.W PrintText
-  LEA 6(A1),A1
+  ADDQ.L #6,A1
   MOVEQ #$D,D0
   BSR.W PrintChar
   DBF D3,LAB_A12D9C
@@ -8300,7 +8300,7 @@ LAB_A12FA2:
   TST.W repeatCount
   BEQ.S .norep
 
-  SUB.W #1,repeatCount
+  SUBQ.W #1,repeatCount
 .dorep
   BSR.W PrintCR
   BRA.W CMD_TILDE
@@ -8352,7 +8352,7 @@ CMD_W:
   JMP EditCiaData
 
 CMD_G:
-  JSR readCmdChar
+  BSR.W readCmdChar
   CMPI.B  #"K",D0
   BNE.S .notkill
   
@@ -8391,7 +8391,7 @@ prReady:
   JMP PrintReady
 
 CMD_RC:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L ILLEG_OPC(a0),-(A7)
   CLR.L tempD0
   MOVE.L #vbrtrap2,ILLEG_OPC(A0)
@@ -8403,7 +8403,7 @@ CMD_RC:
   BNE.W novbr
 
   LEA vbrText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC VBR,A0
@@ -8411,7 +8411,7 @@ CMD_RC:
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA sfcText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC SFC,A0
@@ -8419,7 +8419,7 @@ CMD_RC:
   MOVE.L A0,D0
   BSR Print2DigitHex
   LEA dfcText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC DFC,A0
@@ -8428,7 +8428,7 @@ CMD_RC:
   BSR Print2DigitHex
 
   LEA ispText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC ISP,A0
@@ -8437,7 +8437,7 @@ CMD_RC:
   BSR PrintAddressHex
 
   LEA mspText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC MSP,A0
@@ -8445,18 +8445,18 @@ CMD_RC:
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA cacrText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVE.L SAVE_CACR,D0
   BSR PrintAddressHex
   BSR PrintCR
 vbrclean:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L (A7)+,ILLEG_OPC(A0)
   RTS
 
 novbr:
   LEA novbrText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BRA.W vbrclean
 
 novbrText: DC.B "No 68010+ Contol registers present",13,0
@@ -8469,7 +8469,7 @@ cacrText DC.B " CACR=",0
   even
 
 CMD_RF:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L LINEF_EMU(A0),-(A7)
   CLR.L tempD0
   MOVE.L #fmovetrap,LINEF_EMU(A0)
@@ -8485,7 +8485,7 @@ CMD_RF:
 
 .not060
 
-  LEA CMD_RF,A1
+  LEA CMD_RF(PC),A1
   OPT p=68040
   FMOVE.X FP0,(A1)
   OPT p=68000
@@ -8493,149 +8493,149 @@ CMD_RF:
   BNE.W nofpu
 
   LEA fp0Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP0,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp1Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP1,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.l 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp2Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP2,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp3Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP3,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp4Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP4,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp5Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP5,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp6Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP6,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fp7Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   BSR initFloatData
   OPT p=68040
   FMOVE.X FP7,(A1)
   OPT p=68000
   MOVE.L (A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 4(A1),D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   MOVE.L 8(A1),D0
-  JSR Print8DigitHex
-  JSR printExtendedFloat
+  BSR.W Print8DigitHex
+  BSR.W printExtendedFloat
   BSR PrintCR
   LEA fpiarText(PC),A0
-  JSR PrintText
-  CLR.L D0
+  BSR.W PrintText
+  MOVEQ #0,D0
   OPT p=68040
   FMOVE FPIAR,D0
   OPT p=68000
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   LEA fpcrText(PC),A0
-  JSR PrintText
-  CLR.L D0
+  BSR.W PrintText
+  MOVEQ #0,D0
   OPT p=68040
   FMOVE FPCR,D0
   OPT p=68000
-  JSR Print4DigitHex
+  BSR.W Print4DigitHex
   LEA fpsrText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
 
-  CLR.L D0
+  MOVEQ #0,D0
   OPT p=68040
   FMOVE FPSR,D0
   OPT p=68000
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   BSR PrintCR
 restorelinef:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L (A7)+,LINEF_EMU(A0)
   RTS
 
 nofpu:
   LEA nofpuText(PC),A0
 printfpumsg:
-  JSR PrintText
+  BSR.W PrintText
   BRA.W restorelinef
 
 fpudisabled:
@@ -8653,7 +8653,7 @@ fmovetrap:
   move.l 2(a7),a2
   CMP.W  #$f211,(a2)
   BNE.S .skip
-  ADD.L  #4,2(a7)
+  ADDQ.L  #4,2(a7)
 .skip
   ST.B tempD0
   RTE
@@ -8688,13 +8688,13 @@ extFloat:
   MOVE.L  -(A2),D2
 
   MOVE.W #":",D0
-  JSR PrintChar
-  JSR PrintSpace
+  BSR.W PrintChar
+  BSR.W PrintSpace
   MOVEM.L A0/A1,-(A7)
   lea 12(a1),a1
   move.l a1,a0
-  JSR LAB_16508
-  JSR PrintText
+  BSR.W LAB_16508
+  BSR.W PrintText
   MOVEM.L (A7)+,A0/A1
 
 
@@ -9081,7 +9081,7 @@ LAB_16738:
 
 
 CMD_RM:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L ILLEG_OPC(A0),-(A7)
   CLR.L tempD0
   MOVE.L #vbrtrap2,ILLEG_OPC(A0)
@@ -9093,7 +9093,7 @@ CMD_RM:
   BNE.W nommu
   
   LEA itt0Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC ITT0,A0
@@ -9101,7 +9101,7 @@ CMD_RM:
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA itt1Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC ITT1,A0
@@ -9110,7 +9110,7 @@ CMD_RM:
   BSR PrintAddressHex
   BSR PrintCR
   LEA dtt0Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC DTT0,A0
@@ -9118,7 +9118,7 @@ CMD_RM:
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA dtt1Text(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC DTT1,A0
@@ -9127,7 +9127,7 @@ CMD_RM:
   BSR PrintAddressHex
   BSR PrintCR
   LEA urpText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC URP,A0
@@ -9143,7 +9143,7 @@ CMD_RM:
   MOVE.L A0,D0
   BSR PrintAddressHex
   LEA tcText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC TC,A0
@@ -9152,7 +9152,7 @@ CMD_RM:
   BSR Print4DigitHex
   BSR PrintCR
   LEA mmusrText(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   SUB.L A0,A0
   OPT p=68040
   MOVEC MMUSR,A0
@@ -9161,13 +9161,13 @@ CMD_RM:
   BSR PrintAddressHex
   BSR PrintCR
 mmuclean:
-  JSR getVBR
+  BSR.W getVBR
   MOVE.L (A7)+,ILLEG_OPC(A0)
   RTS
 
 nommu:
   LEA nommuText(PC),a0
-  JSR PrintText
+  BSR.W PrintText
   BRA.W mmuclean
 
 nommuText DC.B "No 68040 MMU present",13,0
@@ -9295,28 +9295,28 @@ LAB_A131C2:
   BEQ.S LAB_A131EA
   MOVE.L  D0,0(A1,D1.W)
 LAB_A131EA:
-  JSR SUB_A131F6
+  BSR.W SUB_A131F6
   MOVEM.L (A7)+,D0-D2/A1
   RTS
 SUB_A131F6:
   MOVEM.L A0-A1,-(A7)
   LEA SaveCpuRegs,A1
   LEA LAB_A1336B(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVEQ #0,D2
 LAB_A1320C:
   MOVE.L  (A1)+,D0
-  JSR Print8DigitHex
-  JSR PrintSpace
+  BSR.W Print8DigitHex
+  BSR.W PrintSpace
   CMPI.W  #3,D2
   BNE.S LAB_A13226
-  JSR PrintSpace
+  BSR.W PrintSpace
 LAB_A13226:
   ADDQ.W  #1,D2
   CMPI.W  #7,D2
   BLS.S LAB_A1320C
   LEA LAB_A1336F(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVEQ #0,D2
 LAB_A1323A:
   MOVE.L  (A1)+,D0
@@ -9327,40 +9327,40 @@ LAB_A1323A:
   BEQ.S LAB_A13244
   ADDQ.L  #2,D0
 LAB_A13244:
-  JSR Print8DigitHex
-  JSR PrintSpace
+  BSR.W Print8DigitHex
+  BSR.W PrintSpace
   CMPI.W  #3,D2
   BNE.S LAB_A1325C
-  JSR PrintSpace
+  BSR.W PrintSpace
 LAB_A1325C:
   ADDQ.W  #1,D2
   CMPI.W  #7,D2
   BLS.S LAB_A1323A
-  JSR PrintCR
+  BSR.W PrintCR
   LEA LAB_A13336(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVE.L  (A1)+,D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   LEA LAB_A1333C(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVE.L  USP,A0
   MOVE.L  A0,D0
-  JSR Print8DigitHex
+  BSR.W Print8DigitHex
   LEA LAB_A13344(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   MOVE.W  (A1)+,D0
   BSR.W Print4DigitHex
   MOVE.W  D0,D2
   LEA LAB_A1334B(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #1,D2
   BSR.W PrintCarryDigit
   LEA LAB_A1334F(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #2,D2
   BSR.W PrintCarryDigit
   LEA LAB_A13353(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #3,D2
   BSR.W PrintCarryDigit
   LSL.W #1,D2
@@ -9372,22 +9372,22 @@ LAB_A1325C:
   LSL.W #4,D2
   BSR.W PrintCarryDigit
   LEA LAB_A1335B(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #1,D2
   BSR.W PrintCarryDigit
   LEA LAB_A1335F(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #1,D2
   BSR.W PrintCarryDigit
   LEA LAB_A13363(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #1,D2
   BSR.W PrintCarryDigit
   LEA LAB_A13367(PC),A0
-  JSR PrintText
+  BSR.W PrintText
   LSL.W #1,D2
   BSR.W PrintCarryDigit
-  JSR PrintCR
+  BSR.W PrintCR
   MOVEM.L (A7)+,A0-A1
   RTS
 
@@ -9473,7 +9473,7 @@ CMD_CI:
 
   BCLR #0,D0
   MOVE.L D0,A1
-  BSR copyLockInfo
+  BSR.S copyLockInfo
   BRA.W PrintReady
 
 copyLockInfo:
@@ -9485,7 +9485,7 @@ copyLockInfo:
   MOVE.L  -4(A1),LAB_A48A02
   CLR.W LAB_A48A06
   MOVE.L A1,A0
-  JSR memSafeReadLong
+  BSR.W memSafeReadLong
 
   CMP.L #$323c000b,D0
   BNE .not
@@ -9495,14 +9495,14 @@ copyLockInfo:
   MOVE.L  -4(A0),LAB_A489FE
   MOVE.L  -4(A0),LAB_A48A02
   CLR.W LAB_A48A06
-  JSR memSafeReadLong
+  BSR.W memSafeReadLong
   MOVE.L D0,D1
 
   LEA 8(A1),A0
   MOVE.L  -4(A0),LAB_A489FE
   MOVE.L  -4(A0),LAB_A48A02
   CLR.W LAB_A48A06
-  JSR memSafeReadWord
+  BSR.W memSafeReadWord
   MOVE.L D0,D2
 
   CMP.L #$D099e398,D1
@@ -9558,13 +9558,13 @@ copyLockInfo:
   MOVE.B robdmode,-(A7)
   ST.B robdmode
   MOVE.L A1,D0
-  JSR SUB_A12F08
+  BSR.W SUB_A12F08
   MOVE.L DefaultAddress,D0
-  JSR PrintCR
-  JSR SUB_A12F08
+  BSR.W PrintCR
+  BSR.W SUB_A12F08
   MOVE.L DefaultAddress,D0
-  JSR PrintCR
-  JSR SUB_A12F08
+  BSR.W PrintCR
+  BSR.W SUB_A12F08
   MOVE.L DefaultAddress,D0
   JSR PrintCR
   JSR SUB_A12F08
@@ -9577,7 +9577,7 @@ copyLockInfo:
   RTS
 .not
   SF  decryptins
-  LEA 2(A1),A1
+  ADDQ.L #2,A1
   DBF D1,.srch
   LEA .clockNotFound(PC),A0
   BSR PrintText
@@ -9598,8 +9598,8 @@ CMD_FC:
   ST  copyLockSearch
   LEA onz(pc),A1
   MOVE.L (a1)+,stringWorkspace
-  MOVE.l #4,D0
-  BRA srch
+  MOVEQ.l #4,D0
+  BRA.S srch
 
 onz:
   DC.B " ONz",0
@@ -10075,13 +10075,13 @@ LAB_A13854:
   TST.W repeatCount
   BEQ.S .norep
 
-  SUB.W #1,repeatCount
+  SUBQ.W #1,repeatCount
 .dorep
   BSR.W PrintCR
   BRA.S repeatm
 .norep:
   MOVE.W cpuAddrSize,D1
-  ADD.W #2,D1
+  ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -10122,7 +10122,7 @@ LAB_A138BC:
   BSR.W PrintChar
   DBF D1,LAB_A138BC
   MOVE.W cpuAddrSize,D1
-  ADD.W #2,D1
+  ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -10160,7 +10160,7 @@ LAB_A1391A:
   BSR.W PrintChar
   DBF D1,LAB_A1391A
   MOVE.W cpuAddrSize,D1
-  ADD.W #2,D1
+  ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -10255,7 +10255,7 @@ LAB_A13A6E:
   TST.L newRamdiskAddr
   BEQ.S LAB_A13A7E
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonBreakPointList,A0
+  LEA demonBreakPointList(A0),A0
   MOVEQ #19,D0
 LAB_A13A7E:
   CLR.L (A0)+
@@ -10267,7 +10267,7 @@ LAB_A13A7E:
   TST.L newRamdiskAddr
   BEQ.S LAB_A13A90
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonMemWatchAddrs,A0
+  LEA demonMemWatchAddrs(A0),A0
   MOVEQ #19,D0
 LAB_A13A90:
   MOVE.L  D1,(A0)+
@@ -10425,7 +10425,7 @@ LAB_A13C7C:
   BSR.W memSafeReadLong
   MOVE.L  (A7)+,(A1)
   MOVE.L  D0,SaveOldPc
-  LEA EXT_13E,A1
+  LEA EXT_13E.W,A1
   MOVEQ #4,D2
 LAB_A13CB6:
   MOVEA.L (A1),A0
@@ -10466,7 +10466,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (14-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (23-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -10541,6 +10541,38 @@ AboutArText:
   ;DC.B  $D,0
   even
 
+memSafeReadByteWithMfm:
+  CMPA.L  #EXT_7000,A0    ;mfm buffer start
+  BCS.S .2
+  CMPA.L  #EXT_A700,A0    ;mfm buffer end
+  BCC.S .2
+
+  MOVE.L  A0,-(A7)
+
+  if arhardware=1
+  ADD.L A0,A0
+  ADDA.L  #ChipRamSave2-(EXT_7000*2),A0
+  else
+  ADDA.L  #ChipRamSave2-(EXT_7000),A0
+  endc
+  bra.s LAB_A14564
+
+.2
+  CMPA.L  memSaveEnd,A0
+  BCC.S LAB_A1456C
+  CMPA.L  #EXT_1000,A0
+  BCS.W LAB_A145E2
+  MOVE.L  A0,-(A7)
+  tst.b full64k
+  bne.s .1
+
+  ADD.L A0,A0
+  ADDA.L  #ChipramSave1-(EXT_1000*2),A0
+  bra.s LAB_A14564
+.1
+  ADDA.L  #ChipramSave1-EXT_1000,A0
+  BRA.S LAB_A14564
+
 memSafeReadByte:
   CMPA.L  memSaveEnd,A0
   BCC.S LAB_A1456C
@@ -10611,6 +10643,42 @@ LAB_A145E2:
   LEA Int2Save,A0
   LEA 0(A0,D0.W),A0
   BRA.W LAB_A14564
+
+memSafeUpdateByteWithMFM:
+  CMP.L #SECSTRT_0,A0
+  BCS.S .notrom
+  CMP.L #arramstart,A0
+  BCC.S .notrom
+  RTS
+.notrom
+  MOVEM.L D1/A0,-(A7)
+  CMPA.L  #EXT_7000,A0    ;mfm buffer start
+  BCS.S .2
+  CMPA.L  #EXT_A700,A0    ;mfm buffer end
+  BCC.S .2
+
+  if arhardware=1
+  ADD.L A0,A0
+  ADDA.L  #ChipRamSave2-(EXT_7000*2),A0
+  else
+  ADDA.L  #ChipRamSave2-(EXT_7000),A0
+  endc
+  bra.s LAB_A1462E
+
+.2
+  CMPA.L  #EXT_1000,A0
+  BCS.W LAB_A1465C
+  CMPA.L  memSaveEnd,A0
+  BCC.S LAB_A1462E
+  tst.b full64k
+  bne.s .1
+  ADD.L A0,A0
+  ADDA.L  #ChipramSave1-(EXT_1000*2),A0
+  bra.s LAB_A1462E
+.1
+  ADDA.L  #ChipramSave1-EXT_1000,A0
+  BRA.S LAB_A1462E
+
 memSafeUpdateByte:
   CMP.L #SECSTRT_0,A0
   BCS.S .notrom
@@ -10691,7 +10759,7 @@ ShowCopperList:
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.L  D1,D0
-  BSR.W Print6DigitHex
+  JSR Print6DigitHex
   MOVEA.L D0,A0
   MOVEQ #3,D1
 LAB_A146EE:
@@ -10706,7 +10774,7 @@ LAB_A146EE:
   LEA CopperMoveText(PC),A0
   BSR.W PrintText
   MOVE.W  D2,D0
-  BSR.W Print4DigitHex
+  JSR Print4DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -11074,7 +11142,7 @@ CMD_COMMA:
   BCC.W PrintWTF
   BCLR  #0,D0
   MOVE.L  D0,-(A7)
-  CLR.L D1
+  MOVEQ #0,D1
   BSR.W readCmdCharSkipSpaces
   TST.B endOfCmdString
   BNE.W LAB_A1521A
@@ -11185,14 +11253,14 @@ MemWriteString:
   ST  forceUpper
   TST.B D0
   BEQ.W PrintWTF
-  CLR.L D1
+  MOVEQ #0,D1
   MOVE.B  D0,D1
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
   MOVEA.L D0,A1
   MOVEA.L D0,A0
-  CLR.L D0
+  MOVEQ #0,D0
   SUBQ.B  #1,D1
   LEA stringWorkspace,A1
 LAB_A15262:
@@ -11238,7 +11306,7 @@ LAB_A152D4:
   RTS
 InsertSpaceChar:
   MOVEM.L D0-D2/A0,-(A7)
-  CLR.L D2
+  MOVEQ #0,D2
   CMPI.W  #$004f,cursorX
   BEQ.S LAB_A1531E
   MOVE.W  #$004e,D1
@@ -11570,7 +11638,7 @@ LAB_A15852:
   CMPI.W  #$0a00,D0
   BEQ.S LAB_A1581C
   MOVE.W  #$0035,instructionNo ;ORI
-  CMPI.W  #0,D0
+  TST.W D0
   BEQ.S LAB_A1581C
   MOVE.W  #$0044,instructionNo ;SUBI
   CMPI.W  #$0400,D0
@@ -11854,7 +11922,7 @@ LAB_A15D0E:
   CMPI.W  #$00c0,D0
   BEQ.S LAB_A15CD8
   MOVE.W  #$0010,instructionNo    ;BTST
-  CMPI.W  #0,D0
+  TST.W  D0
   BEQ.S LAB_A15CD8
   MOVE.L  D7,D0
   ANDI.W  #$e1c0,D0
@@ -12091,7 +12159,7 @@ LAB_A1604C:
   CMPI.W  #1,instructionSize
   BHI.S LAB_A16078
   BSR.W memSafeReadWord
-  CMPI.W  #0,instructionSize
+  TST.W  instructionSize
   BNE.S LAB_A16070
   ANDI.W  #$00ff,D0
   EXT.W D0
@@ -12156,7 +12224,7 @@ memSafeWriteWord:
   MOVEM.L D0/A0,-(A7)
   ROR.W #8,D0
   BSR.W memSafeUpdateByte
-  LEA 1(A0),A0
+  ADDQ.L #1,A0
   ROL.W #8,D0
   BSR.W memSafeUpdateByte
   MOVEM.L (A7)+,D0/A0
@@ -12165,9 +12233,9 @@ memSafeWriteLong:
   SWAP  D0
   BSR.S memSafeWriteWord
   SWAP  D0
-  LEA 2(A0),A0
+  ADDQ.L #2,A0
   BSR.S memSafeWriteWord
-  LEA -2(A0),A0
+  SUBQ.L #2,A0
   RTS
 memSafeReadLong:
   MOVE.L  D1,-(A7)
@@ -12256,7 +12324,7 @@ decodeAddressingMode:
   MOVEM.L D0-D1/A0,-(A7)
   MOVE.W  (A1),D0
   BMI.W LAB_A1643C
-  CMPI.W  #0,D0
+  TST.W D0
   BNE.S LAB_A16222
   MOVEQ #$44,D0
   BSR.W PrintChar
@@ -13110,7 +13178,7 @@ serScrollDown:
   
 PrintSerChar:
   MOVEM.L D0/A0-A1,-(A7)
-  LEA serOutTransTable,A0
+  LEA serOutTransTable(PC),A0
   MOVE.L A0,A1
 .findTransChar
   TST.B (A0)
@@ -13123,7 +13191,7 @@ PrintSerChar:
   MOVE.L A0,D0
   SUBQ.L #1,D0
   LSL.W #2,D0
-  lea serOutTransTable2,A0
+  lea serOutTransTable2(PC),A0
   LEA (A0,D0),A0
   MOVE.L (A0)+,A0
 .dotrans
@@ -13235,7 +13303,7 @@ PrintChar:
   BEQ.S .noser
   BSR PrintSerChar
 .noser
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   LEA fontData,A1
   MOVEQ #0,D1
   MOVE.B  D0,D1
@@ -13373,7 +13441,7 @@ LAB_A16C70:
 PrintF9:
   TST.B ShiftKey
   BNE.W LAB_A17078
-  ADD.B #1,keymap
+  ADDQ.B #1,keymap
   CMP.B #3,keymap
   BNE.S nores
   MOVE.B #$FF,keymap
@@ -13424,9 +13492,9 @@ PrintF2:
   EXG A0,A1
 LAB_A16CF8:
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80/4,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A16CFC:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A16CFC
@@ -13440,9 +13508,9 @@ LAB_A16D10:
   EXG A0,A1
 LAB_A16D26:
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80/4,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A16D2A:
   MOVE.L  (A0)+,(A1)+
   DBF D0,LAB_A16D2A
@@ -13724,9 +13792,9 @@ LAB_A17078:
 LAB_A17090:
   MOVEA.L CurrentPage,A1
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A1709A:
   CMPM.B  (A0)+,(A1)+
   BNE.S LAB_A170A4
@@ -13742,7 +13810,7 @@ PrintF10:
   MOVE.W  #0,beamcon0(A5)
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
-  BEQ LAB_A170DC
+  BEQ.S LAB_A170DC
   MOVE.W  #30,PageHeight
 LAB_A170DC:
   MOVE.W cursorY,D0
@@ -13862,7 +13930,7 @@ PrintShiftLF
   SUB.W cursorY,D0
   BEQ.S .noscroll
   MULU #80/8,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 .screenscroll1:
   MOVE.L  -(A0),-(A1)
   MOVE.L  -(A0),-(A1)
@@ -13873,7 +13941,7 @@ PrintShiftLF
 .insertblankrow:
   MOVE.L  D1,-(A1)
   DBF D0,.insertblankrow
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W PageHeight,D0
   MULU #80*8,D0
   ADD.L D0,A0
@@ -13883,7 +13951,7 @@ PrintShiftLF
   SUB.W cursorY,D0
   BEQ.S .noscroll2
   MULU #80*8/32,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 .scroll2:
   MOVE.L  -(A0),-(A1)
   MOVE.L  -(A0),-(A1)
@@ -13917,17 +13985,17 @@ Cls:
   JSR UpdateSerCursor
   MOVEA.L CurrentPage,A0
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80/4,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A17254:
   MOVE.L  #$20202020,(A0)+
   DBF D0,LAB_A17254
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A17268:
   CLR.L (A0)+
   CLR.L (A0)+
@@ -14006,9 +14074,9 @@ redrawTextPage:
   JSR UpdateSerCursor
   MOVEA.L CurrentPage,A0
   MOVE.W PageHeight,D1
-  ADD.W #1,D1
- MULU #80,D1
- SUB.W #2,D1
+  ADDQ.W #1,D1
+  MULU #80,D1
+  SUBQ.W #2,D1
 LAB_A1730C:
   MOVE.B  (A0)+,D0
   BNE.S LAB_A17312
@@ -14098,7 +14166,7 @@ StringSearchRelative:
   LEA stringWorkspace,A5
   LEA EscapePressed,A6
   MOVE.L  ChipMemEnd,D6
-  CLR.L D1
+  MOVEQ #0,D1
   SF  forceUpper
   BSR.W SUB_A1375E
   ST  forceUpper
@@ -14126,7 +14194,7 @@ LAB_A17446:
   BLT.s .ok
   TST.W D3
   BNE.s .ok
-  LEA needSearchEndText,A0
+  LEA needSearchEndText(PC),A0
   JSR PrintText
   BRA.W LAB_A174CE
 .ok:
@@ -14218,7 +14286,7 @@ LAB_A174CE:
 
 FrEscape:
   MOVE.L A0,D0
-  LEA SearchedUptoAddrText,A0
+  LEA SearchedUptoAddrText(PC),A0
   JSR PrintText
   JSR PrintAddressHex
   JSR PrintCR
@@ -14358,7 +14426,7 @@ LAB_A175C0:
 SearchEsc:
   JSR PrintCrIfNotBlankLine
   MOVE.L A1,D0
-  LEA SearchedUptoAddrText,A0
+  LEA SearchedUptoAddrText(PC),A0
   JSR PrintText
   JSR PrintAddressHex
   JSR PrintCR
@@ -14449,7 +14517,7 @@ LAB_A17676:
 LAB_A1769E:
   MOVE.W  #$0021,D0   ;!
   JSR PrintChar(PC)
-  CLR.L D0
+  MOVEQ #0,D0
   JSR Print8DigitHex
   JSR Print2DigitHex
   JSR PrintSpace(PC)
@@ -14459,7 +14527,7 @@ LAB_A1769E:
   MOVEQ #0,D4
   MOVEQ #0,D5
 LAB_A176C4:
-  CLR.L D0
+  MOVEQ #0,D0
   MOVE.W  #$0020,D3
   MOVEQ #$A,D2
 LAB_A176CC:
@@ -14524,8 +14592,8 @@ LAB_A17760:
   BCLR  #0,D2
   MOVEA.L D1,A1
   MOVEA.L D2,A2
-  LEA 4(A1),A1
-  LEA 4(A2),A2
+  ADDQ.L #4,A1
+  ADDQ.L #4,A2
   CMP.L D1,D2
   BEQ.S LAB_A17790
   BSR.S SUB_A1779A
@@ -14619,8 +14687,8 @@ LAB_A17848:
   MOVE.L  D3,D0
   MOVEA.L A2,A0
   BSR.W memSafeWriteLong
-  LEA 4(A1),A1
-  LEA 4(A2),A2
+  ADDQ.L #4,A1
+  ADDQ.L #4,A2
   CMPA.L  #$000ffffe,A1
   BHI.S LAB_A178AA
   CMPA.L  #$000ffffe,A2
@@ -14653,7 +14721,7 @@ LAB_A178D2:
   DBF D3,LAB_A178D2
   JSR PrintCRToPrinter
   MOVE.W cpuAddrSize,D1
-  ADD.W #2,D1
+  ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -14687,7 +14755,7 @@ LAB_A17924:
   SWAP  D0
   MOVEA.L A1,A0
   BSR.W memSafeWriteLong
-  LEA 4(A1),A1
+  ADDQ.L #4,A1
   CMPA.L  #$000ffffe,A1
   BHI.S LAB_A17968
   BSR.W SUB_A178B0
@@ -14781,14 +14849,14 @@ LAB_A17A26:
   TST.W repeatCount
   BEQ.S .norep
 
-  SUB.W #1,repeatCount
+  SUBQ.W #1,repeatCount
 .dorep
   BSR.W PrintCR
   MOVE.L A0,D2
   BRA.S repeaty
 .norep:
   MOVE.W cpuAddrSize,D2
-  ADD.W #3,D2
+  ADDQ.W #3,D2
   MOVE.W  D2,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -14989,13 +15057,13 @@ LAB_A17B6A:
   TST.W repeatCount
   BEQ.S .norep
 
-  SUB.W #1,repeatCount
+  SUBQ.W #1,repeatCount
 .dorep
   BSR.W PrintCR
   BRA.S repeatn
 .norep:
   MOVE.W cpuAddrSize,D1
-  ADD.W #2,D1
+  ADDQ.W #2,D1
   MOVE.W D1,cursorX
   JSR UpdateSerCursor
   JSR PrintCursor
@@ -15402,7 +15470,7 @@ ARInit:
 
   MOVE.W  #$0018,PageHeight
   TST.B fullPal
-  BEQ LAB_A17D26
+  BEQ.S LAB_A17D26
   MOVE.W  #30,PageHeight
 LAB_A17D26:
   MOVE.W  #$0aaa,ArBgCol
@@ -15670,10 +15738,10 @@ SUB_A17E88:
   MOVE.B  forceUpper,-(A7)
   ST  forceUpper
   MOVE.W  #$ffff,ParamFound
-  CLR.L D0
-  CLR.L D1
-  CLR.L D2
-  CLR.L D3
+  MOVEQ #0,D0
+  MOVEQ #0,D1
+  MOVEQ #0,D2
+  MOVEQ #0,D3
   SF  D5
   SF  LAB_A481DE
   SF  LAB_A481DF
@@ -15733,7 +15801,7 @@ LAB_A17F5A:
   BRA.S LAB_A17F68
 LAB_A17F60:
   CLR.W ParamFound
-  CLR.L D2
+  MOVEQ #0,D2
 LAB_A17F68:
   TST.B LAB_A481DF
   BNE.S LAB_A17F76
@@ -16170,12 +16238,12 @@ flashok2
 
   MOVE.W  #35,cursorX
   MOVE.W  #10,cursorY
-  LEA flashingtext,A0
+  LEA flashingtext(PC),A0
   JSR PrintText
 
   MOVE.W  #34,cursorX
   MOVE.W  #14,cursorY
-  LEA verifyingtext,A0
+  LEA verifyingtext(PC),A0
   JSR PrintText
 
   LEA hardware,A6
@@ -16249,8 +16317,8 @@ flashok2
   ;skip 4 bytes at the very start
   CMP.L #SECSTRT_0,A0
   BNE.S .write
-  LEA 4(A0),A0
-  LEA 4(A2),A2
+  ADDQ.L #4,A0
+  ADDQ.L #4,A2
   SUBQ.W #2,D1
 
 .write
@@ -16277,14 +16345,14 @@ flashok2
   BNE.S .notsst3
 .issst3
   MOVE.L D1,D5
-  BSR waitComplete
+  BSR.S waitComplete
   MOVE.L D5,D1
 .notsst3
   DBF D1,.write
-  BSR waitComplete
+  BSR.S waitComplete
   
-  LEA EXT_1000+97*80-8,A3
-  BSR DoProgress
+  LEA (EXT_1000+97*80-8).W,A3
+  BSR.S DoProgress
 
   DBF D2,.write2
 
@@ -16301,14 +16369,14 @@ flashok2
 
   MOVE.L D4,D2
   LSR.L #7,D2
-  LEA EXT_1000+129*80-8,A3
-  BSR DoProgress
+  LEA (EXT_1000+129*80-8).W,A3
+  BSR.S DoProgress
 .1
   CMP.W (A0)+,(A1)+
   BEQ.S .ok
   MOVEQ #0,D7
 .ok
-  SUB.L #1,D4
+  SUBQ.L #1,D4
 
   CMP.L #arramstart,A0
   BNE.S .2
@@ -16365,7 +16433,7 @@ noflash
   SWAP D1
   MOVE.W D1,intena(A6)
 
-  LEA noflashText,A0
+  LEA noflashText(PC),A0
   JSR PrintText
   RTS
 
@@ -16475,7 +16543,7 @@ LAB_A182C4:
   BHI.s .ok
   CMP.L trainerEndAddress,D0
   BNE.S .ok
-  LEA needSearchEndText,A0
+  LEA needSearchEndText(PC),A0
   JMP PrintText
 .ok:
   MOVE.L trainerContinueAddress,D0
@@ -16490,7 +16558,7 @@ LAB_A182C4:
   TST.L newRamdiskAddr
   BEQ.S .nodemon
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonTrainerWorkspace,A0
+  LEA demonTrainerWorkspace(A0),A0
   MOVE.W #((demonTrainerWorkspaceEnd-demonTrainerWorkspace)/4)-1,D0
 .nodemon
   MOVE.L  A0,trainerWorkspacePtr
@@ -16606,7 +16674,7 @@ LAB_A18410:
   CMPI.L  #mt_sin,trainerWorkspacePtr
   BEQ.S LAB_A1843A
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonTrainerWorkspace,A0
+  LEA demonTrainerWorkspace(A0),A0
   CMP.L trainerWorkspacePtr,A0
   BEQ.S LAB_A1843A  
   BRA.S LAB_A18442
@@ -16630,7 +16698,7 @@ LAB_A1845A:
   TST.L newRamdiskAddr
   BEQ.S .nodemon1
   MOVE.L newRamdiskAddr,A1
-  ADD.L #demonTrainerWorkspace,A1
+  LEA demonTrainerWorkspace(A1),A1
 .nodemon1
   MOVEA.L trainerWorkspacePtr,A2
 LAB_A18468:
@@ -16649,7 +16717,7 @@ LAB_A18480:
   TST.L newRamdiskAddr
   BEQ.S .nodemon2
   MOVE.L newRamdiskAddr,A1
-  ADD.L #demonTrainerWorkspace,A1
+  LEA demonTrainerWorkspace(A1),A1
 .nodemon2
   MOVEA.L A1,A2
 LAB_A18488:
@@ -16670,7 +16738,7 @@ LAB_A184A2:
   TST.L newRamdiskAddr
   BEQ.S .nodemon3
   MOVE.L newRamdiskAddr,A1
-  ADD.L #demonTrainerWorkspace,A1
+  LEA demonTrainerWorkspace(A1),A1
 .nodemon3
 LAB_A184AE:
   CMPA.L  trainerWorkspacePtr,A1
@@ -16765,14 +16833,14 @@ CMD_BS:
   TST.L newRamdiskAddr
   BEQ.S LAB_A18662
   MOVE.L newRamdiskAddr,A3
-  ADD.L #demonBreakPointList,A3
+  LEA demonBreakPointList(A3),A3
   MOVEQ #19,D3
 LAB_A18662:
   TST.L (A3)+
   BEQ.S LAB_A18680
   CMP.L -4(A3),D0
   BEQ.S LAB_A18680
-  LEA 2(A3),A3
+  ADDQ.L #2,A3
   DBF D3,LAB_A18662
   LEA TooManyBreakpointsText(PC),A0
   BSR.W PrintText
@@ -16796,11 +16864,11 @@ CMD_BD:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186A8
   MOVE.L newRamdiskAddr,A3
-  ADD.L #demonBreakPointList,A3
+  LEA demonBreakPointList(A3),A3
   MOVEQ #19,D2
 LAB_A186A8:
   MOVE.L  (A3)+,D1
-  LEA 2(A3),A3
+  ADDQ.L #2,A3
   CMP.L D3,D1
   BEQ.S LAB_A186DE
   DBF D2,LAB_A186A8
@@ -16813,7 +16881,7 @@ CMD_BDA:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186CA
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonBreakPointList,A0
+  LEA demonBreakPointList(A0),A0
   MOVEQ #19,D0
 LAB_A186CA:
   CLR.L (A0)+
@@ -16835,11 +16903,11 @@ CMD_B:
   TST.L newRamdiskAddr
   BEQ.S LAB_A186FE
   MOVE.L newRamdiskAddr,A2
-  ADD.L #demonBreakPointList,A2
+  LEA demonBreakPointList(a2),a2
   MOVEQ #19,D3
 LAB_A186FE:
   MOVE.L  (A2)+,D0
-  LEA 2(A2),A2
+  ADDQ.L #2,A2
   TST.L D0
   BEQ.S LAB_A18714
   JSR PrintAddressHex
@@ -16877,12 +16945,12 @@ SetupBreakpoints:
   TST.L newRamdiskAddr
   BEQ.S LAB_A187B6
   MOVE.L newRamdiskAddr,A3
-  ADD.L #demonBreakPointList,A3
+  LEA demonBreakPointList(A3),A3
   MOVEQ #19,D3
 LAB_A187B6:
   TST.L (A3)+
   BNE.S LAB_A187C4
-  LEA 2(A3),A3
+  ADDQ.L #2,A3
 LAB_A187BE:
   DBF D3,LAB_A187B6
   RTS
@@ -16912,7 +16980,7 @@ LAB_A18804:
   TST.L newRamdiskAddr
   BEQ.S LAB_A18812
   MOVE.L newRamdiskAddr,A3
-  ADD.L #demonBreakPointList,A3
+  LEA demonBreakPointList(A3),A3
   MOVEQ #19,D3
 LAB_A18812:
   MOVE.L  SaveOldPc,D0
@@ -16922,7 +16990,7 @@ LAB_A18812:
   TST.L (A3)+
   BNE.S LAB_A18882
 LAB_A18822:
-  LEA 2(A3),A3
+  ADDQ.L #2,A3
 LAB_A18826:
   DBF D3,LAB_A18812
   TST.B LAB_A480CA
@@ -17011,11 +17079,11 @@ SUB_A188F0:
   TST.L newRamdiskAddr
   BEQ.S LAB_A188F8
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonBreakPointList,A0
+  LEA demonBreakPointList(A0),A0
   MOVEQ #19,D1
 LAB_A188F8:
   MOVE.L  (A0)+,D2
-  LEA 2(A0),A0
+  ADDQ.L #2,A0
   CMP.L SaveOldPc,D2
   BEQ.S LAB_A18948
   DBF D1,LAB_A188F8
@@ -17076,8 +17144,8 @@ ConvertToBCD:
   MOVEM.L D1-D3,-(A7)
   TST.L D0
   BEQ.S LAB_A18A0C
-  CLR.L D3
-  CLR.L D2
+  MOVEQ #0,D3
+  MOVEQ #0,D2
 LAB_A189F0:
   MOVEQ #$A,D1
   BSR.W SUB_A1A7DA
@@ -17536,10 +17604,10 @@ memPeekKeyF6:
   SWAP D0
   ANDI.W  #$0fff,D0
   MOVE.W  D0,D2
-  ADDI.W  #1,D2
+  ADDQ.W  #1,D2
   TST.B ShiftKey
   BEQ.S LAB_A18F8A
-  SUBI.W  #2,D2
+  SUBQ.W  #2,D2
 LAB_A18F8A:
   ANDI.W  #$000f,D2
   ANDI.W  #$0ff0,D0
@@ -17598,7 +17666,7 @@ memPeekKeyHelp:
   TST.B memPeekerHelpFlag
   BNE.W LAB_A19C8E
   LEA LAB_A442F6,A1
-  LEA EXT_100,A0
+  LEA EXT_100.W,A0
   MOVE.W  #$01b0-1,D0
 LAB_A19022:
   MOVE.L (A0),(A1)+
@@ -17798,7 +17866,7 @@ GetSavedPaletteColor:
   
   CMP.W #32,D0
   BLT.S .1
-  CLR.L D0
+  MOVEQ #0,D0
   RTS
   
 .1
@@ -17954,7 +18022,7 @@ memPeekKeyDel:
   BEQ.W LAB_A19C8E
 
   LEA LAB_A442F6,A1
-  LEA EXT_100,A0
+  LEA EXT_100.W,A0
   MOVE.W  #$01b0-1,D0
 restorePeekRam:
   MOVE.L (A1)+,(A0)+
@@ -18180,11 +18248,11 @@ setDefPal128:
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #64,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #96,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   BSR.W PrintMemPeekerHelpLine5_2
   BRA.W LAB_A19C8E
 
@@ -18193,35 +18261,35 @@ setDefPal256:
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #0,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #32,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #64,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVEQ #96,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVE.L #128,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVE.L #160,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVE.L #192,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   MOVEQ #$F,D0
   MOVEQ #0,D1
   MOVE.L #224,D2
-  BSR SUB_A194AA
+  BSR.S SUB_A194AA
   BSR.W PrintMemPeekerHelpLine5_2
   BRA.W LAB_A19C8E
 
@@ -18234,7 +18302,7 @@ SUB_A194AA:
   JSR SetSavedPaletteColor
 
   ADDI.W  #$0010,D1
-  ADD.W #1,D2
+  ADDQ.W #1,D2
   
   MOVE.W D2,D0
   MOVE.W  D1,D3
@@ -18242,7 +18310,7 @@ SUB_A194AA:
   MOVE.W D3,D1
   JSR SetSavedPaletteColor
   ADDI.W  #$0101,D1
-  ADD.W #1,D2
+  ADDQ.W #1,D2
   MOVE.W (A7)+,D0
   DBF D0,SUB_A194AA
   RTS
@@ -18518,7 +18586,7 @@ memPeekKeyMinus:
   MOVE.W  CopyBplCon0,D1
   CMP.W #1,D0
   BEQ.W LAB_A19C8E
-  SUB.W #1,D0
+  SUBQ.W #1,D0
   MOVE.W D0,bitplaneCount
   JSR BplCountToBplCon
 
@@ -18888,7 +18956,7 @@ SUB_A19C28:
   MOVE.B  D0,D1
   ADD.W D1,D1
   LSR.W #8,D0
-  LEA EXT_100,A0
+  LEA EXT_100.W,A0
   MOVEQ #7,D2
 LAB_A19C3E:
   CMPI.W  #$0020,D0
@@ -18946,7 +19014,7 @@ LAB_A19CBA:
   BSR.W ClearSpriteData
 
   LEA LAB_A442F6,A1
-  LEA EXT_100,A0
+  LEA EXT_100.W,A0
   MOVE.W  #$01b0-1,D0
 restorePeekRam2:
   MOVE.L (A1)+,(A0)+
@@ -19043,7 +19111,7 @@ PrintMemPeekerHelpChar:
   MULU  #$00d8,D1
   MOVE.W  memPeekHelpY,D2
   MULU  #$0018,D2
-  LEA EXT_104,A0
+  LEA EXT_104.W,A0
   LEA 0(A0,D1.W),A0
   LEA 0(A0,D2.W),A0
   MOVE.W  memPeekHelpX,D2
@@ -19310,7 +19378,7 @@ LAB_A1A2C8:
   MOVE.L  #1,(A1)+
   DBF D0,LAB_A1A2C8
   MOVE.L  color17(A3),(A2)+
-  MOVE.L  EXT_0,(A2)+
+  MOVE.L  EXT_0.W,(A2)+
   MOVE.W  bplcon2(a3),(A2)+
   MOVE.L  #$5555aaaa,EXT_104.W
   MOVE.L  #$aaaa5555,-(A1)
@@ -19390,7 +19458,7 @@ SUB_A1A398:
 SwapChipRam1:
   MOVEM.L D0-D1/A0-A1,-(A7)
   LEA ChipramSave1,A0
-  LEA EXT_1000,A1
+  LEA EXT_1000.W,A1
 LAB_A1A3E8:
   tst.b full64k
   bne.s .1
@@ -19559,7 +19627,7 @@ LAB_A1A64A:
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W PrintWTF
-  LEA 1(A4),A4
+  ADDQ.L #1,A4
   MOVE.B  D0,D5
   BEQ.W ShowRemarks
   LEA CounterLengthText(PC),A0
@@ -19938,7 +20006,7 @@ findDecrementOpcode:
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.W LAB_A1AC0A 
-  ADD.L #1,D0
+  ADDQ.L #1,D0
   BCLR #0,D0
   MOVE.L D0,A6
 
@@ -20022,7 +20090,7 @@ LAB_A1ACA8:
   RTS
 tfesc:
   MOVE.L tempD0,D0
-  LEA SearchedUptoAddrText,A0
+  LEA SearchedUptoAddrText(PC),A0
   JSR PrintText
   JSR PrintAddressHex
   JSR PrintCR
@@ -20217,11 +20285,11 @@ ShowMemQuick2:
 .dumpnextbyte:
   TST.L D6
   BNE.S .2
-  MOVE.L #16,D6 
+  MOVEQ.L #16,D6 
 
   JSR PrintCR
   TST.B EscapePressed
-  BNE .3
+  BNE.W .3
 
   TST.L endAddress
   BEQ.S .noendaddr
@@ -20245,7 +20313,7 @@ ShowMemQuick2:
   MOVE.W cursorX,D0
   MOVE.W D0,-(A7)
   SUB.W cpuAddrSize,D0
-  SUB.W #2,D0
+  SUBQ.W #2,D0
   DIVU #3,D0
   ADD.W #49,D0
   ADD.W cpuAddrSize,D0
@@ -20425,7 +20493,7 @@ LAB_A1AF94:
   CMPI.W  #$ffff,(A0)
   BNE.S LAB_A1AFBA
 LAB_A1AF9A:
-  LEA 2(A0),A0
+  ADDQ.L #2,A0
   CMPA.L  A0,A3
   BHI.S LAB_A1AF94
   TST.B LAB_A480CA
@@ -20491,7 +20559,7 @@ RamTesterOkText:
 
 checkExecBaseValid:
   MOVEM.L D1-D2/A0-A2,-(A7)
-  MOVE.L  EXT_4,D0
+  MOVE.L  EXT_4.W,D0
   MOVEA.L D0,A1
   BTST  #0,D0
   BNE.S LAB_A1B0B4
@@ -20564,7 +20632,7 @@ PrintDevices:
 PrintAvailMem:
   BSR.W checkExecBaseValid
   BEQ.W LAB_A1B1FC
-  MOVEA.L EXT_4,A0
+  MOVEA.L EXT_4.W,A0
   LEA $142(A0),A0
   LEA 4(A0),A2
   BSR.S SUB_A1B0EE
@@ -20629,7 +20697,7 @@ MemBytesFreeText:
 printBigVal:
   MOVEM.L D0-D7,-(SP)
   MOVE.L D0,D1
-  CLR.L D0
+  MOVEQ #0,D0
   JSR Print8DigitHex
   JSR Print2DigitHex
   JSR PrintSpace(PC)
@@ -20640,7 +20708,7 @@ printBigVal:
   MOVEQ #0,D4
   MOVEQ #0,D5
 .1:
-  CLR.L D0
+  MOVEQ #0,D0
   MOVE.W  #$0020,D3
   MOVEQ #$A,D2
 .2:
@@ -20895,7 +20963,7 @@ LAB_40B9CC:
   MOVE.L  A1,(A0)+
 LAB_40B9CE:
   DBF D1,LAB_40B9CC
-  MOVE.L  #$ffffffff,D6
+  MOVEQ.L  #$ffffffff,D6
   CMPI.L  #$48454c50,EXT_0.W
   BNE.S LAB_40B9EC
   CLR.L EXT_0.W
@@ -21437,7 +21505,7 @@ LAB_A1BA00:
   BMI.S LAB_A1BA40
   CMPI.W  #1,instructionSize
   BEQ.S LAB_A1BA40
-  CMPI.W  #0,instructionSize
+  TST.W  instructionSize
   BNE.W PrintWTF
   MOVE.W  #$44c0,D0
 LAB_A1BA40:
@@ -21522,7 +21590,7 @@ LAB_A1BB60:
   MOVE.L  instructionDestReg,D3
   ROR.W #7,D3
   OR.W  D3,D0
-  CMPI.W  #0,instructionDestAddrMode
+  TST.W  instructionDestAddrMode
   BEQ.S LAB_A1BBC0
   MOVE.W  #$0108,D0
   OR.W  D1,D0
@@ -21531,7 +21599,7 @@ LAB_A1BB60:
   MOVE.L  instructionSrcReg,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  CMPI.W  #0,instructionSrcAddrMode
+  TST.W  instructionSrcAddrMode
   BNE.W PrintWTF
   CMPI.W  #5,instructionDestAddrMode
   BNE.W PrintWTF
@@ -21553,7 +21621,7 @@ LAB_A1BBE6:
   BNE.S LAB_A1BC38
   CMPI.W  #$000b,instructionDestAddrMode
   BNE.W PrintWTF
-  CMPI.W  #0,instructionSrcAddrMode
+  TST.W instructionSrcAddrMode
   BNE.W PrintWTF
   TST.W instructionSize
   BPL.W PrintWTF
@@ -21969,7 +22037,7 @@ LAB_A1C1A4:
   BTST  #1,D2
   BNE.S LAB_A1C19A
   MOVE.W  #0,instructionSize
-  CMPI.W  #0,D2
+  TST.W D2
   BEQ.S LAB_A1C19A
   SUBQ.W  #1,D2
   MOVE.W  D2,instructionSize
@@ -23058,7 +23126,7 @@ LAB_A1CD6E:
   BSR.W PrintCR
   MOVEQ #$F,D2
   MOVEQ #0,D3
-  LEA TRAP_00,A0
+  LEA TRAP_00.W,A0
 LAB_A1CD9C:
   MOVE.W  D3,D0
   MOVEQ #1,D1
@@ -23328,14 +23396,14 @@ LAB_A1D34E:
 CMD_SQR:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText 
 .noser  
   ST  restartFlag
 CMD_SQ:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText 
 .noser  
   MOVE.L Int5Save,AUTO_INT5.W
@@ -23505,14 +23573,14 @@ DriveCfgWarnText:
 CMD_LQR:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText 
 .noser  
   ST  restartFlag
 CMD_LQ:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText 
 .noser  
   TST.B sqInRamdisk
@@ -24394,7 +24462,7 @@ LAB_A1D834:
   ADDQ.W  #2,A0
   CMPA.L  ChipMemEnd,A0
   BNE.S LAB_A1D834
-  LEA EXT_FFFFFFFF,A0
+  LEA EXT_FFFFFFFF.W,A0
 LAB_A1D848:
   MOVE.W  #$c000,$9A(A5)
   RTS
@@ -24423,7 +24491,7 @@ SUB_A1D87C:
   SUBI.L  #$000000f1,D4
   MOVE.W  D2,D5
   SUB.W D0,D5
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   ADDA.L  D4,A0
   MOVE.W  D3,D6
   SUB.W D1,D6
@@ -24438,7 +24506,7 @@ LAB_A1D8B8:
   DBF D5,LAB_A1D8B8
   ORI.B #$f0,0(A0,D6.L)
   ORI.B #$f0,(A0)
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   ADDA.L  D4,A0
   MOVE.W  D2,D6
   SUB.W D0,D6
@@ -24465,18 +24533,18 @@ drawSelectedHighlight:
   SUBI.L  #$000000a1,D4
   MOVE.W  D2,D5
   SUB.W D0,D5
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   ADDA.L  D4,A0
   MOVE.W  D3,D6
   SUB.W D1,D6
   ADDQ.W  #1,D6
   MULU  #8,D6
-  ADDI.L  #2,D6
+  ADDQ.L  #2,D6
 LAB_A1D932:
   MOVE.W  D5,D7
   EORI.B  #7,(A0)+
 LAB_A1D938:
-  EORI.B  #$ff,(A0)+
+  NOT.B (A0)+
   DBF D7,LAB_A1D938
   EORI.B  #$e0,(A0)
   SUBA.W  D5,A0
@@ -24495,13 +24563,13 @@ drawDisabledHighlight:
   SUBI.L  #$000000a1,D4
   MOVE.W  D2,D5
   SUB.W D0,D5
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   ADDA.L  D4,A0
   MOVE.W  D3,D6
   SUB.W D1,D6
   ADDQ.W  #1,D6
   MULU  #8,D6
-  ADDI.L  #2,D6
+  ADDQ.L  #2,D6
   LSR.W #1,D6
 LAB_A1D98A:
   MOVE.W  D5,D7
@@ -24526,7 +24594,7 @@ LAB_A1D9C4:
   ADDQ.L  #1,D0
   ANDI.W  #$fffe,D0
   MOVEA.L D0,A0
-  CMPI.W  #0,(A0)
+  TST.W (A0)
   BEQ.S LAB_A1DA32
   TST.W (A0)
   BMI.S LAB_A1D9F2
@@ -24563,11 +24631,11 @@ LAB_A1DA32:
   RTS
 setupPrefsViewer:
   MOVEM.L D0/A0-A1,-(A7)
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80*2,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A1DA46:
   CLR.L (A0)+
   DBF D0,LAB_A1DA46
@@ -24627,11 +24695,11 @@ LAB_A1DB3C:
   JSR UpdateSerCursor
   JSR ClearSpriteData
   ST  cursorEnabled
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W PageHeight,D0
-  ADD.W #1,D0
+  ADDQ.W #1,D0
   MULU #80*2,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 LAB_A1DB68:
   CLR.L (A0)+
   DBF D0,LAB_A1DB68
@@ -24662,7 +24730,7 @@ LAB_A1DBAE:
   BEQ.W LAB_A1DC4C
   CLR.W CopyColor
   JSR SUB_A2603E
-  CMPI.W  #0,D0
+  TST.W D0
   BNE.S LAB_A1DBDE
   SUBQ.W  #2,currMouseX
   SUBQ.W  #1,currMouseY
@@ -25300,7 +25368,7 @@ cantWithSerial: DC.B "Cannot do this when the serial output is enabled",13,0
 DoPrefs:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText
   
 .noser  
@@ -26364,7 +26432,7 @@ packMemory:
   MOVE.L  PackRate,D0
   MOVEQ #1,D2
   CLR.W D1
-  CLR.L D7
+  MOVEQ #0,D7
   MOVE.L  A0,LAB_A483BC
 LAB_A1F02E:
   BSR.W SUB_A1F0CE
@@ -26403,12 +26471,12 @@ LAB_A1F086:
   MOVE.L  A1,D2
   SUB.L A0,D2
   MOVE.L  D2,(A2)+
-  CLR.L D0
-  CLR.L D1
-  CLR.L D2
-  CLR.L D3
-  CLR.L D4
-  CLR.L D5
+  MOVEQ #0,D0
+  MOVEQ #0,D1
+  MOVEQ #0,D2
+  MOVEQ #0,D3
+  MOVEQ #0,D4
+  MOVEQ #0,D5
   LEA LAB_A482C8,A3
   MOVEM.W (A3)+,D0-D5
   MOVEA.L A2,A3
@@ -26496,7 +26564,7 @@ LAB_A1F17A:
   MOVE.W  $18(A6,D6.W),D0
   MOVE.W  $20(A6,D6.W),D3
   BSR.S LAB_A1F1CA
-  ADDI.W  #1,$28(A6,D6.W)
+  ADDQ.W  #1,$28(A6,D6.W)
   ADDA.L  D5,A0
   CLR.B D0
   RTS
@@ -26706,7 +26774,7 @@ LAB_A1F418:
   TST.B (A2)
   BEQ.S LAB_A1F470
   CMP.B (A2)+,D0
-  LEA 1(A2),A2
+  ADDQ.L #1,A2
   BNE.S LAB_A1F418
   MOVE.B  -1(A2),D0
   BPL.S LAB_A1F470
@@ -26887,7 +26955,7 @@ LAB_41292E:
   MOVE.B  mt_counter,D0
   DIVS  #3,D0
   SWAP  D0
-  CMPI.W  #0,D0
+  TST.W  D0
   BEQ.S LAB_41295E
   CMPI.W  #2,D0
   BEQ.S LAB_412952
@@ -26904,7 +26972,7 @@ LAB_41295E:
   MOVE.W  $10(A6),D2
   BRA.S LAB_412984
 LAB_412964:
-  ASL.W #1,D0
+  ADD.W D0,D0
   MOVEQ #0,D1
   MOVE.W  $10(A6),D1
   LEA mt_periods,A0
@@ -26977,7 +27045,7 @@ SUB_412A14:
   TST.W D3
   BEQ.S LAB_412A84
   MOVE.L  4(A6),D2
-  ASL.W #1,D3
+  ADD.W D3,D3
   ADD.L D3,D2
   MOVE.L  D2,$A(A6)
   MOVE.W  4(A3,D4.L),D0
@@ -27230,7 +27298,7 @@ LAB_412D96:
 LAB_412DBE:
   MOVE.B  3(A6),D0
   ANDI.B  #1,D0
-  ASL.B #1,D0
+  ADD.B D0,D0
   ANDI.B  #$fd,ciaapra
   OR.B  D0,ciaapra
   RTS
@@ -27268,8 +27336,24 @@ sindata:
 TrackerSearch:
   MOVEQ #0,D0
   JSR ReadParameter
-  ANDI.L  #$000ffffe,D0
-  MOVEA.L D0,A0
+  ANDI.L  #$003ffffe,D0
+  MOVE.L D0,-(A7)
+  MOVE.L ChipMemEnd,tempD0    ;use as end address
+
+  TST.B ParamFound
+  BEQ.S .noendparam
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S .noendparam
+  ANDI.L  #$003ffffe,D0
+  MOVE.L D0,tempD0
+
+.noendparam  
+  MOVE.L (A7)+,D0
+  CMP.L tempD0,D0
+  BGE.W TrackerWTF
+  
   LEA LAB_4137C2(PC),A0
   JSR PrintText
   MOVEA.L D0,A0
@@ -27336,6 +27420,8 @@ TrackerExit:
   BSR.W SUB_4139C4
   JSR PrintReady
   RTS
+TrackerWTF:
+  JMP PrintWTF
 
 TrackerSaveMod:
   BSR.W SUB_412F72
@@ -27559,7 +27645,7 @@ TrackerStopMod:
 
 TrackerContinueSearch:
   MOVEA.L ModPointer,A0
-  MOVE.L  ChipMemEnd,D0
+  MOVE.L  tempD0,D0   ;end address
   LEA $500(A0),A0
   CMP.L A0,D0
   BHI.W LAB_412E80
@@ -27569,7 +27655,7 @@ TrackerContinueSearch:
 SUB_4133DA:
   MOVEM.L D1-D3/A1-A6,-(A7)
   MOVEA.L A0,A6
-  MOVE.L  ChipMemEnd,D1
+  MOVE.L  tempD0,D1     ;tracker search end address
   MOVE.B  LAB_A482F0,D0
   BEQ.W LAB_41340E
   CMPI.B  #1,D0
@@ -27615,7 +27701,7 @@ LAB_413470:
   JSR PrintText
   MOVEA.L LAB_A482F8,A0
 LAB_413480:
-  MOVE.L  ChipMemEnd,D1
+  MOVE.L  tempD0,D1     ;tracker search end address
   MOVE.B  #2,LAB_A482F0
 LAB_41348E:
   JSR memSafeReadLong
@@ -27640,7 +27726,7 @@ LAB_4134C2:
   DBF D2,LAB_4134C2
 LAB_4134D4:
   LEA 2(A1),A0
-  MOVE.L  ChipMemEnd,D1
+  MOVE.L  tempD0,D1   ;tracker search end address
   BRA.S LAB_41348E
 LAB_4134E0:
   MOVEQ #0,D1
@@ -27675,7 +27761,7 @@ LAB_41352C:
   JSR PrintText
   MOVEA.L LAB_A482F8,A0
 LAB_41353C:
-  MOVE.L  ChipMemEnd,D2
+  MOVE.L  tempD0,D2     ;tracker search end address
   MOVE.B  #3,LAB_A482F0
 LAB_41354A:
   BSR.W SUB_413716
@@ -28139,6 +28225,27 @@ LAB_413D24:
   MOVEM.L (A7)+,D0-D1/A0
   RTS
 ScanStart:
+  MOVEQ #0,D0
+  JSR ReadParameter
+  ANDI.L  #$003ffffe,D0
+  MOVE.L D0,-(A7)
+  MOVE.L ChipMemEnd,tempD0    ;use as end address
+
+  TST.B ParamFound
+  BEQ.S .noendparam
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S .noendparam
+  ANDI.L  #$003ffffe,D0
+  MOVE.L D0,tempD0
+
+.noendparam  
+  MOVE.L (A7)+,D0
+  CMP.L tempD0,D0
+  BGE.W ScanWTF
+
+  MOVE.L D0,-(A7)
   LEA hardware,A5
   MOVE.W  #$ff00,$34(A5)
   SF  cursorEnabled
@@ -28146,7 +28253,16 @@ ScanStart:
   JSR Cls
   JSR SUB_414176
   MOVE.W  #$012c,LAB_A480D2
-  BSR.W SUB_413E2E
+  MOVE.L (A7)+,D0
+  MOVE.L D0,LAB_A480CA        ;scan start address
+  MOVE.L  tempD0,LAB_A480CE   ;scan end address
+  BSR.W CalcScanIncrement
+  BSR.W SUB_413E48  
+  BRA.S ScanRestart
+  
+ScanWTF:
+  JSR PrintWTF
+  RTS
 ScanRestart:
   SF  cursorEnabled
   JSR Cls
@@ -28289,9 +28405,9 @@ ScanMove:
   JSR GetMouseDelta
   TST.W D0
   BEQ.W LAB_413FBE
-  LEA LAB_4140BC,A2
+  LEA LAB_4140BC(PC),A2
   BPL.W LAB_413FAC
-  LEA LAB_414104,A2
+  LEA LAB_414104(PC),A2
   NEG.W D0
 LAB_413FAC:
   MOVE.W  D0,D1
@@ -28592,7 +28708,7 @@ txtScanInfo:
 lineDraw:
   MOVEM.L D0-D6/A0-A3/A5,-(A7)
   LEA hardware,A5
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   LEA 80.W,A1
   MOVE.L  A1,D4
   MULU  D1,D4
@@ -28965,7 +29081,7 @@ backupMfmBuffer:
 LAB_A1F9F2:
   MOVE.L  (A0)+,D1
   if arhardware=1
-  MOVEP.L D1,(A1)
+  MOVEP.L D1,0(A1)
   ADDQ.W  #8,A1
   else
   MOVE.L  D1,(A1)+
@@ -29273,11 +29389,11 @@ readRawMfmTrack:
   MOVE.L  #EXT_7000,$20(A5)
   MOVE.W  #2,$9C(A5)
   MOVE.W  mfmLength,D2
-  SUB.W #1,D2
+  SUBQ.W #1,D2
   OR.W    #$8000,D2
   MOVE.W  D2,$24(A5)
   MOVE.W  D2,$24(A5)
-  MOVE.L  #$40,D2
+  MOVEQ.L  #$40,D2
   MOVE.B  #0,ciaatodlo
 
 .2
@@ -29289,7 +29405,7 @@ readRawMfmTrack:
 
   MOVE.B  #0,ciaatodlo
   SUBQ.L  #1,D2
-  BEQ RawMfmReadErr
+  BEQ.S RawMfmReadErr
 
   MOVE.W $1E(A5),D0
   BTST  #1,D0
@@ -29297,11 +29413,14 @@ readRawMfmTrack:
 
   MOVE.W  #$4000,$24(A5)
   MOVE.W  mfmSync,(A2)+
-  LEA EXT_7000,A0
+  LEA EXT_7000.W,A0
+  EXG A2,A0
   MOVE.W mfmLength,D1
   SUBQ.W #2,D1
 .copy
-  MOVE.W (A0)+,(A2)+
+  MOVE.W (A2)+,D0
+  JSR memSafeUpdateByteWithMFM
+  ADDQ.L #1,A0
   DBF D1,.copy
   BRA.S RawMfmReadOk
 RawMfmReadErr:
@@ -29347,7 +29466,7 @@ readPdosTrack:
   MOVE.W  #2,$9C(A5)
   MOVE.W  #$998b,$24(A5)
   MOVE.W  #$998b,$24(A5)
-  MOVE.L  #$40,D2
+  MOVEQ.L  #$40,D2
   MOVE.B  #0,ciaatodlo
 .2
   TST.B EscapePressed
@@ -29358,7 +29477,7 @@ readPdosTrack:
 
   MOVE.B  #0,ciaatodlo
   SUBQ.L  #1,D2
-  BEQ PdosReadErr
+  BEQ.S PdosReadErr
 
   MOVE.W $1E(A5),D0
   BTST  #1,D0
@@ -29525,7 +29644,7 @@ LAB_A1FECC:
   LEA $23E(A0),A0
   MOVE.W  #$1dd8,D0
   MOVE.W  #2,D1
-  MOVE.L  #$ffffffff,D2
+  MOVEQ.L  #$ffffffff,D2
   MOVE.W  #$4001,D3
   BSR.W SUB_A20290
   MOVEM.L (A7)+,A0-A1
@@ -29761,7 +29880,7 @@ LAB_A1FFA4:
   BNE.S .1
   BRA.S .2
 .1:
-  LEA 2(A0),a0
+  ADDQ.L #2,A0
   ADDQ.L #2,D2
   CMP.W #$340,D2
   BNE.S .3
@@ -29801,12 +29920,12 @@ SUB_A1FFE4:
   MOVEM.L (A7),A0-A1
   MOVE.L  #$aaaaaaaa,(A1)+
   MOVE.L  #$44894489,(A1)+
-  LEA 4(A0),A0
+  ADDQ.L #4,A0
   MOVEQ #4,D5
 LAB_A20016:
   BSR.S SUB_A2006C
   DBF D5,LAB_A20016
-  LEA 8(A3),A3
+  ADDQ.L #8,A3
   MOVEQ #0,D1
   MOVEQ #9,D0
 LAB_A20024:
@@ -29880,7 +29999,7 @@ SUB_A200A6:
   MOVEA.L A0,A1
   MOVE.W  #$1db1,D0
   MOVE.W  #0,D1
-  MOVE.L  #$ffffffff,D2
+  MOVEQ.L  #$ffffffff,D2
   BSR.W SUB_A20290
   MOVEM.L (A7),A0-A1
   MOVEA.L A1,A2
@@ -29918,12 +30037,12 @@ LAB_A2012C:
   RTS
 SUB_A20132:
   CMP.B #4,currDriveNo
-  BEQ mfm1
+  BEQ.S mfm1
   TST.B mfmRead
-  BNE mfm1
+  BNE.S mfm1
 
   TST.B pdosRead
-  BNE makePdosTrack
+  BNE.S makePdosTrack
 
   MOVEM.L D0-D1/A0-A2,-(A7)
   ;a0=7000
@@ -29999,7 +30118,7 @@ makePdosTrack
 
   ;calc crc in low d0
   LEA 8(A3),A0
-  BSR CalcPdosCrc
+  BSR.S CalcPdosCrc
   SWAP D0
   MOVE.W D2,D0
   SWAP D0
@@ -30080,7 +30199,7 @@ LAB_A201D2:
   RTS
 writeTrack:
   MOVEM.L D1/A1/A5,-(A7)
-  CLR.L D0
+  MOVEQ #0,D0
   CMP.B #4,currDriveNo
   BEQ LAB_A20288
 
@@ -30190,7 +30309,7 @@ PrintDiskOpResult2:
   BEQ.S .1
   MOVE.W D0,-(A7)
   MOVE.W diskOpResult2,D0
-  BSR .1
+  BSR.S .1
   MOVE.W (A7)+,D0
   BNE.S .1
   RTS
@@ -30673,7 +30792,7 @@ LAB_A20BFE:
   BSR.W SUB_A20118
   MOVEQ #9,D0
   MOVEQ #0,D3
-  LEA -8(A1),A1
+  SUBQ.L #8,A1
 LAB_A20C24:
   MOVE.L  (A1)+,D4
   EOR.L D4,D3
@@ -31515,7 +31634,7 @@ LAB_A2164A:
   TST.W D0
   RTS
 findAndAllocateBitmapEntry:
-  MOVEM.L A0,-(A7)
+  MOVE.L A0,-(A7)
   LEA DiskBitmap,A0
   MOVEQ #$1A,D0
 LAB_A2165A:
@@ -31528,20 +31647,20 @@ LAB_A21666:
   TST.L (A0)+
   BNE.S LAB_A216A8
   DBF D0,LAB_A21666
-  MOVEM.L (A7)+,A0
+  MOVE.L (A7)+,A0
   BRA.S LAB_A21690
 SUB_A21674:
-  MOVEM.L A0,-(A7)
+  MOVE.L A0,-(A7)
   LEA LAB_A44FE2,A0
   MOVEQ #$1B,D0
 LAB_A21680:
   TST.L (A0)+
   BNE.S LAB_A216A8
   DBF D0,LAB_A21680
-  MOVEM.L (A7)+,A0
+  MOVE.L (A7)+,A0
   BRA.W LAB_A21690
 LAB_A21690:
-  MOVEM.L A0,-(A7)
+  MOVE.L A0,-(A7)
   LEA DiskBitmap,A0
   MOVEQ #$36,D0
 LAB_A2169C:
@@ -31570,7 +31689,7 @@ LAB_A216BE:
   MOVE.L  D1,D0
   BSR.S allocDiskBitmapEntry
 LAB_A216C4:
-  MOVEM.L (A7)+,A0
+  MOVE.L (A7)+,A0
   TST.W D0
   RTS
 allocDiskBitmapEntry:
@@ -32939,7 +33058,7 @@ LAB_A22634:
 CMD_SR:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText
   
 .noser  
@@ -32948,7 +33067,7 @@ CMD_SR:
 CMD_SA:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText
   
 .noser  
@@ -33147,13 +33266,13 @@ SUB_A229E0:
   JSR backupMfmBuffer(PC)
   BRA.W LAB_A22AF0
 LAB_A229F8:
-  MOVE.L  AUTO_INT2,-(A7)
-  MOVE.L  AUTO_INT3,-(A7)
-  MOVE.L  AUTO_INT5,-(A7)
+  MOVE.L  AUTO_INT2.W,-(A7)
+  MOVE.L  AUTO_INT3.W,-(A7)
+  MOVE.L  AUTO_INT5.W,-(A7)
   JSR SwapChipRam1
-  MOVE.L  #KeyboardIntHandler,AUTO_INT2
-  MOVE.L  #VBlankIntHandler,AUTO_INT3
-  MOVE.L  #SerialIntHandler,AUTO_INT5
+  MOVE.L  #KeyboardIntHandler,AUTO_INT2.W
+  MOVE.L  #VBlankIntHandler,AUTO_INT3.W
+  MOVE.L  #SerialIntHandler,AUTO_INT5.W
   MOVE.W  #$c000,intena+hardware
   MOVE.W  #$8100,dmacon+hardware
 LAB_A22A2E:
@@ -33188,7 +33307,7 @@ LAB_A22A7A:
   MOVE.L  D0,-(A7)
   JSR restoreMfmBuffer(PC)
   BPL.S LAB_A22A8C
-  LEA 4(A7),A7
+  ADDQ.L #4,A7
   BRA.S LAB_A22A6E
 LAB_A22A8C:
   MOVE.L  (A7)+,D0
@@ -33205,9 +33324,9 @@ LAB_A22AA6:
   MOVE.W  #$0100,dmacon+hardware
   MOVE.W  #$4000,intena+hardware
   JSR SwapChipRam1
-  MOVE.L  (A7)+,AUTO_INT5
-  MOVE.L  (A7)+,AUTO_INT3
-  MOVE.L  (A7)+,AUTO_INT2
+  MOVE.L  (A7)+,AUTO_INT5.W
+  MOVE.L  (A7)+,AUTO_INT3.W
+  MOVE.L  (A7)+,AUTO_INT2.W
   TST.L D0
   BMI.S LAB_A22AF0
   LEA stringWorkspace,A1
@@ -33227,7 +33346,7 @@ LAB_A22AF0:
 CMD_LR:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText
   
 .noser  
@@ -33236,7 +33355,7 @@ CMD_LR:
 CMD_LA:
   TST.B serIO
   BEQ.S .noser
-  LEA cantWithSerial,A0
+  LEA cantWithSerial(PC),A0
   JMP PrintText 
 .noser  
   SF  LAB_A480DE
@@ -33865,7 +33984,7 @@ WriteImageBody:
   CMP.W #8,D4
   BNE.S .notham8
   
-  LEA 8(A2),A2      ;ham 8 bitbitplane rotation
+  ADDQ.L #8,A2      ;ham 8 bitbitplane rotation
 
 .notham8
   MOVE.W  D4,D0
@@ -34131,7 +34250,7 @@ WriteBMHD:
   move.w CopyBplCon0,d4
   BTST  #$F,D4    ;hires
   BEQ.S .1
-  MOVEQ.W #1,D3
+  MOVEQ #1,D3
 .1
   BTST.B #2,ChipsetIdValue      ;aga
   BNE.S .2
@@ -34139,7 +34258,7 @@ WriteBMHD:
   move.w CopyBplCon0,d4
   BTST  #$6,D4    ;shires
   BEQ.S .2
-  MOVEQ.W #2,D3
+  MOVEQ #2,D3
 .2
 
   MOVEQ #0,D2
@@ -34215,7 +34334,7 @@ LAB_A23624:
   BSET  D0,D1
   MULU  #3,D1
   ADD.L D1,D3
-  ADDI.L  #8,D3
+  ADDQ.L  #8,D3
   BRA.S LAB_A2366E
 LAB_A23656:
   ADDI.L  #$00000038,D3
@@ -34332,7 +34451,7 @@ LAB_A2372E:
   RTS
 CMD_INSTALL:
   CMP.B  #4,currDriveNo
-  BEQ installWTF
+  BEQ.S installWTF
   MOVEQ #0,D1     ;default install type
   JSR ReadParameter
   TST.B ParamFound
@@ -34470,10 +34589,10 @@ DosLibName:
 stdbootend:
 arboot:
   MOVEM.L A0-A6,-(A7)
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   BSR.S SUB_A238CA
   MOVEM.L (A7)+,A0-A6
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   LEA DosLibName2(PC),A1
   JSR -96(A6)
   MOVEA.L D0,A0
@@ -34576,12 +34695,12 @@ LAB_A239E6:
   TST.L D0
   BEQ.S LAB_A23A1E
 LAB_A23A06:
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   JSR -150(A6)
-  BSET  #0,EXT_7
+  BSET  #0,EXT_7.W
   JMP EXT_F800D0
 LAB_A23A1E:
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   MOVEA.L (A7)+,A1
   JSR -414(A6)
   MOVE.W  #$0f44,color00+hardware
@@ -34735,7 +34854,7 @@ PrintPagedText:
   MOVEM.L D0-D1/A0-A1,-(A7)
   MOVEQ #0,D1
   BSR clearPagePointers
-  BSR addPagePointer
+  BSR.S addPagePointer
 LAB_A23C90:
   MOVE.B  (A0)+,D0
   BEQ.S LAB_A23CD0
@@ -34843,7 +34962,7 @@ LAB_A23DF2:
   RTS
 SUB_A23E02:
   MOVEM.L D1-D7/A0-A6,-(A7)
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   MOVEA.L $2E(A6),A0
   JSR SUB_A23E3E
   BNE.S LAB_A23E26
@@ -35044,7 +35163,7 @@ PrintExecbase:
   JSR PrintText
   LEA LAB_A2450E(PC),A1
   LEA ExecbaseOffsetsTable(PC),A2
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
 LAB_A24366:
   TST.B EscapePressed
   BNE.W LAB_A2442E
@@ -35132,7 +35251,7 @@ LAB_A24462:
   JSR FindNull(PC)
   MOVE.B  (A0),D1
   LEA LAB_A452C8,A3
-  MOVEA.L EXT_4,A4
+  MOVEA.L EXT_4.W,A4
   SUBA.W  #$0276,A4
   CMPI.B  #1,D1
   BNE.S LAB_A2448C
@@ -35423,13 +35542,13 @@ CMD_SLOADER:
   JSR UnpackNoFlash
   LEA EXT_7000.W,A0
   BSR.W backupMfmBuffer
-  MOVE.L  #5,D0
+  MOVEQ.L  #5,D0
   LEA ALoadName(PC),A1
   BSR.W SaveFileInit
   BMI.W LAB_41A256
   LEA ALoadDataEnd,A2
   MOVE.L  -(A2),D0
-  LEA EXT_1000,A2
+  LEA EXT_1000.W,A2
   BSR.W writeFileBytes
   JSR HandleDiskFull
   BMI.W LAB_41A256
@@ -35985,7 +36104,7 @@ saveflashcode:
   MOVE.W #128-1,D1
 .loop
   TST.L D0
-  BEQ .flclr
+  BEQ.S .flclr
   MOVE.W (A0)+,(A1)+
   SUBQ.L #2,D0
   BRA.S .flskip
@@ -36003,7 +36122,7 @@ saveflashcode:
   MOVE.W #$5555,(A4)
   MOVE.W #$3030,(A1)
 
-  BSR .flashWait
+  BSR.S .flashWait
   
   ;reprogram the last 8k
   LEA arramstart+(1024*1024)-8192,A0
@@ -36016,7 +36135,7 @@ saveflashcode:
   MOVE.W #$A0A0,(A3)
 
   MOVE.W (A0)+,(A1)+
-  BSR .flashWait
+  BSR.S .flashWait
   DBF D2,.update
   BRA.W .fldone
   
@@ -36032,7 +36151,7 @@ saveflashcode:
   MOVE.W #128-1,D1
 .loop1
   TST.L D0
-  BEQ .flclr1
+  BEQ.S .flclr1
   MOVE.W (A0)+,(A1)+
   SUBQ.L #2,D0
   BRA.S .flskip1
@@ -36042,7 +36161,7 @@ saveflashcode:
   DBF D1,.loop1
   ;wait for sector flash on on both chips to complete
 .wait
-  BSR .flashWait
+  BSR.S .flashWait
 
 .fldone
   LEA hardware,A6
@@ -36105,7 +36224,7 @@ CMD_AXFER:
   RTS
 .1 JMP LAB_A1B1FC
 .cancel
-  MOVE.L #-8,D0
+  MOVEQ.L #-8,D0
   JMP PrintDiskOpResult
 
 
@@ -36126,7 +36245,7 @@ CMD_CRC16:
   CMP.L A2,A1
   BHS crcWTF
 
-  LEA CalculatingCRC,A0
+  LEA CalculatingCRC(PC),A0
   JSR PrintText
   MOVE.W #$16,D0
   JSR Print2DigitHex
@@ -36188,7 +36307,7 @@ CMD_CRC32:
   CMP.L A2,A1
   BHS.S crcWTF
 
-  LEA CalculatingCRC,A0
+  LEA CalculatingCRC(PC),A0
   JSR PrintText
   MOVE.W #$32,D0
   JSR Print2DigitHex
@@ -36200,7 +36319,7 @@ CMD_CRC32:
   MOVEM.L D0/A0,-(A7)
   MOVE.L A1,A0
   JSR memSafeReadByte
-  ADD.L #1,A1
+  ADDQ.L #1,A1
   MOVE.B D0,D1
   MOVEM.L (A7)+,D0/A0
 
@@ -36261,7 +36380,7 @@ CMD_FCRC16:
   BEQ.W LAB_A21070
 
   MOVE.L D0,-(A7)
-  LEA CalculatingCRC,A0
+  LEA CalculatingCRC(PC),A0
   JSR PrintText
   MOVE.W #$16,D0
   JSR Print2DigitHex
@@ -36287,8 +36406,8 @@ crc16nextbyte:
   LEA LAB_A482A0,A2
   MOVE.L D5,D0
   CMP.L #40,D0
-  BLT .1
-  MOVE.L #40,D0 
+  BLT.S .1
+  MOVEQ.L #40,D0 
 .1
   MOVE.L  D0,D6 
   BSR.W readFileData
@@ -36340,7 +36459,7 @@ CMD_FCRC32:
   BEQ.W LAB_A21070
 
   MOVE.L D0,-(A7)
-  LEA CalculatingCRC,A0
+  LEA CalculatingCRC(PC),A0
   JSR PrintText
   MOVE.W #$32,D0
   JSR Print2DigitHex
@@ -36366,8 +36485,8 @@ crc32nextbyte:
   LEA LAB_A482A0,A2
   MOVE.L D5,D0
   CMP.L #40,D0
-  BLT .1
-  MOVE.L #40,D0 
+  BLT.S .1
+  MOVEQ.L #40,D0 
 .1  
   MOVE.L  D0,D6
   BSR.W readFileData
@@ -36522,7 +36641,7 @@ CheckARRam:
   BNE.S .2
 
   MOVE.W D2,(A1)
-  BRA .3
+  BRA.S .3
 
 .2
   MOVE.W D2,(A1)
@@ -36560,7 +36679,7 @@ currentTypeSerialText: DC.B "YModem Transfers set to internal serial port.",13,0
 CMD_SERSPEED:
   JSR ReadParameter
   TST.B ParamFound
-  BEQ printSpeed
+  BEQ.S printSpeed
 
   CMP.L #300,D0
   BLT.W syWTF
@@ -36652,7 +36771,7 @@ doYmodemReceive:
   if demon2=1
   JSR PrintSerTransType
   endc
-  LEA receivingFilesText,A0
+  LEA receivingFilesText(PC),A0
   JSR PrintText
 
   MOVE.B serIO,-(A7)
@@ -36671,7 +36790,7 @@ ryloop1
   MOVE.W D1,-(A7)
   BSR getSerTempAddr
 
-  MOVE.L #"C",D0
+  MOVEQ.L #"C",D0
   TST.W D5
   BEQ.S .ng
 
@@ -36705,7 +36824,7 @@ ryloop1
   TST.L D5  ;gmode
   BNE.S gotblock0
 
-  MOVE.L #X_ACK,D0
+  MOVEQ.L #X_ACK,D0
   JSR RawPutCharWithFlush
 
   BRA.S gotblock0
@@ -36743,7 +36862,7 @@ gotblock0:
   ADD.L D4,D4
   ADD.L D6,D4
   ADD.L D0,D4
-  BRA .calclen
+  BRA.S .calclen
 .endlen
   MOVE.L (A7)+,A0
 
@@ -36781,7 +36900,7 @@ gotblock0:
 .xfercont
   ST.B serIO
 
-  MOVE.L #"C",D0
+  MOVEQ.L #"C",D0
   TST.W D5 
   BEQ.S .ng
   MOVE.B #"G",D0
@@ -36815,7 +36934,7 @@ gotblock0:
 
   CMP.W #9,D6
   BNE.S .gmode
-  MOVE.L #X_ACK,D0
+  MOVEQ.L #X_ACK,D0
   JSR RawPutCharWithFlush
 
 .gmode
@@ -36832,14 +36951,14 @@ gotblock0:
   BNE.W ryfail
 
   CMP.B #X_SUCCESS,D0
-  BEQ .blocksuccess
+  BEQ.S .blocksuccess
    
   CMP.B #X_EOT,D0
   BNE.S .noteot
   TST.W D4
   BGT.W ryfail
   
-  MOVE.L #X_NAK,D0
+  MOVEQ.L #X_NAK,D0
   JSR RawPutCharWithFlush
   JSR WaitSerCharTimeout2
   BRA.W .filedone
@@ -36848,7 +36967,7 @@ gotblock0:
   CMP.B #X_CAN,D0
   BEQ.W ryfail
 
-  MOVE.L #X_NAK,D0
+  MOVEQ.L #X_NAK,D0
   JSR RawPutCharWithFlush
 
   DBF D6,.blockloop
@@ -36889,7 +37008,7 @@ gotblock0:
   TST.B serFileTransfer
   BNE.s addfile
 
-  MOVE.L #X_ACK,D0
+  MOVEQ.L #X_ACK,D0
   JSR RawPutCharWithFlush
   BRA.W nextfile
 
@@ -36897,7 +37016,7 @@ addfile:
   LEA EXT_7000.W,A0
   BSR.W AddFileToDirBlock
   CLR.B stringWorkspace
-  MOVE.L #X_ACK,D0
+  MOVEQ.L #X_ACK,D0
   JSR RawPutCharWithFlush
   BRA.W nextfile
 
@@ -37012,7 +37131,7 @@ GetBlock:
   LEA eotText(PC),A0
   JSR PrintText
   ST.B serIO
-  MOVE.L #X_EOT,D0
+  MOVEQ.L #X_EOT,D0
   BRA.W .blockreturn
 .noteot
   CMP.B #X_CAN,D0
@@ -37021,7 +37140,7 @@ GetBlock:
   LEA canText(PC),A0
   JSR PrintText
   ST.B serIO
-  MOVE.L #X_CAN,D0
+  MOVEQ.L #X_CAN,D0
   BRA.W .blockreturn
 .notcan
   SF.B serIO
@@ -37031,7 +37150,7 @@ GetBlock:
   JSR PrintCR
   ST.B serIO
 .firstBlockTimeout
-  MOVE.L #X_FAILURE,D0
+  MOVEQ.L #X_FAILURE,D0
   BRA.W .blockreturn
 
 .blockstart
@@ -37148,7 +37267,7 @@ GetBlock:
   MOVE.L A2,A0
   EXG A0,A1
   MOVE.W D1,D2
-  SUB.W #1,D2
+  SUBQ.W #1,D2
   
 .copydata
   MOVE.B (A1)+,D0
@@ -37174,7 +37293,7 @@ GetBlock:
   JSR Print2DigitHex
   JSR PrintCR
   ST.B serIO
-  SUB.B #1,D6
+  SUBQ.B #1,D6
   CMP.B D3,D6
   BNE.S .blockfail
   BRA.S .success
@@ -37184,7 +37303,7 @@ GetBlock:
   LEA badCrcText(PC),A0
   JSR PrintText
   ST.B serIO
-  MOVE.L #X_FAILURE,D0
+  MOVEQ.L #X_FAILURE,D0
   BRA.W .blockreturn
 
 .blockfail
@@ -37195,7 +37314,7 @@ GetBlock:
   JSR Print1DigitHex
   JSR PrintCR
   ST.B serIO
-  MOVE.L #X_FAILURE,D0
+  MOVEQ.L #X_FAILURE,D0
   BRA.W .blockreturn
 
 getSerTempAddr:
@@ -37217,7 +37336,7 @@ getSerTempAddr:
   MOVE.L D0,-(A7)
   TST.B LAB_A48393
   BNE.S .kill
-  LEA NoFreememText,A0
+  LEA NoFreememText(PC),A0
   JSR AskYN
   TST.W D0
   BNE.S .kill
@@ -37282,7 +37401,7 @@ CMD_SFY:
   endc
 
   JSR OpenFile
-  BMI fileerr;data length
+  BMI.S fileerr;data length
 
   if demon2=1
   JSR PrintSerTransType
@@ -37333,8 +37452,8 @@ CMD_XCOPY:
   MOVE.L  #$3f8,UnpackDest
   JSR UnpackNoFlash
  
-	move.w #$b200,$000008ec
-	clr.l $00000516
+	move.w #$b200,$000008ec.W
+	clr.l $00000516.W
 	moveq #$03,d7
 	moveq #$00,d5
 .loop2:
@@ -37368,8 +37487,8 @@ CMD_XCOPY:
 	dbf.w d7,.loop2
 	bset.l #$0000,d5
 	move.b d5,d7
-	move.l #$4f,d1
-	move.l #1,d2
+	moveq.l #$4f,d1
+	moveq.l #1,d2
 	moveq.l #0,d3
 	move.l #$4489,d4
 	move.l #$01020203,d5
@@ -37414,7 +37533,7 @@ CMD_SY:
   if demon2=1
   JSR PrintSerTransType
   endc
-  LEA sendingDataText,A0
+  LEA sendingDataText(PC),A0
   JSR PrintText
 
   MOVE.B serIO,-(A7)
@@ -37429,7 +37548,7 @@ CMD_SY:
   LEA stringWorkspace,A0
   MOVE.L #"mem_",(A0)+
   MOVE.L A1,D0
-  MOVE.L #8,D1
+  MOVEQ.L #8,D1
   JSR ValueToString
   MOVE.B #".",(A0)+
   MOVE.B #"d",(A0)+
@@ -37512,7 +37631,7 @@ startsend:
   CLR.B (A0)+
   MOVE.L D7,D0
   JSR ConvertToBCD
-  MOVE.L #8,D1
+  MOVEQ.L #8,D1
   JSR ValueToString
   MOVE.B #" ",(A0)+
   MOVE.B #"0",(A0)+
@@ -37540,7 +37659,7 @@ startsend:
   MOVE.W #9,D1
 resend1:
   SF.B serIO
-  LEA sendingBlockText,A0
+  LEA sendingBlockText(PC),A0
   JSR PrintText
   MOVEQ #0,D0
   MOVE.B 1(A4),D0
@@ -37566,7 +37685,7 @@ resend1:
 
 .getack1
   SWAP D1
-  MOVEQ.W #9,D1
+  MOVE.W #9,D1
 .getack1loop
 
   MOVEQ #-3,D0
@@ -37591,7 +37710,7 @@ resend1:
   BRA sendfail
 
 .ack1
-  MOVEQ.W #9,D1
+  MOVE.W #9,D1
 .wait1
   JSR WaitSerCharTimeout2
     
@@ -37611,7 +37730,7 @@ resend1:
 
 continuesend:
   BSR getSerTempAddr
-  ADD.B #1,1(A0)
+  ADDQ.B #1,1(A0)
                 
 nextblock:
   TST.L D7
@@ -37631,7 +37750,7 @@ nextblock:
 
   MOVE.L D6,D0
   CMP.L #1024,D0
-  BLT .nn
+  BLT.S .nn
   MOVE.L #1024,D0 
 .nn
   LEA 3(A0),A2
@@ -37639,7 +37758,7 @@ nextblock:
   
   LEA EXT_7000.W,A0
   JSR readFileData
-  BMI .readerr
+  BMI.S .readerr
 
   MOVE.L #1024,D0
   SUB.L D6,D0
@@ -37710,7 +37829,7 @@ nextblock:
   MOVEQ #9,D1
 resend2:
   SF.B serIO
-  LEA sendingBlockText,A0
+  LEA sendingBlockText(PC),A0
   JSR PrintText
   MOVEQ #0,D0
   MOVE.B 1(A4),D0
@@ -37767,19 +37886,19 @@ resend2:
   BRA sendfail
 
 continuesend2:
-  ADD.B #1,1(A0)
+  ADDQ.B #1,1(A0)
   SUB.L #1024,D7        
   BRA.W nextblock
                 
   
 allsent:
   JSR WaitSerCharTimeout2
-  MOVE.L #X_EOT,D0
+  MOVEQ.L #X_EOT,D0
   JSR RawPutCharWithFlush
 
   JSR WaitSerCharTimeout2
 
-  MOVE.L #X_EOT,D0
+  MOVEQ.L #X_EOT,D0
   JSR RawPutCharWithFlush
 
   JSR WaitSerCharTimeout2
@@ -37818,7 +37937,7 @@ allsent:
 
   MOVE.W #9,D1
   SF.B serIO
-  LEA sendingBlockText,A0
+  LEA sendingBlockText(PC),A0
   JSR PrintText
   MOVEQ #0,D0
   MOVE.B 1(A4),D0
@@ -38016,7 +38135,7 @@ CMD_RNC:
   LEA EXT_7000.W,A0
   LEA $1000(A0),A1
   MOVE.L A1,A2
-  MOVE.L  #1,D0
+  MOVEQ.L  #1,D0
   BSR.W SUB_A24E64
   BSR.W readRNCTrack
   BMI .1
@@ -38080,7 +38199,7 @@ CMD_RNC:
   move.l  a2,a0   ;A0 = buffer
 
   ;number 8
-  add.w #2,a0
+  addq.w #2,a0
   move  #0,ccr    ;clear X
   moveq #5,d1
   moveq #0,d0
@@ -38239,7 +38358,7 @@ readRNCTrack:
   MOVE.W  #2,$9C(A5)
   MOVE.W  #$8410,$24(A5)
   MOVE.W  #$8410,$24(A5)
-  MOVE.L  #$40,D2
+  MOVEQ.L  #$40,D2
   MOVE.B  #0,ciaatodlo
 
 .2
@@ -38251,7 +38370,7 @@ readRNCTrack:
 
   MOVE.B  #0,ciaatodlo
   SUBQ.L  #1,D2
-  BEQ RNC_READERR
+  BEQ.S RNC_READERR
 
   MOVE.W $1E(A5),D0
   BTST  #1,D0
@@ -38274,7 +38393,7 @@ RNCREAD_DONE:
   RTS
 
 CMD_KICKVER:
-  LEA kickromverText,A0
+  LEA kickromverText(PC),A0
   JSR PrintText
   MOVE.W $f8000c,D0
   JSR ConvertToBCD
@@ -38373,10 +38492,10 @@ LAB_A24B1A:
   LSL.L #4,D1
   LSL.L #5,D1
 
-  ADD.L #1,D2
+  ADDQ.L #1,D2
   LSL.L #4,D2
   LSL.L #5,D2
-  SUB.L #1,D2 
+  SUBQ.L #1,D2 
   BRA.W .2
 
 
@@ -38446,7 +38565,11 @@ LAB_A24B1A:
   BEQ.S LAB_A24B46
 
 apiReadTracks2
+  TST.B mfmRead
+  BEQ.S .notmfm3
   BCLR  #0,D0
+.notmfm3
+
   MOVEA.L D0,A1
   ST  LAB_A480CA
 
@@ -38581,17 +38704,17 @@ LAB_A24CB2:
   MOVE.B  D0,LAB_A4838B
 LAB_A24CD8:
 
-  CMP.L #EXT_A700-1,A1
-  BHI.S addrok
-  MOVE.L A0,A1
-  LEA loadErr(PC),A0
-  JSR PrintText
-  LEA addressMinErr(PC),A0
-  JSR PrintText
-
-  MOVE.L A1,A0
-  BRA.S doprestore
-addrok:  
+;  CMP.L #EXT_A700-1,A1
+;  BHI.S addrok
+;  MOVE.L A0,A1
+;  LEA loadErr(PC),A0
+;  JSR PrintText
+;  LEA addressMinErr(PC),A0
+;  JSR PrintText
+;
+;  MOVE.L A1,A0
+;  BRA.S doprestore
+;addrok:  
 
   BSR.W ReadTracks
   JSR PrintDiskOpResult
@@ -38699,26 +38822,71 @@ LAB_A24D58:
   LEA mfmSectorAddresses,A1
 LAB_A24D60:
   MOVEA.L (A1)+,A3
+  TST.L trackStartSkip
+  BNE.S slowsectorcopy
+  CMP.L #EXT_A700,A2
+  BLT.S slowsectorcopy
+
+  TST.L trackMaxByteCount
+  BMI.S .1
+  CMP.L #$200,trackMaxByteCount
+  BLT.S slowsectorcopy
+.1
+  MOVE.L A2,D3
+  BTST #0,D3
+  BNE.S slowsectorcopy
+  BRA.S fastsectorcopy
+  
+slowsectorcopy:
+  MOVEM.L D0/A0,-(A7)
   MOVE.W #511,D3
 sectorcopy:
   TST.L trackStartSkip
   BEQ.S .noskip1
   TST.B (A3)+
-  SUB.L #1,trackStartSkip
+  SUBQ.L #1,trackStartSkip
   BRA.S .cont
 
 .noskip1
   TST.L trackMaxByteCount
   BEQ.S .cont
   
+  CMP.L #EXT_A700,A2
+  BLT.S .lowmemaccess
   MOVE.B (A3)+,(A2)+
-  
-  SUB.L #1,trackMaxByteCount
+  TST.L trackMaxByteCount
+  BMI.S .cont
+  SUBQ.L #1,trackMaxByteCount
+  BRA.S .cont
+
+.lowmemaccess
+  MOVE.L A2,A0
+  MOVE.B (A3)+,D0
+  JSR memSafeUpdateByteWithMFM
+  ADDQ.L #1,A2
+  TST.L trackMaxByteCount
+  BMI.S .cont
+  SUBQ.L #1,trackMaxByteCount
 .cont
   DBF D3,sectorcopy
+  MOVEM.L (A7)+,D0/A0
 
   DBF D0,LAB_A24D60
   BRA.W LAB_A24D48
+
+fastsectorcopy:
+  MOVE.W #512/4-1,D3
+.fastsectorcopy2
+  MOVE.L (A3)+,(A2)+
+  DBF D3,.fastsectorcopy2
+
+  TST.L trackMaxByteCount
+  BMI.S .nomax
+  SUB.L #$200,trackMaxByteCount
+.nomax  
+  DBF D0,LAB_A24D60
+  BRA.W LAB_A24D48
+
 
 TBuffHoldsText:
   DC.B  "Trackbuffer holds only !",0
@@ -38863,10 +39031,10 @@ CMD_WT:
   BHI.W wtWtf
 
   MOVE.L tempD0,D0
+  BCLR  #0,D0
 .notmfm
 
 apiWriteTracks2:
-  BCLR  #0,D0
   MOVEA.L D0,A1
   MOVE.L  D2,D0
   TST.B mfmRead
@@ -38963,18 +39131,18 @@ LAB_A24EC4:
   MOVE.L D3,D2
 .5
   SUBQ.W  #1,D2
-  CMP.L #EXT_A700-1,A1
-  BHI.S .6
-  SF sectorRead
-  SF byteRead
-  SF pdosRead
-  SF mfmRead
-  LEA saveErr(PC),A0
-  JSR PrintText
-  LEA addressMinErr(PC),A0
-  JSR PrintText
-  RTS
-.6
+;  CMP.L #EXT_A700-1,A1
+;  BHI.S .6
+;  SF sectorRead
+;  SF byteRead
+;  SF pdosRead
+;  SF mfmRead
+;  LEA saveErr(PC),A0
+;  JSR PrintText
+;  LEA addressMinErr(PC),A0
+;  JSR PrintText
+;  RTS
+;.6
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   BSR.S doTrackWrite
@@ -39004,7 +39172,13 @@ doTrackWrite:
 nextTrack:
   LEA mt_sin,A4
   SF.B tempD0 ;partial track flag
-    
+
+  TST.B mfmRead
+  BNE.W .notpartialtrack
+  
+  CMP.L #EXT_A700,A1
+  BLT.S .partialtrack
+  
   TST.L trackStartSkip
   BNE.S .partialtrack
 
@@ -39033,7 +39207,7 @@ nextTrack:
   CLR.B sectorRead
   CLR.B byteRead
   MOVE.L A4,A1
-  CLR.L D2
+  MOVEQ #0,D2
   CLR.L trackStartSkip
   MOVE.L #-1,trackMaxByteCount
   
@@ -39049,7 +39223,7 @@ nextTrack:
   RTS
   
 .trackok
-  MOVEM.L A1/A4,-(A7)
+  MOVEM.L A0/A1/A4/D0,-(A7)
   ADD.L trackStartSkip,A4
 
   MOVE.L #$1600,D4
@@ -39067,15 +39241,18 @@ nextTrack:
   MOVE.L trackMaxByteCount,D4
   
 .copy
-  MOVE.B (A1)+,(A4)+
+  MOVE.L A1,A0
+  JSR memSafeReadByteWithMfm
+  ADDQ.L #1,A1
+  MOVE.B D0,(A4)+
   TST.L trackMaxByteCount
   BMI.S .nomax
-  SUB.L #1,trackMaxByteCount
+  SUBQ.L #1,trackMaxByteCount
 .nomax
   SUBQ.L #1,D4
   BNE.S .copy
   CLR.L trackStartSkip
-  MOVEM.L (A7)+,A1/A4
+  MOVEM.L (A7)+,A0/A1/A4/D0
   EXG A1,A4
 
 .notpartialtrack
@@ -39107,7 +39284,7 @@ LAB_A24F12:
   BNE.S LAB_A24EFC
   ;a2=8760
   TST.B tempD0  ;partial track flag
-  BNE.S done
+  BNE.W done
   TST.L trackMaxByteCount
   BMI.S .nomax2
   SUB.L #$1600,trackMaxByteCount
@@ -39137,6 +39314,7 @@ pdosData:
   BRA.S done
 
 mfm:
+  MOVEM.L D1/A0,-(A7)
   MOVEQ #0,D0
   MOVE.W #$1a00-1,D0
   SUB.W mfmLength,D0
@@ -39144,12 +39322,19 @@ mfm:
 .clr
   MOVE.W #$AAAA,(A2)+
   DBF D0,.clr
+  MOVE.L A2,A0
 
-  MOVE.W mfmLength,D0
-  SUB.W #1,D0
+  MOVE.W mfmLength,D1
+  SUBQ.W #1,D1
 .copy
-  MOVE.W (A1)+,(A2)+
-  DBF D0,.copy
+  MOVE.W (A1)+,D0
+  JSR memSafeUpdateByteWithMFM
+  LSR.W #8,D0
+  ADDQ.L #1,A0
+  JSR memSafeUpdateByteWithMFM
+  ADDQ.L #1,A0
+  DBF D1,.copy
+  MOVEM.L (A7)+,D1/A0
 
 done
   MOVE.B  D1,currTrackNo
@@ -39537,7 +39722,7 @@ LAB_A25432:
   MOVE.L  CopyColor,TRAP_00.W
   MOVE.L  SaveTrap1,TRAP_01.W
   MOVE.L  SaveTrap2,TRAP_02.W
-  LEA 6(A7),A7
+  ADDQ.L #6,A7
   MOVE.L  LAB_A4807A,-(A7)
   SF  LAB_A48391
   MOVE  SaveSR,SR
@@ -39585,7 +39770,7 @@ LAB_A254E6:
   BRA.W LAB_A256BA
 LAB_A254FE:
   LEA stdboot(PC),A1
-  MOVE.L  #$0000002a,D1
+  MOVEQ.L  #$0000002a,D1
 LAB_A25508:
   JSR PrintCR
   LEA EXT_7000.W,A0
@@ -39625,7 +39810,7 @@ VirusProBBText:
 
 SUB_A255A2:
   LEA hashTable,A1
-  MOVEA.L EXT_4,A0
+  MOVEA.L EXT_4.W,A0
   SUBA.W  #$0276,A0
   MOVE.W  #$012d,D1
 LAB_A255B6:
@@ -39672,7 +39857,7 @@ LAB_A25660:
   JSR PrintText
   LEA hashTable,A4
   MOVE.W  #$fd8a,D2
-  MOVEA.L EXT_4,A3
+  MOVEA.L EXT_4.W,A3
   SUBA.W  #$0276,A3
 LAB_A25688:
   MOVEA.L A4,A0
@@ -41156,7 +41341,7 @@ CMD_MFM:
   MOVEQ #-1,D7
 
   TST.B ParamFound
-  BEQ .noparam
+  BEQ.S .noparam
   MOVE.L D0,D7     ;sector number offset
 .noparam
 
@@ -41199,13 +41384,13 @@ CMD_MFM:
   SUBQ #1,D5
 .nextsector
   TST.W D3
-  BEQ .nosync
+  BEQ.S .nosync
 
   MOVE.L D0,-(A7)
 .findsync
   MOVE.L A1,A0
   JSR memSafeReadWord
-  ADD.L #2,A1
+  ADDQ.L #2,A1
 
   CMP.W D0,D3  ;find sector sync
   BEQ.S .sectorsync
@@ -41217,13 +41402,13 @@ CMD_MFM:
 .sectorsync
   MOVE.L A1,A0
   JSR memSafeReadWord
-  ADD.L #2,A1
+  ADDQ.L #2,A1
 
   CMP.W D0,D3  ;find sector sync
   BEQ.S .sectorsync
   MOVE.L (A7)+,D0
 
-  LEA -2(A1),A1
+  SUBQ.L #2,A1
 .nosync
 
   CMP.L #-1,D7
@@ -41233,7 +41418,7 @@ CMD_MFM:
   LEA (A1,D7),A0
   JSR memSafeReadByte
   MOVE.B D0,D1
-  LEA 4(A0),A0
+  ADDQ.L #4,A0
   JSR memSafeReadByte
   MOVE.B D0,D2
 
@@ -41263,7 +41448,7 @@ CMD_MFM:
   SWAP D6
   MOVE.L D0,-(SP)
   MOVE.W D6,D0
-  SUB.W #1,D0
+  SUBQ.W #1,D0
 
   MOVEM.L D1-D3,-(A7)
   MOVEQ #0,D3
@@ -41282,7 +41467,7 @@ CMD_MFM:
   MOVE.B D0,D2
   MOVE.L (A7)+,D0
 
-  ADD.W #1,D3
+  ADDQ.W #1,D3
   SWAP D6
   CMP.W D3,D6
   BNE.S .noskip
@@ -41425,7 +41610,7 @@ RawIOInit:
   SUB.L D1,D0
   BLT.S .divdone
   
-  ADD.L #1,D2
+  ADDQ.L #1,D2
   BRA.S .bigdiv
 
 .small
@@ -41475,7 +41660,7 @@ RawMayGetChar:
   MOVE.L #serDataBuff,A0
 .2
   MOVE.L A0,serDataReadPtr
-  SUB.W #1,serBufUsed
+  SUBQ.W #1,serBufUsed
   
   CMP.W #(serBuffEnd-serDataBuff)/4,serBufUsed
   BGE.S .3
@@ -41516,7 +41701,7 @@ WaitSerCharTimeout2:
   MOVE.L #serDataBuff,A0
 .2
   MOVE.L A0,serDataReadPtr
-  SUB.W #1,serBufUsed
+  SUBQ.W #1,serBufUsed
 
   CMP.W #(serBuffEnd-serDataBuff)/4,serBufUsed
   BGE.S .3
@@ -41816,11 +42001,11 @@ displayFileSelector2:
   LEA EXT_70000,A0
   JSR backupMfmBuffer
   MOVE.B viewingPrefs,viewingPrefsCopy
-  BEQ notalreadyviewing
+  BEQ.S notalreadyviewing
   MOVEQ #0,D0
   MOVE.W #$c7,D1
   JSR clearScreenArea
-  BRA alreadyviewing
+  BRA.S alreadyviewing
 
 notalreadyviewing:
   JSR setupPrefsViewer
@@ -41895,7 +42080,7 @@ LAB_A267FA:
   LEA stringWorkspace,A1
   JSR SUB_A26C42
   TST.B (A1)
-  MOVEM.L (A7)+,A1
+  MOVE.L (A7)+,A1
   BEQ.W LAB_A2678E
   MOVE.W  #$ffff,LAB_A4841E
   BRA.W LAB_A269C0
@@ -41907,7 +42092,7 @@ LAB_A26828:
   LEA stringWorkspace,A1
   JSR SUB_A26C64
   TST.B (A1)
-  MOVEM.L (A7)+,A1
+  MOVE.L (A7)+,A1
   BEQ.W LAB_A2678E
   MOVE.W  #$ffff,LAB_A4841E
   BRA.W LAB_A269C0
@@ -41946,7 +42131,7 @@ LAB_A268AE:
   MOVE.L  (A1),D0
   BMI.S LAB_A268F8
   MOVE.L  D0,D1
-  LEA 5(A1),A1
+  ADDQ.L #5,A1
   LEA stringWorkspace,A3
 LAB_A268BE:
   MOVE.B  (A1)+,(A3)+
@@ -42048,7 +42233,7 @@ LAB_A26A08:
   MOVE.B  currDriveNo,D1
   LEA rootBlockLoadedFlags,A0
   ST  0(A0,D1.W)
-  LEA 2(A7),A7
+  ADDQ.L #2,A7
   MOVE.L  (A7)+,LAB_A480DE
   MOVEM.L (A7)+,D1-D7/A0-A6
   RTS
@@ -42144,7 +42329,7 @@ LAB_A26B5C:
   EXG D0,A1
   BRA.S LAB_A26B4C
 LAB_A26B6C:
-  LEA -5(A1),A1
+  SUBQ.L #5,A1
 LAB_A26B70:
   MOVE.L  cursorX,-(A7)
   MOVE.L  #$00020002,cursorX
@@ -42157,7 +42342,7 @@ LAB_A26B82:
   LEA LAB_A26C3E(PC),A0
 LAB_A26B92:
   MOVEQ #0,D1
-  LEA 4(A1),A1
+  ADDQ.L #4,A1
   MOVE.B  (A1)+,D1
   CMP.W LAB_A4841E,D1
   BEQ.S LAB_A26BD0
@@ -42354,7 +42539,7 @@ LAB_A26DCC:
   BRA.W LAB_A26C8C
 LAB_A26DD6:
   SF  cursorEnabled
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.W  #$0280,D0
   MULU  cursorY,D0
   ADD.W cursorX,D0
@@ -42521,9 +42706,9 @@ LAB_A27014:
   BRA.S LAB_A2700C
 LAB_A27018:
   SF  safeDiskInstallingFlag
-  MOVEA.L EXT_4,A0
+  MOVEA.L EXT_4.W,A0
   LEA -54(A0),A0
-  LEA EXT_120,A1
+  LEA EXT_120.W,A1
   CLR.L (A1)+
   CLR.L (A1)+
   CLR.L (A1)+
@@ -42609,15 +42794,15 @@ LAB_A2713A:
   JMP PrintText
 LAB_A27152:
   LEA ARPTSText(PC),A1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   JSR SUB_A2798C
   MOVE.L  D0,LAB_A480CA
   BNE.S LAB_A271E4
   TST.B LAB_A480CE
   BEQ.W LAB_A2726A
-  MOVE.L  #$00000042,D0
+  MOVEQ.L  #$00000042,D0
   MOVE.L  #$00010001,D1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -198(A6)
   JSR SUB_A253D0(PC)
   LEA NoMemText(PC),A0
@@ -42633,12 +42818,12 @@ LAB_A271A6:
   MOVE.L  A1,$A(A0)
   MOVE.B  #$0f,8(A0)
   MOVEA.L LAB_A480CA,A0
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -558(A6)
   JSR SUB_A253D0(PC)
   LEA $214(A6),A0
   MOVEA.L LAB_A480CA,A1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -270(A6)
   JSR SUB_A253D0(PC)
 LAB_A271E4:
@@ -42673,7 +42858,7 @@ LAB_A27238:
   MOVEA.L LAB_A480CA,A0
   MOVE.L  D0,$2E(A0)
   MOVEA.L D0,A1
-  ADDA.L  #0,A1
+  ;ADDA.L  #0,A1
   MOVE.L  A0,(A1)
   JSR SUB_A277FA
 LAB_A2726A:
@@ -42720,23 +42905,23 @@ SUB_A2736C:
   BEQ.S LAB_A2739C
   MOVEA.L D0,A1
   MOVE.L  #$0000640c,D0
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -210(A6)
   JSR SUB_A253D0(PC)
 LAB_A2739C:
   MOVEA.L (A7)+,A1
   MOVE.L  $B8(A1),D0
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -210(A6)
   JSR SUB_A253D0(PC)
 LAB_A273B0:
   MOVEA.L LAB_A480CA,A1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -252(A6)
   JSR SUB_A253D0(PC)
   MOVEA.L LAB_A480CA,A1
-  MOVE.L  #$00000042,D0
-  MOVEA.L EXT_4,A6
+  MOVEQ.L  #$00000042,D0
+  MOVEA.L EXT_4.W,A6
   PEA -210(A6)
   JSR SUB_A253D0(PC)
 LAB_A273DE:
@@ -42838,7 +43023,7 @@ SUB_A27542:
   ADDI.L  #$00000904,D0
   ADDI.L  #$000000bc,D0
   MOVE.L  #$00010001,D1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -198(A6)
   JSR SUB_A253D0(PC)
 LAB_A275C4:
@@ -42905,7 +43090,7 @@ LAB_A276B8:
 LAB_A276CC:
   MOVEA.L LAB_A480DE,A0
   LEA $86(A0),A0
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -558(A6)
   JSR SUB_A253D0(PC)
   JSR SUB_A2774A
@@ -42936,7 +43121,7 @@ SUB_A2774A:
   BEQ.S LAB_A2778A
   MOVEA.L D0,A1
   MOVE.L  #$0000640c,D0
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -210(A6)
   JSR SUB_A253D0(PC)
   MOVEA.L LAB_A480DE,A0
@@ -42949,8 +43134,8 @@ LAB_A2778E:
   MOVE.L  $82(A0),D0
   BNE.S LAB_A2778A
   MOVE.L  #$0000640c,D0
-  MOVE.L  #2,D1
-  MOVEA.L EXT_4,A6
+  MOVEQ.L  #2,D1
+  MOVEA.L EXT_4.W,A6
   PEA -198(A6)
   JSR SUB_A253D0(PC)
   MOVEA.L LAB_A480DE,A0
@@ -43090,7 +43275,7 @@ LAB_A27906:
   LEA $114(A6),A0
   MOVEA.L (A0),A0
 LAB_A2790C:
-  LEA TrackDiskName,A1
+  LEA TrackDiskName(PC),A1
   MOVEM.L D6-D7/A2,-(A7)
   JSR LAB_A27934
   MOVEM.L (A7)+,D6-D7/A2
@@ -43373,7 +43558,7 @@ LAB_A27AD0:
   DC.L  $138613e4,$14461690,$16b8195a,$19a219b2
   DS.W  1
 SUB_A27B42:
-  MOVEM.L A2,-(A7)
+  MOVE.L A2,-(A7)
   MOVEA.L A0,A2
 LAB_A27B48:
   MOVEA.L A2,A0
@@ -43388,7 +43573,7 @@ LAB_A27B56:
   DBF D1,LAB_A27B54
   BRA.S LAB_A27B48
 LAB_A27B5C:
-  MOVEM.L (A7)+,A2
+  MOVE.L (A7)+,A2
   RTS
 SUB_A27B62:
   MOVEM.L D1-D2,-(A7)
@@ -43683,7 +43868,7 @@ LAB_A27F38:
   TST.L newRamdiskAddr
   BEQ.S LAB_A27F52
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonMemWatchAddrs,A0
+  LEA demonMemWatchAddrs(A0),A0
   MOVEQ #19,D2
 LAB_A27F52:
   TST.L (A0)+
@@ -43722,7 +43907,7 @@ CMD_MD:
   TST.L newRamdiskAddr
   BEQ.S LAB_A27FF8
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonMemWatchAddrs,A0
+  LEA demonMemWatchAddrs(A0),A0
   MOVEQ #19,D1
 LAB_A27FF8:
   CMP.L (A0)+,D0
@@ -43755,7 +43940,7 @@ CMD_MW:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2806C
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonMemWatchAddrs,A0
+  LEA demonMemWatchAddrs(A0),A0
   MOVEQ #19,D1
 LAB_A2806C:
   MOVE.L  (A0)+,D0
@@ -43780,7 +43965,7 @@ CMD_MDA:
   TST.L newRamdiskAddr
   BEQ.S LAB_A280B6
   MOVE.L newRamdiskAddr,A0
-  ADD.L #demonMemWatchAddrs,A0
+  LEA demonMemWatchAddrs(A0),A0
   MOVEQ #19,D0
 LAB_A280B6:
   MOVE.L  #$ffffffff,(A0)+
@@ -43799,7 +43984,7 @@ RestoreMemWatch:
   TST.L newRamdiskAddr
   BEQ.S LAB_A280FA
   MOVE.L newRamdiskAddr,A2
-  ADD.L #demonMemWatchAddrs,A2
+  LEA demonMemWatchAddrs(A2),A2
   MOVE.L A2,A3
   MOVEQ #19,D1
 LAB_A280FA:
@@ -44009,7 +44194,7 @@ LAB_A28362:
   JSR PrepCIA
   MOVE  #$2000,SR
 LAB_A28378:
-  MOVE.W  (A7)+,EXT_0
+  MOVE.W  (A7)+,EXT_0.W
   RTS
 LAB_A28380:
   ST  LAB_A483D3
@@ -44039,7 +44224,7 @@ CMD_NTSC:
   CLR.B VgaModeFlag
   SF.B palMode
   
-  LEA EXT_1000+25*80*8,A0 
+  LEA (EXT_1000+25*80*8).W,A0 
 .clr
   CMP.L memSaveEnd,A0
   BEQ.S .noclr
@@ -44091,8 +44276,8 @@ dumpnextbyte:
   LEA LAB_A482A0,A2
   MOVE.L D5,D0
   CMP.L #16,D0
-  BLT .1
-  MOVE.L #16,D0 
+  BLT.S .1
+  MOVEQ.L #16,D0 
 .1
   MOVE.L  D0,D6 
   JSR readFileData
@@ -44101,7 +44286,7 @@ dumpnextbyte:
   LEA LAB_A482A0,A4
   JSR PrintCR
   TST.B EscapePressed
-  BNE .3
+  BNE.S .3
 
   MOVE.L  D7,D0
   JSR Print6DigitHex
@@ -44112,7 +44297,7 @@ dumpnextbyte:
   SUBQ.L  #1,D6
  
   TST.L D6
-  BLT .3
+  BLT.S .3
   JSR PrintSpace
   MOVE.B (A4)+,D0
   JSR Print2DigitHex
@@ -44565,6 +44750,7 @@ LAB_A28D78:
   DC.W  $0215
   DC.B  "Filename expected",0
 
+  even
 SUB_A28D8C:
   MOVEM.L D1-D5/A1-A2,-(A7)
   SF  forceUpper
@@ -44600,12 +44786,12 @@ LAB_A28DE4:
   BRA.W LAB_A28EB0
 LAB_A28E00:
   MOVE.L  fileSize,D0
-  LEA EXT_1000,A2
+  LEA EXT_1000.W,A2
   JSR readFileBytes
   BMI.S LAB_A28DD4
   JSR restoreMfmBuffer
   BMI.S LAB_A28DDA
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   CMPI.L  #$000003f3,(A0)
   BEQ.S LAB_A28E32
 LAB_A28E2A:
@@ -44622,7 +44808,7 @@ LAB_A28E32:
   CMPI.W  #$3400,D0
   BHI.S LAB_A28E2A
   LEA $E(A0),A0
-  LEA EXT_100E,A1
+  LEA EXT_100E.W,A1
 LAB_A28E56:
   MOVE.B  (A0)+,(A1)+
   DBF D0,LAB_A28E56
@@ -44631,7 +44817,7 @@ LAB_A28E56:
   BNE.S LAB_A28E2A
   CMPI.L  #$000003ec,(A0)+
   BNE.S LAB_A28E2A
-  LEA EXT_1000,A1
+  LEA EXT_1000.W,A1
   MOVE.L  (A0)+,D0
   SUBQ.L  #1,D0
   TST.L (A0)+
@@ -44645,7 +44831,7 @@ LAB_A28E7A:
   BNE.S LAB_A28E2A
   CMPI.L  #$000003f2,(A0)+
   BNE.S LAB_A28E2A
-  LEA EXT_100E,A1
+  LEA EXT_100E.W,A1
   JSR SUB_A299B8
   BPL.S LAB_A28EA8
   LEA LAB_A28C35(PC),A0
@@ -44690,7 +44876,7 @@ SUB_A28EDA:
   ANDI.W  #$fffc,D0
   LSR.L #2,D0
   MOVE.L  D0,LAB_A48442
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.L  #$000003f3,(A0)+
   CLR.L (A0)+
   MOVE.L  #1,(A0)+
@@ -44729,7 +44915,7 @@ LAB_A28FAC:
   MOVEA.L D0,A0
   MOVE.L  #$000003ec,(A0)+
   MOVEA.L A0,A2
-  LEA 4(A0),A0
+  ADDQ.L #4,A0
   CLR.L (A0)+
   MOVEQ #1,D3
   MOVE.L  #$0000000a,(A0)+
@@ -44778,7 +44964,7 @@ LAB_A29056:
   LEA LAB_A28D2E(PC),A0
   BRA.S LAB_A2908C
 LAB_A29062:
-  LEA EXT_1000,A2
+  LEA EXT_1000.W,A2
   MOVEQ #0,D0
   MOVE.W  LAB_A48442,D0
   JSR writeFileBytes
@@ -44808,7 +44994,7 @@ LAB_A290B4:
   MOVEQ #0,D0
   BRA.S LAB_A2908E
 SUB_A290B8:
-  LEA EXT_1000,A0
+  LEA EXT_1000.W,A0
   MOVE.L  LAB_A480DA,D0
   SUB.L DiskMonBuffer,D0
   SUBI.L  #$00000080,D0
@@ -44827,7 +45013,7 @@ LAB_A290E6:
   JSR cleanupPrefsViewer
   MOVEA.L (A7)+,A0
   JSR PrintText
-  LEA 4(A7),A7
+  ADDQ.L #4,A7
   RTS
 LAB_A29104:
   MOVE.W  #$0100,dmacon+hardware
@@ -44845,11 +45031,11 @@ LAB_A29124:
   LEA LAB_A28CAC(PC),A0
   BRA.S LAB_A290E6
 LAB_A2913C:
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   MOVEQ #0,D0
   MOVE.W  LAB_A48442,D0
   MOVE.L  #$00010001,D1
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   PEA -198(A6)
   JSR SUB_A253D0(PC)
   LEA LAB_A28CF0(PC),A0
@@ -44859,12 +45045,12 @@ LAB_A2913C:
   MOVE.W  #$0100,dmacon+hardware
   MOVE.W  LAB_A48442,D1
   MOVEA.L LAB_A48446,A0
-  LEA EXT_1000,A1
+  LEA EXT_1000.W,A1
   SUBQ.W  #1,D1
 LAB_A2918C:
   MOVE.B  (A1)+,D0
   JSR memSafeUpdateByte
-  LEA 1(A0),A0
+  ADDQ.L #1,A0
   DBF D1,LAB_A2918C
   JSR SUB_A291D4
   MOVEA.L LAB_A4843E,A1
@@ -44875,8 +45061,8 @@ LAB_A291B0:
   JSR memSafeReadLong
   MOVEA.L A1,A0
   JSR memSafeWriteLong
-  LEA 4(A1),A1
-  LEA 4(A2),A2
+  ADDQ.L #4,A1
+  ADDQ.L #4,A2
   DBF D1,LAB_A291B0
   LEA LAB_A28D0F(PC),A0
   BRA.W LAB_A290E6
@@ -44890,12 +45076,12 @@ LAB_A291E8:
   JSR memSafeReadLong
   ADD.L D1,D0
   JSR memSafeWriteLong
-  LEA 4(A0),A0
+  ADDQ.L #4,A0
   DBF D2,LAB_A291E8
   MOVEA.L LAB_A48446,A0
   JSR memSafeReadLong
   MOVEA.L D0,A1
-  LEA 4(A0),A0
+  ADDQ.L #4,A0
   JSR memSafeReadLong
   MOVEA.L D0,A2
   MOVEQ #0,D2
@@ -44909,8 +45095,8 @@ LAB_A2921A:
   ADD.L D1,D0
   JSR memSafeWriteLong
 LAB_A29238:
-  LEA 1(A1),A1
-  LEA 4(A2),A2
+  ADDQ.L #1,A1
+  ADDQ.L #4,A2
   ADDQ.W  #1,D2
   CMPI.W  #$0067,D2
   BLS.S LAB_A2921A
@@ -45048,7 +45234,7 @@ LAB_A293AA:
 LAB_A293E4:
   MOVE.B  (A1),D2
   ADD.W D2,D0
-  LEA 2(A1),A1
+  ADDQ.L #2,A1
   DBF D1,LAB_A293E4
   LEA 0(A1,D0.W),A1
   EXG D0,A1
@@ -45084,7 +45270,7 @@ LAB_A2943A:
   BGE.S LAB_A2944E
   SUB.L D0,(A2)
 LAB_A2944E:
-  LEA 4(A2),A2
+  ADDQ.L #4,A2
   BRA.S LAB_A2943A
 LAB_A29454:
   MOVEA.L DiskMonBuffer,A2
@@ -45929,10 +46115,10 @@ SUB_A29DB2:
   MOVE.W  D1,-(A7)
   SWAP  D1
   MOVE.W  (A7)+,D1
-  MOVE.L  #0,D7
+  MOVEQ.L  #0,D7
   CMPI.W  #$003f,D1
   BLS.S LAB_A29DD0
-  MOVE.L  #$00000010,D7
+  MOVEQ.L  #$00000010,D7
   SUBI.W  #$0040,D1
 LAB_A29DD0:
   MOVE.W  D1,D6
@@ -45988,7 +46174,7 @@ LAB_A29E50:
   MOVEQ #-1,D0
   RTS
 LAB_A29E58:
-  MOVEA.L EXT_4,A6
+  MOVEA.L EXT_4.W,A6
   LEA $15E(A6),A0
 LAB_A29E62:
   JSR SUB_A1B0EE
@@ -46309,7 +46495,7 @@ CMD_EA:
   MOVE.B D3,D0
   JSR Print1DigitHex
 
-  ADD.W #1,D4
+  ADDQ.W #1,D4
   MOVE.W D4,D0
   AND.W #7,D0
   BEQ.S .4
@@ -46418,7 +46604,7 @@ CMD_KEYMAP:
   CMP.B #-1,keymap
   BEQ.S .keymapUK
 
-  CMP.B #0,keymap
+  TST.B keymap
   BEQ.S .keymapDE
 
   CMP.B #1,keymap
@@ -46701,13 +46887,13 @@ LoadPrefs:
   LEA stringWorkspace,A1
   JSR OpenFile
   BMI.W LAB_4210BC
-  LEA EXT_1000,A2
+  LEA EXT_1000.W,A2
   MOVE.L  fileSize,D0
   CMPI.W  #$0400,D0
   BHI.W LAB_4210BC
   JSR readFileBytes
   BMI.W LAB_4210BC
-  LEA EXT_1000,A1
+  LEA EXT_1000.W,A1
   MOVE.L  fileSize,D0
   JSR LoadPrefsFromMem
   JSR restoreMfmBuffer
@@ -46772,9 +46958,9 @@ SavePrefs:
   JSR SaveFileInit
   BMI.W LAB_42119A
   MOVEQ #4,D1
-  LEA EXT_1000,A1
+  LEA EXT_1000.W,A1
   BSR SavePrefsToMem
-  LEA EXT_1000,A2
+  LEA EXT_1000.W,A2
   MOVEQ #0,D0
   MOVE.W  D1,D0
   JSR memSafeWriteFileBytes
@@ -47821,8 +48007,8 @@ LAB_425C3C:
   MOVEA.L A2,A0
   ADD.L D1,(A0)
 LAB_425C4C:
-  LEA 1(A1),A1
-  LEA 4(A2),A2
+  ADDQ.L #1,A1
+  ADDQ.L #4,A2
   ADDQ.W  #1,D2
   CMPI.W  #$0067,D2
   BLS.S LAB_425C3C
@@ -47909,7 +48095,7 @@ CMD_ST:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2DBFC
   MOVE.L newRamdiskAddr,A2
-  ADD.L #demonMemWatchAddrs,A2
+  LEA demonMemWatchAddrs(A2),A2
   MOVEQ #19,D1
 LAB_A2DBFC:
   TST.L (A2)+
@@ -47950,7 +48136,7 @@ CMD_TR:
   TST.L newRamdiskAddr
   BEQ.S LAB_A2DCBC
   MOVE.L newRamdiskAddr,A2
-  ADD.L #demonMemWatchAddrs,A2
+  LEA demonMemWatchAddrs(A2),A2
   MOVEQ #19,D1
 LAB_A2DCBC:
   TST.L (A2)+
@@ -52409,7 +52595,7 @@ SUB_A30FF8:
   MOVE.L  D0,-(A7)
   PEA (A0)
   JSR readCmdCharSkipSpaces
-  MOVEA.W #0,A1
+  SUB.L A1,A1
   MOVEQ #-1,D1
   TST.B endOfCmdString
   BNE.W LAB_A31046
@@ -52418,7 +52604,7 @@ SUB_A30FF8:
   JSR readCmdCharSkipSpaces
   MOVEQ #0,D1
   BCLR  #5,D0
-  MOVEA.W #0,A1
+  SUB.L A1,A1
   CMPI.W  #$0042,D0
   BEQ.S LAB_A31046
   MOVEA.W #1,A1
@@ -52427,7 +52613,7 @@ SUB_A30FF8:
   MOVEA.W #2,A1
   CMPI.W  #$004c,D0     ;76   L
   BEQ.S LAB_A31046
-  MOVEA.W #0,A1
+  SUB.L A1,A1
 LAB_A31046:
   MOVE.W  A1,LAB_A35698
   TST.W D1
