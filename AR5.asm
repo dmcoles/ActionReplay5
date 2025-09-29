@@ -982,6 +982,37 @@ NMI_Entry:
   endc
 
   if (arhardware+pistorm=1)
+  TST.B TraceActive
+  BEQ.S .notttrace
+
+  TST.B TraceToRamFlag
+  BEQ.S .notramtrace
+  cmp.l #ramTraceCodeEnd-ramTraceCode+EXT_150,2(a7)
+  BEQ.S .istr
+  cmp.l #ramTraceCodeEnd-ramTraceCode+EXT_150+6,2(a7)
+  BEQ.S .istr
+  JMP exit_rte
+.notramtrace
+  cmp.l #$150,2(a7)
+  BEQ.S .istr
+  cmp.l #$156,2(a7)
+  bne.s .notttrace
+.istr
+  ;MOVE.L D0,tempD0
+  ;MOVE.L A0,D0
+  ;BSR.W getVBR
+  ;MOVE.L D0,A0
+  ;MOVE.W vbrflag,D0
+  ;ADD.W D0,D0
+  ;ADDQ.W #6,D0
+  ;lea (a7,d0.w),a7
+  ;MOVE.L tempD0,D0
+  ADDQ.L #6,A7
+  TST.B cpuType
+  BEQ.W DoArTrace
+  ADDQ.L #2,A7
+  BRA.W DoArTrace
+.notttrace:
   tst.b exceptionsActive
   beq.s nmi1
 
@@ -1018,23 +1049,13 @@ nmi3:
   bne.s nmi4
 .isapi
   bra.w ApiEntry
-
 nmi4:
-  cmp.l #$150,2(a7)
-  BEQ.S .istr
-  cmp.l #$156,2(a7)
-  bne.s x
-.istr
-  MOVE.L A0,D0
-  BSR.W getVBR
-  MOVE.L D0,A0
-  MOVE.W vbrflag,D0
-  ADD.W D0,D0
-  ADDQ.W #6,D0
-  lea (a7,d0.w),a7
-  BRA.W DoArTrace
+  bra.s x
 nmi:
-  BRA.W Freeze
+  TST.B TraceActive
+  BEQ.W Freeze
+  MOVE.L  #1,TraceStepCount
+  JMP exit_rte
   endc
 x:
   if arhardware=1
@@ -2008,9 +2029,34 @@ DoArTrace:
   SF  LAB_A483DE
   MOVEA.L (A7)+,A0
 LAB_A108BA:
+  TST.L TraceToAddressStart
+  BNE.S traceToAddr
   SUBQ.L  #1,TraceStepCount
   BNE.S LAB_A108C8
   BRA.W AREntry2
+
+traceToAddr:
+  MOVE.L A0,-(A7)
+  MOVEA.L $6(A7),A0
+  CMP.L TraceToAddressStart,A0
+  BEQ.S doEntry
+  TST.L TraceToAddressEnd
+  BEQ.S dontEntry
+
+  CMP.L TraceToAddressStart,A0
+  BLT.S dontEntry
+  CMP.L TraceToAddressEnd,A0
+  BLT.S doEntry
+
+dontEntry:
+  MOVE.L (A7)+,A0
+  BRA.W LAB_A10932
+
+doEntry:
+  CLR.L TraceStepCount
+  MOVE.L (A7)+,A0
+  BRA.W AREntry2
+
 LAB_A108C8:
   TST.B TraceSkipSubs
   BEQ.S LAB_A10932
@@ -6087,6 +6133,11 @@ commandTable:
   DC.L  CMD_WPB
   DC.L cmd_wpb_help
 
+  DC.B  "TRB",0
+  even
+  DC.L  CMD_TRB
+  DC.L cmd_trb_help
+
   DC.B  "CD",0
   even
   DC.L  CMD_CD
@@ -6346,6 +6397,11 @@ commandTable:
   even
   DC.L  CMD_EX
   DC.L cmd_ex_help
+
+  DC.B  "TA",0
+  even
+  DC.L  CMD_TA
+  DC.L cmd_ta_help
 
   DC.B  "TR",0
   even
@@ -7572,6 +7628,11 @@ cmd_t_help:
   DC.B  "  T <lives>",13
   DC.B 0
 
+cmd_ta_help:
+  DC.B  "TA (Trace until address)",13
+  DC.B  "  TA start-address (end-address)",13
+  DC.B 0
+
 cmd_tasks_help:
   DC.B  "TASKS (Show execbase task-lists)",13
   DC.B  "  TASKS",13
@@ -7635,6 +7696,11 @@ cmd_tms_help:
 cmd_tr_help:
   DC.B  "TR (Trace current program (not subs))",13
   DC.B  "  TR (<steps>)",13
+  DC.B 0
+
+cmd_trb_help:
+  DC.B  "TRB (Trace until bootblock)",13
+  DC.B  "  TRB",13
   DC.B 0
 
 cmd_tracker_help:
@@ -10163,7 +10229,7 @@ LAB_A1391A:
   MOVE.W cpuAddrSize,D1
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
-  BSR.W UpdateSerCursor
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
@@ -10467,7 +10533,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (24-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (29-Sep-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -11335,8 +11401,8 @@ SUB_A15324:
   ADDQ.W  #2,A0
   MOVE.L  D0,D7
   MOVE.W  #$ffff,BranchInstructionType
-  MOVE.W  #$ffff,instructionDestAddrMode
   MOVE.W  #$ffff,instructionSrcAddrMode
+  MOVE.W  #$ffff,instructionDestAddrMode
   MOVE.W  #$ffff,instructionSize
   JSR SUB_A3187E
   TST.W D0
@@ -11363,10 +11429,10 @@ SUB_A15324:
   MOVE.W  #$0041,instructionNo  ;STOP
   CMPI.W  #$4e72,D0           
   BNE.S LAB_A153EA
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.W  #$000b,instructionSrcAddrMode
   BSR.W memSafeReadWord
   EXT.L D0
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   ADDQ.W  #2,A0
   BRA.W LAB_A15F80
 LAB_A153EA:
@@ -11380,38 +11446,38 @@ LAB_A153EA:
   BNE.S .notextb
   MOVE.W  #$0051,instructionNo  ;EXTB (020+)
   MOVE.W  #2,instructionSize   ;instruction size
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A1608E      ;get data reg
-  MOVE.L  D0,instructionDestReg ;instruction reg
+  MOVE.L  D0,instructionSrcData ;instruction reg
   BRA.W LAB_A15F80
 .notextb
   CMPI.W  #$4e50,D0          
   BNE.S LAB_A1543A
   MOVE.W  #$0021,instructionNo ;LINK
-  MOVE.W  #$000b,instructionSrcAddrMode
+  MOVE.W  #$000b,instructionDestAddrMode
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
-  MOVE.L  D0,instructionSrcReg
-  MOVE.W  #1,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A1543A:
   CMPI.W  #$4840,D0       
   BNE.S LAB_A1545E
   MOVE.W  #$0047,instructionNo  ;SWAP
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A1545E:
   CMPI.W  #$4e58,D0       
   BNE.S LAB_A15482
   MOVE.W  #$004c,instructionNo  ;UNLK
-  MOVE.W  #1,instructionDestAddrMode
+  MOVE.W  #1,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A15482:
   MOVE.L  D7,D0
@@ -11424,9 +11490,9 @@ LAB_A15482:
   BNE.S LAB_A154AC
   MOVE.W  #1,instructionSize
 LAB_A154AC:
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A154C2:
   MOVE.L  D7,D0
@@ -11435,24 +11501,24 @@ LAB_A154C2:
   BNE.S LAB_A1551A
   MOVE.W  #$0028,instructionNo ;MOVE
   MOVE.W  #2,instructionSize
-  MOVE.W  #$000c,instructionDestAddrMode
-  MOVE.W  #1,instructionSrcAddrMode
+  MOVE.W  #$000c,instructionSrcAddrMode
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BTST  #3,D7
   BNE.W LAB_A15F80
-  MOVE.W  #1,instructionDestAddrMode
-  MOVE.L  D0,instructionDestReg
-  MOVE.W  #$000c,instructionSrcAddrMode
+  MOVE.W  #1,instructionSrcAddrMode
+  MOVE.L  D0,instructionSrcData
+  MOVE.W  #$000c,instructionDestAddrMode
   BRA.W LAB_A15F80
 LAB_A1551A:
   CMPI.W  #$4e40,D0
   BNE.S LAB_A15540        
   MOVE.W  #$0049,instructionNo    ;TRAP
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.W  #$000b,instructionSrcAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$000f,D0
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A15540:
   MOVE.L  D7,D0
@@ -11463,10 +11529,10 @@ LAB_A15540:
 LAB_A15554:
   MOVE.L  D7,D0
   BSR.W decodeEA
-  MOVE.W  D1,instructionDestAddrMode
-  MOVE.L  D2,instructionDestReg
-  MOVE.L  D3,instructionDestDisplacement
-  MOVE.L  D4,instructionDestExtData
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcData
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   BRA.W LAB_A15F80
 LAB_A15576:
   CMPI.W  #$4e80,D0      
@@ -11478,44 +11544,44 @@ LAB_A15586:
   BNE.S LAB_A155C6
   MOVE.W  #$0025,instructionNo   ;MOVE
   MOVE.W  #0,instructionSize
-  MOVE.W  #$000d,instructionSrcAddrMode
+  MOVE.W  #$000d,instructionDestAddrMode
   MOVE.L  D7,D0
   BSR.W decodeEA
-  MOVE.W  D1,instructionDestAddrMode
-  MOVE.L  D2,instructionDestReg
-  MOVE.L  D3,instructionDestDisplacement
-  MOVE.L  D4,instructionDestExtData
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcData
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   BRA.W LAB_A15F80
 LAB_A155C6:
   CMPI.W  #$46c0,D0
   BNE.S LAB_A15606
   MOVE.W  #$0026,instructionNo   ;MOVE
   MOVE.W  #1,instructionSize
-  MOVE.W  #$000e,instructionSrcAddrMode
+  MOVE.W  #$000e,instructionDestAddrMode
 LAB_A155E4:
   MOVE.L  D7,D0
   BSR.W decodeEA
-  MOVE.W  D1,instructionDestAddrMode
-  MOVE.L  D2,instructionDestReg
-  MOVE.L  D3,instructionDestDisplacement
-  MOVE.L  D4,instructionDestExtData
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcData
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   BRA.W LAB_A15F80
 LAB_A15606:
   CMPI.W  #$40c0,D0
   BNE.S LAB_A1566A
   MOVE.W  #$0027,instructionNo   ;MOVE
   MOVE.W  #1,instructionSize
-  MOVE.W  #$000e,instructionDestAddrMode
+  MOVE.W  #$000e,instructionSrcAddrMode
 LAB_A15624:
   MOVE.L  D7,D0
   BSR.W decodeEA
-  MOVE.W  D1,instructionSrcAddrMode
-  MOVE.L  D2,instructionSrcReg
-  MOVE.L  D3,instructionSrcDisplacement
-  MOVE.L  D4,instructionSrcExtData
-  CMPI.W  #$000b,instructionSrcAddrMode
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestData
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.W LAB_A15F80
-  MOVE.W  #$000e,instructionSrcAddrMode
+  MOVE.W  #$000e,instructionDestAddrMode
   SUBQ.L  #2,A0
   CMPI.W  #2,instructionSize
   BNE.W LAB_A15F80
@@ -11574,18 +11640,18 @@ LAB_A1574A:
   MOVE.W  #0,instructionSize
 LAB_A15752:
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
   MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BTST  #3,D7
   BEQ.W LAB_A15F80
-  MOVE.W  #4,instructionDestAddrMode
   MOVE.W  #4,instructionSrcAddrMode
-  MOVE.L  instructionSrcReg,D0
-  MOVE.L  instructionDestReg,instructionSrcReg
-  MOVE.L  D0,instructionDestReg
+  MOVE.W  #4,instructionDestAddrMode
+  MOVE.L  instructionDestData,D0
+  MOVE.L  instructionSrcData,instructionDestData
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A157A8:
   CMPI.W  #$8100,D0
@@ -11598,17 +11664,17 @@ LAB_A157B8:
   CMPI.W  #$50c8,D0
   BNE.S LAB_A15808
   MOVE.W  #$0017,instructionNo     ;DB
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
-  MOVE.W  #$000f,instructionSrcAddrMode
-  MOVE.W  #1,instructionSrcReg
+  MOVE.L  D0,instructionSrcData
+  MOVE.W  #$000f,instructionDestAddrMode
+  MOVE.W  #1,instructionDestData
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
   SUBQ.L  #2,D0
   ADD.L A0,D0
-  MOVE.L  D0,instructionSrcDisplacement
+  MOVE.L  D0,instructionDestDisplacement
   BSR.W GetBranchType
   BRA.W LAB_A15F80
 LAB_A15808:
@@ -11621,10 +11687,10 @@ LAB_A1581C:
   BSR.W SUB_A16096
   MOVEQ #$3C,D0
   BSR.W decodeEA
-  MOVE.W  D1,instructionDestAddrMode
-  MOVE.L  D2,instructionDestReg
-  MOVE.L  D3,instructionDestDisplacement
-  MOVE.L  D4,instructionDestExtData
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcData
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   BRA.W LAB_A15624
 LAB_A15842:
   CMPI.W  #$0200,D0
@@ -11648,25 +11714,25 @@ LAB_A15852:
   BNE.S LAB_A158EE
   MOVE.W  #$000d,instructionNo ;BRA
 LAB_A15898:
-  MOVE.W  #$000f,instructionDestAddrMode
-  MOVE.W  #0,instructionDestReg
+  MOVE.W  #$000f,instructionSrcAddrMode
+  MOVE.W  #0,instructionSrcData
   MOVE.L  D7,D0
   ANDI.W  #$00ff,D0
   BEQ.S LAB_A158C8
   EXT.W D0
   EXT.L D0
   ADD.L A0,D0
-  MOVE.L  D0,instructionDestDisplacement
+  MOVE.L  D0,instructionSrcDisplacement
   MOVE.W  #0,instructionSize
   BRA.W LAB_A15F80
 LAB_A158C8:
-  MOVE.W  #1,instructionDestReg
+  MOVE.W  #1,instructionSrcData
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
   ADD.L A0,D0
   SUBQ.L  #2,D0
-  MOVE.L  D0,instructionDestDisplacement
+  MOVE.L  D0,instructionSrcDisplacement
   MOVE.W  #1,instructionSize
   BRA.W LAB_A15F80
 LAB_A158EE:
@@ -11699,12 +11765,12 @@ LAB_A15912:
   MOVE.W  #$0016,instructionNo   ;CMPM
   BSR.W SUB_A16096
   BCS.S LAB_A1598C
-  MOVE.W  #3,instructionDestAddrMode
   MOVE.W  #3,instructionSrcAddrMode
+  MOVE.W  #3,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A1598C:
   CMPI.W  #$0108,D0
@@ -11717,15 +11783,15 @@ LAB_A1598C:
 LAB_A159B0:
   BTST  #7,D7
   BNE.S LAB_A159D0
-  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BSET  #5,D7
   BRA.W LAB_A155E4
 LAB_A159D0:
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BSET  #5,D7
   BRA.W LAB_A15624
 LAB_A159EA:
@@ -11743,22 +11809,22 @@ LAB_A15A14:
   ADDQ.W  #2,A0
   BTST  #$A,D7
   BEQ.S LAB_A15A32
-  MOVE.W  #$0010,instructionSrcAddrMode
-  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #$0010,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15A32:
-  MOVE.W  #$0010,instructionDestAddrMode
-  MOVE.L  D0,instructionDestReg
+  MOVE.W  #$0010,instructionSrcAddrMode
+  MOVE.L  D0,instructionSrcData
   MOVE.L  D7,D0
   BSR.W decodeEA
   CMPI.W  #4,D1
   BNE.S LAB_A15A54
-  MOVE.W  #$0011,instructionDestAddrMode
+  MOVE.W  #$0011,instructionSrcAddrMode
 LAB_A15A54:
-  MOVE.W  D1,instructionSrcAddrMode
-  MOVE.L  D2,instructionSrcReg
-  MOVE.L  D3,instructionSrcDisplacement
-  MOVE.L  D4,instructionSrcExtData
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestData
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
   BRA.W LAB_A15F80
 LAB_A15A70:
   MOVE.L  D7,D0
@@ -11781,9 +11847,9 @@ LAB_A15A9C:
   BNE.S LAB_A15AC6
   MOVE.W  #$0011,instructionNo  ;CHK
 LAB_A15AB0:
-  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15AC6:
   MOVE.W  instructionSize,D1
@@ -11804,9 +11870,9 @@ LAB_A15AC6:
   CMPI.W  #$41c0,D0
   BNE.S LAB_A15B36
   MOVE.W  #$0020,instructionNo  ;LEA
-  MOVE.W  #1,instructionSrcAddrMode
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15B36:
   MOVE.L  D7,D0
@@ -11815,20 +11881,20 @@ LAB_A15B36:
   BNE.S LAB_A15BA0
   MOVE.W  #$001c,instructionNo  ;EXG
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
   MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$00c8,D0
   CMPI.W  #$0040,D0
   BEQ.W LAB_A15F80
-  MOVE.W  #1,instructionDestAddrMode
   MOVE.W  #1,instructionSrcAddrMode
+  MOVE.W  #1,instructionDestAddrMode
   CMPI.W  #$0048,D0
   BEQ.W LAB_A15F80
-  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BRA.W LAB_A15F80
 LAB_A15BA0:
   MOVE.L  D7,D0
@@ -11838,19 +11904,20 @@ LAB_A15BA0:
   MOVE.W  #8,instructionNo      ;ASL
 LAB_A15BB4:
   BSR.W SUB_A16096
-  MOVE.W  #0,instructionDestAddrMode
-  BSR.W SUB_A16084
-  MOVE.L  #8,instructionDestReg
-  TST.L D0
-  BEQ.S LAB_A15BD8
-  MOVE.L  D0,instructionDestReg
-LAB_A15BD8:
   MOVE.W  #0,instructionSrcAddrMode
+  BSR.W SUB_A16084
+  MOVE.L  D0,instructionSrcData
+  MOVE.L  D0,D1
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A1608E
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BTST  #5,D7
   BNE.W LAB_A15F80
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.W  #$000b,instructionSrcAddrMode
+  TST.L D1
+  BNE.S .1
+  MOVE.L  #8,instructionSrcData
+.1
   BRA.W LAB_A15F80
 LAB_A15BFE:
   MOVE.W  #9,instructionNo      ;ASR
@@ -11885,9 +11952,9 @@ LAB_A15C7C:
   BEQ.S LAB_A15C92
   MOVE.W  #2,instructionSize
 LAB_A15C92:
-  MOVE.W  #1,instructionSrcAddrMode
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15CA8:
   MOVE.W  #$0014,instructionNo  ;CMPA
@@ -11904,16 +11971,16 @@ LAB_A15CA8:
 LAB_A15CD8:
   BTST  #8,D7
   BNE.S LAB_A15CF8
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.W  #$000b,instructionSrcAddrMode
   BSR.W memSafeReadWord
   ADDQ.W  #2,A0
   EXT.L D0
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15624
 LAB_A15CF8:
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15624
 LAB_A15D0E:
   MOVE.W  #$000c,instructionNo    ;BCLR
@@ -11935,9 +12002,9 @@ LAB_A15D0E:
   BNE.S LAB_A15D62
   MOVE.W  #2,instructionSize
 LAB_A15D62:
-  MOVE.W  #1,instructionSrcAddrMode
+  MOVE.W  #1,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15D78:
   MOVE.L  D7,D0
@@ -11955,12 +12022,12 @@ LAB_A15D94:
   MOVE.W  #4,instructionNo      ;ADDQ
 LAB_A15DA8:
   BSR.W SUB_A16096
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.W  #$000b,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  #8,instructionDestReg
+  MOVE.L  #8,instructionSrcData
   TST.L D0
   BEQ.S LAB_A15DCC
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
 LAB_A15DCC:
   BRA.W LAB_A15624
 LAB_A15DD0:
@@ -11973,32 +12040,32 @@ LAB_A15DD0:
   BNE.S LAB_A15E0C
   MOVE.W  #$0013,instructionNo  ;CMP
   BSR.W SUB_A16096
-  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15E0C:
   CMPI.W  #$b100,D0
   BNE.S LAB_A15E34
   MOVE.W  #$001a,instructionNo  ;EOR
   BSR.W SUB_A16096
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15624
 LAB_A15E34:
   CMPI.W  #$7000,D0
   BNE.S LAB_A15E70
   MOVE.W  #$002c,instructionNo  ;MOVEQ
-  MOVE.W  #0,instructionSrcAddrMode
+  MOVE.W  #0,instructionDestAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionSrcReg
-  MOVE.W  #$000b,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
+  MOVE.W  #$000b,instructionSrcAddrMode
   MOVE.L  D7,D0
   ANDI.W  #$00ff,D0
   EXT.W D0
   EXT.L D0
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BRA.W LAB_A15F80
 LAB_A15E70:
   MOVE.L  D7,D0
@@ -12008,13 +12075,13 @@ LAB_A15E70:
   MOVE.W  #1,instructionNo  ;ADD
 LAB_A15E84:
   BSR.W SUB_A16096
-  MOVE.W  #0,instructionDestAddrMode
+  MOVE.W  #0,instructionSrcAddrMode
   BSR.W SUB_A16084
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
   BTST  #8,D7
   BNE.W LAB_A15624
-  MOVE.W  #0,instructionSrcAddrMode
-  MOVE.L  D0,instructionSrcReg
+  MOVE.W  #0,instructionDestAddrMode
+  MOVE.L  D0,instructionDestData
   BRA.W LAB_A155E4
 LAB_A15EB4:
   MOVE.W  #$0042,instructionNo  ;SUB
@@ -12053,10 +12120,10 @@ LAB_A15F32:
   MOVE.W  D0,instructionSize
   MOVE.L  D7,D0
   BSR.S decodeEA
-  MOVE.W  D1,instructionDestAddrMode
-  MOVE.L  D2,instructionDestReg
-  MOVE.L  D3,instructionDestDisplacement
-  MOVE.L  D4,instructionDestExtData
+  MOVE.W  D1,instructionSrcAddrMode
+  MOVE.L  D2,instructionSrcData
+  MOVE.L  D3,instructionSrcDisplacement
+  MOVE.L  D4,instructionSrcExtData
   MOVE.L  D7,D0
   ROL.W #7,D0
   ANDI.W  #7,D0
@@ -12065,10 +12132,10 @@ LAB_A15F32:
   ANDI.W  #$0038,D1
   OR.W  D1,D0
   BSR.S decodeEA
-  MOVE.W  D1,instructionSrcAddrMode
-  MOVE.L  D2,instructionSrcReg
-  MOVE.L  D3,instructionSrcDisplacement
-  MOVE.L  D4,instructionSrcExtData
+  MOVE.W  D1,instructionDestAddrMode
+  MOVE.L  D2,instructionDestData
+  MOVE.L  D3,instructionDestDisplacement
+  MOVE.L  D4,instructionDestExtData
 LAB_A15F80:
   MOVE.L  (A7)+,D7
   RTS
@@ -12287,13 +12354,13 @@ LAB_A16192:
   MOVE.W (A7)+,D0
   JSR UpdateSerCursor
   BSR.W PrintSpace
-  LEA instructionDestAddrMode,A1
+  LEA instructionSrcAddrMode,A1
   BSR.S decodeAddressingMode
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BMI.S LAB_A161BE
   MOVEQ #$2C,D0
   BSR.W PrintChar
-  LEA instructionSrcAddrMode,A1
+  LEA instructionDestAddrMode,A1
   BSR.S decodeAddressingMode
 LAB_A161BE:
   MOVEM.L (A7)+,D0-D2/A0
@@ -12323,22 +12390,22 @@ BranchTypes:
 
 decodeAddressingMode:
   MOVEM.L D0-D1/A0,-(A7)
-  MOVE.W  (A1),D0
+  MOVE.W  (A1),D0       ;addressing mode
   BMI.W LAB_A1643C
   TST.W D0
   BNE.S LAB_A16222
-  MOVEQ #$44,D0
+  MOVEQ #$44,D0       ;D
   BSR.W PrintChar
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0      ;data
   MOVEQ #1,D1
   BSR.W PrintValue
   BRA.W LAB_A1643C
 LAB_A16222:
   CMPI.W  #1,D0
   BNE.S LAB_A1623C
-  MOVEQ #$41,D0
+  MOVEQ #$41,D0       ;A
   BSR.W PrintChar
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0      ;data
   MOVEQ #1,D1
   BSR.W PrintValue
   BRA.W LAB_A1643C
@@ -12347,7 +12414,7 @@ LAB_A1623C:
   BNE.S LAB_A1625E
   LEA LAB_A164CC(PC),A0     ;(A
   BSR.W PrintText
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0      ;data
   MOVEQ #1,D1
   BSR.W PrintValue
   MOVEQ #$29,D0   ; )
@@ -12358,7 +12425,7 @@ LAB_A1625E:
   BNE.S LAB_A16282
   LEA LAB_A164CC(PC),A0     ;(A
   BSR.W PrintText
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0      ;data
   MOVEQ #1,D1
   BSR.W PrintValue
   LEA LAB_A164CF(PC),A0     ;)+
@@ -12369,7 +12436,7 @@ LAB_A16282:
   BNE.S LAB_A162A4
   LEA LAB_A164D2(PC),A0
   BSR.W PrintText
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0      ;data
   MOVEQ #1,D1
   BSR.W PrintValue
   MOVEQ #$29,D0
@@ -12430,7 +12497,7 @@ LAB_A16322:
   LEA (A0,D0),A0
   BSR.W PrintText
 .noscale
-;  MOVE.L  instructionDestExtData,D0
+;  MOVE.L  instructionSrcExtData,D0
 ;  ANDI.W  #7,D0
 ;  BEQ.S LAB_A16354
 ;  MOVE.W  D0,D1
@@ -12484,7 +12551,7 @@ LAB_A163C2:
   BNE.S LAB_A163D8
   MOVEQ #$23,D0       ; hash
   BSR.W PrintChar
-  MOVE.L  2(A1),D0
+  MOVE.L  2(A1),D0    ;data
   BSR.W SUB_A16676
   BRA.S LAB_A1643C
 LAB_A163D8:
@@ -21181,11 +21248,11 @@ LAB_A1B59A:
   MOVEM.L D0-D3/A1-A4,-(A7)
   JSR SUB_A15324
   MOVEM.L (A7)+,D0-D3/A1-A4
-  LEA instructionDestAddrMode,A3
+  LEA instructionSrcAddrMode,A3
   BSR.S SUB_A1B622
   CMP.L D0,D1
   BEQ.S LAB_A1B60A
-  LEA instructionSrcAddrMode,A3
+  LEA instructionDestAddrMode,A3
   BSR.S SUB_A1B622
   CMP.L D0,D1
   BEQ.S LAB_A1B60A
@@ -21326,12 +21393,12 @@ LAB_A1B714:
   BNE.W PrintWTF
 LAB_A1B788:
   BSR.W SUB_A1C374
-  CMPI.W  #9,instructionDestAddrMode
+  CMPI.W  #9,instructionSrcAddrMode
   BNE.S LAB_A1B7A6
-  MOVE.L  instructionDestReg,D0
+  MOVE.L  instructionSrcData,D0
   SUB.L A1,D0
   SUBQ.L  #2,D0
-  MOVE.L  D0,instructionDestReg
+  MOVE.L  D0,instructionSrcData
 LAB_A1B7A6:
   LEA 2(A1),A4
   MOVE.W  instructionNo,D0
@@ -21339,15 +21406,15 @@ LAB_A1B7A6:
   BNE.W LAB_A1B848
   TST.W instructionSize
   BPL.W PrintWTF
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W PrintWTF
   MOVE.W  #$6100,D0
 LAB_A1B7D0:
-  SUBQ.W  #1,instructionDestAddrMode
-  ORI.W #1,instructionDestAddrMode
-  CMPI.W  #7,instructionDestAddrMode
+  SUBQ.W  #1,instructionSrcAddrMode
+  ORI.W #1,instructionSrcAddrMode
+  CMPI.W  #7,instructionSrcAddrMode
   BNE.W PrintWTF
-  MOVE.L  instructionDestReg,D1
+  MOVE.L  instructionSrcData,D1
   SUB.L A1,D1
   SUBQ.L  #2,D1
   CMPI.W  #1,instructionSize
@@ -21381,9 +21448,9 @@ LAB_A1B848:
   BHI.S LAB_A1B88C
   TST.W instructionSize
   BPL.W PrintWTF
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W PrintWTF
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  #$01fd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
@@ -21391,15 +21458,15 @@ LAB_A1B848:
   SUBQ.W  #1,D1
   MOVE.W  #$50c0,D0
   BSR.W SUB_A1C17E
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1B88C:
   CMPI.W  #$0020,D0
   BHI.S LAB_A1B8BA
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W PrintWTF
-  CMPI.W  #8,instructionDestAddrMode
+  CMPI.W  #8,instructionSrcAddrMode
   BNE.W PrintWTF
   MOVE.W  D0,D1
   SUBI.W  #$0011,D1
@@ -21416,15 +21483,15 @@ LAB_A1B8C6:
   BNE.S LAB_A1B90E
   TST.W instructionSize
   BPL.W PrintWTF
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W PrintWTF
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e72,D0
   BSR.W memSafeWriteWordA1
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  instructionDestRegWordLo,D0
+  MOVE.W  instructionSrcDataWordLo,D0
   BSR.W memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
@@ -21434,20 +21501,20 @@ LAB_A1B90E:
   BNE.S LAB_A1B946
   TST.W instructionSize
   BPL.W PrintWTF
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W PrintWTF
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e40,D0
-  OR.L  instructionDestReg,D0
+  OR.L  instructionSrcData,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1B946:
   CMPI.W  #$0024,D0
   BNE.W LAB_A1BAE8
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BHI.S LAB_A1B9C2
-  CMPI.W  #8,instructionSrcAddrMode
+  CMPI.W  #8,instructionDestAddrMode
   BHI.S LAB_A1B9C2
   MOVE.W  instructionSize,D1
   BPL.S LAB_A1B972
@@ -21461,7 +21528,7 @@ LAB_A1B972:
 LAB_A1B97E:
   ROR.W #4,D1
   MOVE.W  D1,D0
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   BSR.W BuildOpcode
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A1,A0
@@ -21469,7 +21536,7 @@ LAB_A1B97E:
   MOVE.W  D0,D2
   MOVEM.L (A7)+,D0/A0
   MOVEQ #0,D0
-  LEA instructionSrcAddrMode,A0
+  LEA instructionDestAddrMode,A0
   BSR.W BuildOpcode
   MOVE.W  D0,D1
   LSL.W #3,D0
@@ -21481,23 +21548,23 @@ LAB_A1B97E:
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1B9C2:
-  CMPI.W  #$000c,instructionSrcAddrMode
+  CMPI.W  #$000c,instructionDestAddrMode
   BNE.S LAB_A1BA00
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  #$0ffd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
   TST.W instructionSize
   BPL.W PrintWTF
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   MOVE.W  #1,instructionSize
   MOVE.W  #$44c0,D0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA00:
-  CMPI.W  #$000d,instructionSrcAddrMode
+  CMPI.W  #$000d,instructionDestAddrMode
   BNE.S LAB_A1BA56
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  #$0ffd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
@@ -21510,49 +21577,49 @@ LAB_A1BA00:
   BNE.W PrintWTF
   MOVE.W  #$44c0,D0
 LAB_A1BA40:
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   MOVE.W  #1,instructionSize
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA56:
-  CMPI.W  #$000d,instructionDestAddrMode
+  CMPI.W  #$000d,instructionSrcAddrMode
   BNE.S LAB_A1BA8C
   TST.W instructionSize
   BPL.W PrintWTF
-  MOVE.W  instructionSrcAddrMode,D1
+  MOVE.W  instructionDestAddrMode,D1
   MOVE.W  #$01fd,D2
   BTST  D1,D2
   BEQ.W PrintWTF
-  LEA instructionSrcAddrMode,A0
+  LEA instructionDestAddrMode,A0
   MOVE.W  #$40c0,D0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BA8C:
   TST.W instructionSize
   BPL.W PrintWTF
-  CMPI.W  #$000f,instructionDestAddrMode
+  CMPI.W  #$000f,instructionSrcAddrMode
   BNE.S LAB_A1BABE
-  CMPI.W  #1,instructionSrcAddrMode
+  CMPI.W  #1,instructionDestAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e68,D0
-  OR.L  instructionSrcReg,D0
+  OR.L  instructionDestData,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1BABE:
-  CMPI.W  #$000f,instructionSrcAddrMode
+  CMPI.W  #$000f,instructionDestAddrMode
   BNE.W PrintWTF
-  CMPI.W  #1,instructionDestAddrMode
+  CMPI.W  #1,instructionSrcAddrMode
   BNE.W PrintWTF
   MOVE.W  #$4e60,D0
-  OR.L  instructionDestReg,D0
+  OR.L  instructionSrcData,D0
   BSR.W memSafeWriteWordA1
   BRA.W LAB_A1C162
 LAB_A1BAE8:
   CMPI.W  #$0025,D0
   BNE.S LAB_A1BB44
-  CMPI.W  #1,instructionSrcAddrMode
+  CMPI.W  #1,instructionDestAddrMode
   BNE.W PrintWTF
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  #$0fff,D0
   BTST  D1,D0
   BEQ.W PrintWTF
@@ -21567,10 +21634,10 @@ LAB_A1BB1E:
   BEQ.S LAB_A1BB2C
   MOVE.W  #$2040,D0
 LAB_A1BB2C:
-  MOVE.L  instructionSrcReg,D1
+  MOVE.L  instructionDestData,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BB44:
@@ -21586,27 +21653,27 @@ LAB_A1BB60:
   LSL.W #6,D1
   MOVE.W  #$0188,D0
   OR.W  D1,D0
-  MOVE.L  instructionSrcReg,D2
-  OR.L  instructionSrcDisplacement,D0
-  MOVE.L  instructionDestReg,D3
+  MOVE.L  instructionDestData,D2
+  OR.L  instructionDestDisplacement,D0
+  MOVE.L  instructionSrcData,D3
   ROR.W #7,D3
   OR.W  D3,D0
-  TST.W  instructionDestAddrMode
+  TST.W  instructionSrcAddrMode
   BEQ.S LAB_A1BBC0
   MOVE.W  #$0108,D0
   OR.W  D1,D0
-  MOVE.L  instructionDestReg,D2
-  OR.L  instructionDestDisplacement,D0
-  MOVE.L  instructionSrcReg,D1
+  MOVE.L  instructionSrcData,D2
+  OR.L  instructionSrcDisplacement,D0
+  MOVE.L  instructionDestData,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  TST.W  instructionSrcAddrMode
+  TST.W  instructionDestAddrMode
   BNE.W PrintWTF
-  CMPI.W  #5,instructionDestAddrMode
+  CMPI.W  #5,instructionSrcAddrMode
   BNE.W PrintWTF
   BRA.S LAB_A1BBCC
 LAB_A1BBC0:
-  CMPI.W  #5,instructionSrcAddrMode
+  CMPI.W  #5,instructionDestAddrMode
   BNE.W PrintWTF
 LAB_A1BBCC:
   BSR.W memSafeWriteWordA1
@@ -21620,17 +21687,17 @@ LAB_A1BBCC:
 LAB_A1BBE6:
   CMPI.W  #$0028,D0
   BNE.S LAB_A1BC38
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W PrintWTF
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BNE.W PrintWTF
   TST.W instructionSize
   BPL.W PrintWTF
   MOVE.W  #$7000,D0
-  MOVE.L  instructionSrcReg,D1
+  MOVE.L  instructionDestData,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  MOVE.L  instructionDestReg,D1
+  MOVE.L  instructionSrcData,D1
   CMPI.W  #$00ff,D1
   BHI.W PrintWTF
   ANDI.W  #$00ff,D1
@@ -21647,14 +21714,14 @@ LAB_A1BC38:
 LAB_A1BC50:
   LSR.W #1,D1
   LSL.W #6,D1
-  CMPI.W  #$000e,instructionDestAddrMode
+  CMPI.W  #$000e,instructionSrcAddrMode
   BNE.S LAB_A1BCB2
-  MOVE.W  instructionSrcAddrMode,D2
+  MOVE.W  instructionDestAddrMode,D2
   MOVE.W  #$01f4,D3
   BTST  D2,D3
   BEQ.W PrintWTF
-  MOVE.L  instructionDestReg,D2
-  CMPI.W  #4,instructionSrcAddrMode
+  MOVE.L  instructionSrcData,D2
+  CMPI.W  #4,instructionDestAddrMode
   BEQ.S LAB_A1BC8C
   MOVE.W  D2,D3
   MOVEQ #0,D2
@@ -21672,17 +21739,17 @@ LAB_A1BC8C:
   MOVEM.L (A7)+,D0/A0
   MOVE.W  #$4880,D0
   OR.W  D1,D0
-  LEA instructionSrcAddrMode,A0
+  LEA instructionDestAddrMode,A0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BCB2:
-  CMPI.W  #$000e,instructionSrcAddrMode
+  CMPI.W  #$000e,instructionDestAddrMode
   BNE.W PrintWTF
-  MOVE.W  instructionDestAddrMode,D2
+  MOVE.W  instructionSrcAddrMode,D2
   MOVE.W  #$07ec,D3
   BTST  D2,D3
   BEQ.W PrintWTF
-  MOVE.L  instructionSrcReg,D2
+  MOVE.L  instructionDestData,D2
   MOVEQ #0,D3
   MOVEQ #$F,D4
 LAB_A1BCD8:
@@ -21697,7 +21764,7 @@ LAB_A1BCD8:
   MOVEM.L (A7)+,D0/A0
   MOVE.W  #$4c80,D0
   OR.W  D1,D0
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BD06:
@@ -21705,16 +21772,16 @@ LAB_A1BD06:
   BHI.S LAB_A1BD76
   TST.W instructionSize
   BPL.W PrintWTF
-  TST.W instructionDestAddrMode
+  TST.W instructionSrcAddrMode
   BNE.W PrintWTF
-  CMPI.W  #8,instructionSrcAddrMode
+  CMPI.W  #8,instructionDestAddrMode
   BNE.W PrintWTF
   SUBI.W  #$0029,D0
   MOVE.W  D0,D1
   MOVE.W  #$50c8,D0
   BSR.W SUB_A1C17E
-  OR.L  instructionDestReg,D0
-  MOVE.L  instructionSrcReg,D1
+  OR.L  instructionSrcData,D0
+  MOVE.L  instructionDestData,D1
   SUB.L A4,D1
   MOVE.L  D1,D2
   ANDI.L  #$ffff8000,D2
@@ -21748,9 +21815,9 @@ LAB_A1BD9C:
   BNE.S LAB_A1BDD0
   TST.W instructionSize
   BPL.W LAB_A1C158
-  TST.W instructionDestAddrMode
-  BPL.W LAB_A1C158
   TST.W instructionSrcAddrMode
+  BPL.W LAB_A1C158
+  TST.W instructionDestAddrMode
   BPL.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
@@ -21759,29 +21826,6 @@ LAB_A1BD9C:
 LAB_A1BDD0:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BE24
-  TST.W instructionDestAddrMode
-  BNE.W LAB_A1C158
-  MOVE.W  instructionSrcAddrMode,D0
-  MOVE.W  2(A3),D1
-  BTST  D0,D1
-  BEQ.W LAB_A1C158
-  MOVE.W  4(A3),D0
-  BSR.W SUB_A1C184
-  BCS.W LAB_A1C158
-  MOVE.W  instructionSize,D1
-  LSL.W #6,D1
-  OR.W  D1,D0
-  LEA instructionDestAddrMode,A0
-  MOVE.L  2(A0),D1
-  ROR.W #7,D1
-  OR.W  D1,D0
-  LEA instructionSrcAddrMode,A0
-  LEA 2(A1),A4
-  BSR.W BuildOpcode
-  BRA.W LAB_A1C162
-LAB_A1BE24:
-  SUBQ.W  #1,D0
-  BNE.S LAB_A1BE78
   TST.W instructionSrcAddrMode
   BNE.W LAB_A1C158
   MOVE.W  instructionDestAddrMode,D0
@@ -21802,12 +21846,35 @@ LAB_A1BE24:
   LEA 2(A1),A4
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
+LAB_A1BE24:
+  SUBQ.W  #1,D0
+  BNE.S LAB_A1BE78
+  TST.W instructionDestAddrMode
+  BNE.W LAB_A1C158
+  MOVE.W  instructionSrcAddrMode,D0
+  MOVE.W  2(A3),D1
+  BTST  D0,D1
+  BEQ.W LAB_A1C158
+  MOVE.W  4(A3),D0
+  BSR.W SUB_A1C184
+  BCS.W LAB_A1C158
+  MOVE.W  instructionSize,D1
+  LSL.W #6,D1
+  OR.W  D1,D0
+  LEA instructionDestAddrMode,A0
+  MOVE.L  2(A0),D1
+  ROR.W #7,D1
+  OR.W  D1,D0
+  LEA instructionSrcAddrMode,A0
+  LEA 2(A1),A4
+  BSR.W BuildOpcode
+  BRA.W LAB_A1C162
 LAB_A1BE78:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BEC8
-  CMPI.W  #4,instructionDestAddrMode
-  BNE.W LAB_A1C158
   CMPI.W  #4,instructionSrcAddrMode
+  BNE.W LAB_A1C158
+  CMPI.W  #4,instructionDestAddrMode
   BNE.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W SUB_A1C184
@@ -21815,10 +21882,10 @@ LAB_A1BE78:
   MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  MOVE.L  instructionDestReg,D1
+  MOVE.L  instructionSrcData,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  MOVE.L  instructionSrcReg,D1
+  MOVE.L  instructionDestData,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
   LEA 2(A1),A4
@@ -21826,10 +21893,10 @@ LAB_A1BE78:
 LAB_A1BEC8:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BF1A
-  CMPI.W  #1,instructionSrcAddrMode
+  CMPI.W  #1,instructionDestAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
@@ -21838,21 +21905,21 @@ LAB_A1BEC8:
   MOVE.W  instructionSize,D1
   LSL.W #7,D1
   OR.W  D1,D0
-  MOVE.L  instructionSrcReg,D1
+  MOVE.L  instructionDestData,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   LEA 2(A1),A4
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BF1A:
   SUBQ.W  #1,D0
   BNE.W LAB_A1BF9C
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
   MOVE.W  D2,D0
-  MOVE.W  instructionSrcAddrMode,D1
+  MOVE.W  instructionDestAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
@@ -21861,13 +21928,13 @@ LAB_A1BF1A:
   MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA instructionSrcAddrMode,A0
+  LEA instructionDestAddrMode,A0
   LEA 2(A1),A4
   CMPI.W  #2,instructionSize
   BNE.S LAB_A1BF7E
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.L  instructionDestReg,D0
+  MOVE.L  instructionSrcData,D0
   JSR memSafeWriteLong
   ADDQ.W  #4,A4
   MOVEM.L (A7)+,D0/A0
@@ -21875,7 +21942,7 @@ LAB_A1BF1A:
 LAB_A1BF7E:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  instructionDestRegWordLo,D0
+  MOVE.W  instructionSrcDataWordLo,D0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
@@ -21885,10 +21952,10 @@ LAB_A1BF94:
 LAB_A1BF9C:
   SUBQ.W  #1,D0
   BNE.S LAB_A1BFF2
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W LAB_A1C158
   MOVE.W  2(A3),D2
-  MOVE.W  instructionSrcAddrMode,D1
+  MOVE.W  instructionDestAddrMode,D1
   BTST  D1,D2
   BEQ.W LAB_A1C158
   MOVE.W  4(A3),D0
@@ -21897,27 +21964,27 @@ LAB_A1BF9C:
   MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  MOVE.L  instructionDestReg,D1
+  MOVE.L  instructionSrcData,D1
   ANDI.W  #7,D1
   ROR.W #7,D1
   OR.W  D1,D0
-  LEA instructionSrcAddrMode,A0
+  LEA instructionDestAddrMode,A0
   LEA 2(A1),A4
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1BFF2:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C032
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #$000c,instructionSrcAddrMode
+  CMPI.W  #$000c,instructionDestAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
-  MOVE.W  instructionDestRegWordLo,D0
+  MOVE.W  instructionSrcDataWordLo,D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
   MOVEA.L A1,A4
@@ -21925,16 +21992,16 @@ LAB_A1BFF2:
 LAB_A1C032:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C072
-  CMPI.W  #$000b,instructionDestAddrMode
+  CMPI.W  #$000b,instructionSrcAddrMode
   BNE.W LAB_A1C158
-  CMPI.W  #$000d,instructionSrcAddrMode
+  CMPI.W  #$000d,instructionDestAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.W LAB_A1C158
   MOVE.W  4(A3),D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
-  MOVE.W  instructionDestRegWordLo,D0
+  MOVE.W  instructionSrcDataWordLo,D0
   BSR.W memSafeWriteWordA1
   ADDQ.W  #2,A1
   MOVEA.L A1,A4
@@ -21946,9 +22013,9 @@ LAB_A1C072:
 LAB_A1C07A:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C0C0
-  TST.W instructionSrcAddrMode
+  TST.W instructionDestAddrMode
   BPL.W LAB_A1C158
-  MOVE.W  instructionDestAddrMode,D1
+  MOVE.W  instructionSrcAddrMode,D1
   MOVE.W  2(A3),D2
   BTST  D1,D2
   BEQ.W LAB_A1C158
@@ -21958,16 +22025,16 @@ LAB_A1C07A:
   MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  LEA instructionDestAddrMode,A0
+  LEA instructionSrcAddrMode,A0
   LEA 2(A1),A4
   BSR.W BuildOpcode
   BRA.W LAB_A1C162
 LAB_A1C0C0:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C108
-  CMPI.W  #3,instructionDestAddrMode
-  BNE.W LAB_A1C158
   CMPI.W  #3,instructionSrcAddrMode
+  BNE.W LAB_A1C158
+  CMPI.W  #3,instructionDestAddrMode
   BNE.W LAB_A1C158
   BSR.W SUB_A1C184
   BCS.S LAB_A1C158
@@ -21975,8 +22042,8 @@ LAB_A1C0C0:
   LSL.W #6,D1
   MOVE.W  4(A3),D0
   OR.W  D1,D0
-  OR.L  instructionDestReg,D0
-  MOVE.L  instructionSrcReg,D1
+  OR.L  instructionSrcData,D0
+  MOVE.L  instructionDestData,D1
   ROR.W #7,D1
   OR.W  D1,D0
   BSR.W memSafeWriteWordA1
@@ -21985,9 +22052,9 @@ LAB_A1C0C0:
 LAB_A1C108:
   SUBQ.W  #1,D0
   BNE.S LAB_A1C158
-  CMPI.W  #1,instructionDestAddrMode
+  CMPI.W  #1,instructionSrcAddrMode
   BNE.S LAB_A1C158
-  CMPI.W  #$000b,instructionSrcAddrMode
+  CMPI.W  #$000b,instructionDestAddrMode
   BNE.S LAB_A1C158
   BSR.S SUB_A1C184
   BCS.S LAB_A1C158
@@ -21995,12 +22062,12 @@ LAB_A1C108:
   MOVE.W  instructionSize,D1
   LSL.W #6,D1
   OR.W  D1,D0
-  OR.L  instructionDestReg,D0
+  OR.L  instructionSrcData,D0
   BSR.W memSafeWriteWordA1
   LEA 2(A1),A4
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
-  MOVE.W  instructionSrcRegWordLo,D0
+  MOVE.W  instructionDestDataWordLo,D0
   JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
@@ -22190,19 +22257,19 @@ LAB_A1C36E:
   RTS
 SUB_A1C374:
   MOVEM.L D0/A1,-(A7)
-  MOVE.W  #$ffff,instructionDestAddrMode
   MOVE.W  #$ffff,instructionSrcAddrMode
+  MOVE.W  #$ffff,instructionDestAddrMode
   JSR readCmdCharSkipSpaces
   TST.B endOfCmdString
   BNE.S LAB_A1C3C2
   BSR.W SUB_A1827E
-  LEA instructionDestAddrMode,A1
+  LEA instructionSrcAddrMode,A1
   BSR.S SUB_A1C3C8
   TST.B endOfCmdString
   BNE.S LAB_A1C3C2
   CMPI.W  #$002c,D0
   BNE.W PrintWTF
-  LEA instructionSrcAddrMode,A1
+  LEA instructionDestAddrMode,A1
   BSR.S SUB_A1C3C8
   TST.B endOfCmdString
   BEQ.W PrintWTF
@@ -47445,6 +47512,8 @@ HelpText:
   DC.B  "       mda: Delete all memwatchpoints            - mda",$D
   DC.B  "        tr: Trace current program (not subs)     - tr (steps)",$D
   DC.B  "        st: Trace current program (also subs)    - st (steps)",$D
+  DC.B  "        ta: Trace until pc = addr (or in range)  - ta addr (endaddr)",$D
+  DC.B  "       trb: Trace till pc in ram - bblock finder - trb",$D
   DC.B  "         x: Restart current program              - x",$D
   DC.B  "         c: Copperassembler/disassembler         - c 1|2|address",$D
   DC.B  "         d: MC68000 disassembler                 - d (0|addr) (endaddr)",$D
@@ -48105,6 +48174,11 @@ LAB_A2DBFC:
   DBF D1,LAB_A2DBFC
   TST.B TraceActive
   BNE.S LAB_A2DC3C
+
+  SF.B TraceToRamFlag
+  CLR.L TraceToAddressStart
+  CLR.L TraceToAddressEnd
+
   JSR ReadParameter
   TST.B ParamFound
   BNE.S LAB_A2DC1C
@@ -48132,6 +48206,62 @@ AlreadyActiveText:
 CantTraceText:
   DC.B  "Cannot trace: memwatch points active!",$D,0
   even
+
+CMD_TRB:
+  LEA MemWatchAddrs,A2
+  MOVEQ #4,D1
+  TST.L newRamdiskAddr
+  BEQ.S .1
+  MOVE.L newRamdiskAddr,A2
+  ADD.L #demonMemWatchAddrs,A2
+  MOVEQ #19,D1
+.1:
+  TST.L (A2)+
+  BPL.W LAB_A2DD0E
+  DBF D1,.1
+  TST.B TraceActive
+  BNE.W LAB_A2DCFC
+
+  ST.B TraceToRamFlag
+  CLR.L TraceToAddressStart
+  CLR.L TraceToAddressEnd
+  MOVE.L #1,TraceStepCount
+  BRA.W LAB_A2DC2E
+
+
+CMD_TA:
+  LEA MemWatchAddrs,A2
+  MOVEQ #4,D1
+  TST.L newRamdiskAddr
+  BEQ.S .1
+  MOVE.L newRamdiskAddr,A2
+  ADD.L #demonMemWatchAddrs,A2
+  MOVEQ #19,D1
+.1:
+  TST.L (A2)+
+  BPL.W LAB_A2DD0E
+  DBF D1,.1
+  TST.B TraceActive
+  BNE.W LAB_A2DCFC
+
+  MOVE.L #-1,TraceStepCount
+  SF.B TraceToRamFlag
+
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S .taWTF
+  MOVE.L D0,TraceToAddressStart
+
+  CLR.L TraceToAddressEnd
+  JSR ReadParameter
+  TST.B ParamFound
+  BEQ.S .noendaddr
+  MOVE.L D0,TraceToAddressEnd
+.noendaddr
+  BRA.W LAB_A2DC2E
+.taWTF
+  JMP PrintWTF
+
 CMD_TR:
   LEA MemWatchAddrs,A2
   MOVEQ #4,D1
@@ -48146,6 +48276,11 @@ LAB_A2DCBC:
   DBF D1,LAB_A2DCBC
   TST.B TraceActive
   BNE.S LAB_A2DCFC
+
+  SF.B TraceToRamFlag
+  CLR.L TraceToAddressStart
+  CLR.L TraceToAddressEnd
+
   JSR ReadParameter
   TST.B ParamFound
   BNE.S LAB_A2DCDC
@@ -48168,8 +48303,12 @@ LAB_A2DD0E:
   LEA CantTraceText(PC),A0
   BRA.S LAB_A2DD00
 ActivateTrace:
+  TST.B TraceToRamFlag
+  BNE.S .trace
+
   TST.L TraceStepCount
   BEQ.W LAB_A2DDAE
+.trace
   MOVE.L  TRACE.W,OldTrace
   if pistorm=1
   ;enable trace
@@ -48183,6 +48322,16 @@ ActivateTrace:
   lea EXT_150.W,a0
 
   if arhardware=1
+
+  TST.B TraceToRamFlag
+  BEQ.S .noramtrace
+  LEA ramTraceCode(PC),A1
+.copytrace
+  MOVE.W (A1)+,(A0)+
+  CMP.L #ramTraceCodeEnd,A1
+  BNE.S .copytrace
+
+.noramtrace
   move.w #$4a39,(a0)+
   MOVE.L  arBfe001Trigger,(A0)+
   ;move.l #$bfe001,(a0)+
@@ -48244,6 +48393,23 @@ LAB_A2DDAA:
   MOVEM.L (A7)+,D0/A0
 LAB_A2DDAE:
   RTS
+ramTraceCode:
+  CMP.L #$20000,2(A7)
+  BCC.S .dontEntry
+  MOVE.L A0,(.temp-ramTraceCode+EXT_150).w
+  MOVEA.L 2(A7),A0
+  CMP.W #$4ef9,(A0)
+  BNE.S .doEntry
+  MOVE.L .temp(PC),A0
+.dontEntry
+ BSET  #7,(A7)
+ RTE
+.temp
+  DS.L 1
+.doEntry
+  MOVE.L .temp(PC),A0
+ramTraceCodeEnd:
+
 DeactivateTrace:
   TST.B TraceActive
   BEQ.S LAB_A2DE06
@@ -53218,12 +53384,12 @@ SUB_A3187E:
   BEQ.S LAB_A318A4
   MOVEQ #1,D1
 LAB_A318A4:
-  LEA instructionDestAddrMode,A1
-  LEA instructionSrcAddrMode,A2
-  TST.W D1
-  BEQ.S LAB_A318C0
   LEA instructionSrcAddrMode,A1
   LEA instructionDestAddrMode,A2
+  TST.W D1
+  BEQ.S LAB_A318C0
+  LEA instructionDestAddrMode,A1
+  LEA instructionSrcAddrMode,A2
 LAB_A318C0:
   JSR memSafeReadWord
   ADDQ.L  #2,A0
@@ -54574,6 +54740,8 @@ palMode:
   DS.B 1
 bootScreen:
   DS.B 1
+TraceToRamFlag:
+  DS.B 1
   even
 newRamdiskAddr:
   DS.L  1
@@ -54625,7 +54793,11 @@ serBufUsed:
   DS.W 1
 arBfe001Trigger:
   DS.L 1
-  
+TraceToAddressStart:
+  DS.L 1
+TraceToAddressEnd:
+  DS.L 1
+
   if arsoft=1
   even
 AllocedMem
@@ -54857,29 +55029,29 @@ instructionNo:
   DS.W  1
 instructionSize:
   DS.W  1
-instructionDestAddrMode:
-  DS.W  1
-instructionDestReg:
-  DS.W  1
-instructionDestRegWordLo:
-  DS.W  1
-instructionDestDisplacement:
-  DS.L  1
-instructionDestExtData:
-  DS.L  1
-instructionDestExtData2:  
-  DS.L  1
 instructionSrcAddrMode:
   DS.W  1
-instructionSrcReg:
+instructionSrcData:
   DS.W  1
-instructionSrcRegWordLo:
+instructionSrcDataWordLo:
   DS.W  1
 instructionSrcDisplacement:
   DS.L  1
 instructionSrcExtData:
   DS.L  1
-instructionSrcExtData2:
+instructionSrcExtData2:  
+  DS.L  1
+instructionDestAddrMode:
+  DS.W  1
+instructionDestData:
+  DS.W  1
+instructionDestDataWordLo:
+  DS.W  1
+instructionDestDisplacement:
+  DS.L  1
+instructionDestExtData:
+  DS.L  1
+instructionDestExtData2:
   DS.L  1
 BranchInstructionType:
   DS.W  1
