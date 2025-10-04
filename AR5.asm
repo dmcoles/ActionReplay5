@@ -342,6 +342,12 @@ fixcol macro
 ;fixcol macro
 ;  endm
 
+ if arhardware=1
+   LEA rel(PC),A1
+   ADD.L #$50000,A1
+   JMP (A1)
+rel:
+ endc
 
  if dbg=1
 
@@ -984,15 +990,6 @@ NMI_Entry:
   if (arhardware+pistorm=1)
   TST.B TraceActive
   BEQ.S .notttrace
-
-  TST.B TraceToRamFlag
-  BEQ.S .notramtrace
-  cmp.l #ramTraceCodeEnd-ramTraceCode+EXT_150,2(a7)
-  BEQ.S .istr
-  cmp.l #ramTraceCodeEnd-ramTraceCode+EXT_150+6,2(a7)
-  BEQ.S .istr
-  JMP exit_rte
-.notramtrace
   cmp.l #$150,2(a7)
   BEQ.S .istr
   cmp.l #$156,2(a7)
@@ -1130,6 +1127,23 @@ reset:
   JMP BootIntercept
 
 SecondBootIntercept:
+  TST.B TraceToRamFlag
+  BEQ.S .notramtrace
+  cmp.l #ramTraceTrigger-ramTraceCode+EXT_150,2(a7)
+  BEQ.S .istr
+  cmp.l #ramTraceTrigger-ramTraceCode+EXT_150+8,2(a7)
+  BEQ.S .istr
+  JMP exit_rte
+
+.istr
+  ADDQ.L #6,A7
+  TST.B cpuType
+  BEQ.W .1
+  ADDQ.L #2,A7
+.1
+  JMP DoArTrace
+
+.notramtrace
   MOVE.L  A0,-(A7)
   LEA 6(A7),A0
   MOVEA.L (A0),A0
@@ -2510,6 +2524,7 @@ LAB_A10D94:
 ks2_skip:
   OR.B  BootblockCoderPrefsFlag,D0
   OR.B  doPatchingFlag,D0
+  OR.B  TraceToRamFlag,D0
   BEQ.S LAB_A10DD2
 LAB_A10DCA:
   BSET  #0,newActivateModeLo
@@ -2519,7 +2534,10 @@ LAB_A10DD2:
   OR.B  autofireP1ORP2,D0
   OR.B  MegaStickPrefsFlag,D0
   OR.B  MemwatchActive,D0
+  TST.B TraceToRamFlag
+  BNE.S .1
   OR.B  TraceActive,D0
+.1
   OR.B  apiActive,D0
   BEQ.S LAB_A10E00
   BSET  #1,newActivateModeLo
@@ -10191,7 +10209,7 @@ LAB_A138BC:
   MOVE.W cpuAddrSize,D1
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
-  BSR.W UpdateSerCursor
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
@@ -15243,7 +15261,7 @@ LAB_407D34:
 LAB_407D40:
   MOVE.W  D1,memoryControlPrefsValue
   BSR ARInit
- 
+
   JSR setActivateMode
   TST.W acaflags
   BNE.S .1
@@ -36735,7 +36753,7 @@ CMD_SERTYPE:
 
   LEA currentTypeSerialText(PC),A0
 .usbtype
-  BSR.W PrintText
+  JSR PrintText
   RTS
 
 currentTypeUsbText: DC.B "YModem Transfers set to USB.",13,0
@@ -37592,11 +37610,11 @@ CMD_SY:
 
   JSR ReadParameter
   TST.B ParamFound
-  BEQ.S syWTF
+  BEQ.W syWTF
   MOVE.L D0,A2
 
   CMP.L A2,A1
-  BHS.S syWTF
+  BHS.W syWTF
 
   if demon2=1
   BSR.W PrintSerTransType
@@ -37650,7 +37668,7 @@ PrintSerTransType:
   LEA usingInternalSerialText,A0
   
 .printsertype
-  BSR.W PrintText
+  JSR PrintText
   RTS
   endc
 
@@ -38075,17 +38093,17 @@ CMD_USB:
 .1
   SF.B serIO
   LEA usbserialDisabledText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   RTS
 .2
   SF.B serIO
   SF.B usbIO
   LEA usbserialTimeoutText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   RTS
 .3
   LEA noUsbDeviceText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   RTS
 
 noUsbDeviceText: DC.B "Your hardware does not support USB serial",13,0
@@ -38180,7 +38198,7 @@ CMD_SER:
   if demon2=1
 noserandusb:
   LEA noserandusbText(PC),A0
-  BSR.W PrintText
+  JSR PrintText
   RTS
   endc
 
@@ -38379,7 +38397,7 @@ CMD_RNC:
 .1
   DBF D6,.retry
   JSR PrintCR
-  BSR.W PrintDiskOpResult
+  JSR PrintDiskOpResult
 
   LEA EXT_7000.W,A0
   JSR restoreMfmBuffer
@@ -38832,7 +38850,7 @@ ReadTracks:
 LAB_A24CEA:
   MOVE.W  D1,D0
   BSR.W SUB_A24E64
-  BSR.W SUB_A207AA
+  JSR SUB_A207AA
   BPL.W LAB_A24D58
   MOVE.L  D0,-(A7)
   MOVE.W  D1,D0
@@ -38846,7 +38864,7 @@ LAB_A24CEA:
   BEQ.S LAB_A24D50
   ST  LAB_A48335
   MOVE.W  D1,D0
-  BSR.W SUB_A207AA
+  JSR SUB_A207AA
   BMI.S LAB_A24D3E
   SF  LAB_A48335
   MOVE.L  A0,-(A7)
@@ -39554,7 +39572,7 @@ LAB_A250B2:
   ST  cursorEnabled
 dodiskres:
   JMP PrintDiskOpResult
-ccwtf: BRA.W LAB_A21070
+ccwtf: JMP LAB_A21070
 
 SUB_A250D0:
   CMP.W D4,D5
@@ -40408,7 +40426,7 @@ SUB_A25BC0:
   BNE.S LAB_A25BD8
   LEA DataText(PC),A2
 LAB_A25BD8:
-  BSR.W SaveFileData
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A0,A5
 LAB_A25BE0:
@@ -40429,19 +40447,19 @@ LAB_A25BE0:
   LEA CopyColorLo,A2
   MOVEQ #3,D0
   MOVEA.L A5,A0
-  BSR.W SaveFileData
+  JSR SaveFileData
   BMI.S LAB_A25C48
   LEA LAB_A25C58(PC),A2
   MOVEQ #1,D0
   SUBQ.W  #1,D4
   BEQ.S LAB_A25C3C
-  BSR.W SaveFileData
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A0,A5
   BRA.S LAB_A25BE0
 LAB_A25C3C:
   ADDQ.L  #1,A2
-  BSR.W SaveFileData
+  JSR SaveFileData
   BMI.S LAB_A25C48
   MOVEA.L A4,A2
   MOVEQ #0,D0
@@ -48336,6 +48354,7 @@ ActivateTrace:
   MOVE.L  arBfe001Trigger,(A0)+
   ;move.l #$bfe001,(a0)+
   move.w #$60f8,(a0)+
+
   endc
 
   if arhardware=0
@@ -48394,20 +48413,25 @@ LAB_A2DDAA:
 LAB_A2DDAE:
   RTS
 ramTraceCode:
-  CMP.L #$20000,2(A7)
-  BCC.S .dontEntry
+  CMP.L #$20000,2(A7) 
+  BCS.S .testEntry
+  RTE
+.testEntry
   MOVE.L A0,(.temp-ramTraceCode+EXT_150).w
   MOVEA.L 2(A7),A0
   CMP.W #$4ef9,(A0)
   BNE.S .doEntry
   MOVE.L .temp(PC),A0
 .dontEntry
- BSET  #7,(A7)
- RTE
+  RTE
 .temp
   DS.L 1
 .doEntry
   MOVE.L .temp(PC),A0
+ramTraceTrigger:
+.1
+  OR.B #0,$BFD100
+  BRA.S .1
 ramTraceCodeEnd:
 
 DeactivateTrace:
@@ -55140,7 +55164,16 @@ StackEnd:
 dataend:
 
   if arsoft=0
+
+_LVOOldOpenLibrary equ -$198
+_LVOCloseLibrary equ -$19e
+_LVOOpen equ -$1e
+_LVOClose equ -$24
+_LVOWrite equ -$30
+MODE_NEWFILE equ 1006
+
 fixArChecksum:
+  MOVE.L A0,A5
   LEA fixArChecksum(PC),A0
   MOVE.L A0,A1
   ADD.L #STARTCRC-SECSTRT_0,A0
@@ -55154,9 +55187,48 @@ fixloop:
   BNE.S fixloop
   MOVE.L  D0,(A1)+
   MOVE.L A1,A0
-  SUBQ.L #1,A1
   SUB.L #$40000,A0
+  MOVE.L A0,D6
+  MOVE.L A1,D7
+  LEA dosname(PC),A1
+  MOVE.L 4,A6
+  JSR _LVOOldOpenLibrary(a6)
+  MOVE.L D0,A6
+
+  MOVE.L A5,A0
+.findend
+  CMP.B #10,(A0)+
+  BNE.S .findend
+  MOVE.B #0,-1(A0)
+  SUB.L A5,A0
+  MOVE.L A0,D0
+  MOVE.L A5,A0
+  CMP.L #1,D0
+  BGT.S .hasfname
+  LEA fname(PC),A0
+.hasfname
+  MOVE.L A0,D1
+  MOVE.L #MODE_NEWFILE,D2
+  JSR _LVOOpen(A6)
+  MOVE.L D0,D5
+  BEQ.S .fail
+
+  MOVE.L D0,D1
+  MOVE.L D6,D2
+  MOVE.L D7,D3
+  SUB.L  D6,D3
+  JSR _LVOWrite(A6)
+
+  MOVE.L D5,D1
+  JSR _LVOClose(A6)
+
+.fail
+  MOVE.L A6,A1
+  MOVE.L 4.w,A6
+  JSR _LVOCloseLibrary(a6)
   RTS
+dosname: DC.B "dos.library",0
+fname: DC.B "SYS:artestrom",0
   endc
 
   END
