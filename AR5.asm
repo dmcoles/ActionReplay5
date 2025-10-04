@@ -47601,6 +47601,8 @@ HelpText:
   DC.B  "SHIFT  : No Scroll/pause",$D
   DC.B  $D
   DC.B  "TAB    : Insert space(s)",$D
+  DC.B  "SH TAB : Insert 8 space(s)",$D
+  DC.B  "SH RET : Insert Blank Line",$D
   DC.B  "ESC    : Escape any command (not t/ts !)",$D
   DC.B  "F1     : Clr + cursor home",$D
   DC.B  "SH F1  : Cursor home",$D
