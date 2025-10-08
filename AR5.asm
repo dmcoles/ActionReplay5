@@ -2372,9 +2372,9 @@ LAB_A10BF4:
   MOVE.W  #$7fff,intreq+hardware
   MOVE.W  SaveIntreq,intreq+hardware 
   SF.B apiCall
-
-  
-  
+  CLR.W repeatCount
+  CLR.L endAddress
+    
   if arsoft=1
   TST.L ArReturnAddr
   BEQ.S .noret
