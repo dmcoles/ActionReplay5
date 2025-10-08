@@ -5262,7 +5262,7 @@ LAB_A1225E:
  ADD.L D0,D0
  MOVEA.L imode_table(PC,D0.W),A0
  BSR.W PrintText
- BSR.W PrintReady
+ JSR PrintReady
  RTS
 
 imodeWTF
@@ -10168,7 +10168,7 @@ LAB_A13854:
   MOVE.W cpuAddrSize,D1
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
-  BSR.W UpdateSerCursor
+  JSR UpdateSerCursor
   BSR.W PrintCursor
   MOVEM.L (A7)+,D0-D1
   CLR.W repeatCount
@@ -10210,7 +10210,7 @@ LAB_A138BC:
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
 LAB_A138E6:
@@ -10248,7 +10248,7 @@ LAB_A1391A:
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D1
   RTS
 CMD_COLON:
@@ -10917,7 +10917,7 @@ LAB_A14766:
   MOVE.W  D2,D0
   ROR.W #8,D0
   BCLR  #7,D0
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -10940,7 +10940,7 @@ LAB_A14804:
   LEA DCLText(PC),A0
   BSR.W PrintText
   MOVE.L  D6,D0
-  BSR.W Print8DigitHex
+  JSR Print8DigitHex
   MOVE.W  #$000f,cursorX
   JSR UpdateSerCursor
   MOVEM.L (A7)+,D0-D2/D6/A0-A1
@@ -23397,7 +23397,7 @@ checkRamAlloc:
   TST.L AllocedMem
   BNE.S LAB_A1D1F4
   LEA RamAllocFailTable(PC),A0
-  BSR.W PrintText
+  JSR PrintText
 LAB_A1D1F4:
   RTS
 RamAllocFailTable:
@@ -52825,7 +52825,7 @@ CMD_ROMAVOID:
   BEQ.S LAB_A31070
   LEA AvoidRomEnabledText,A0
 LAB_A31070:
-  BSR.W PrintText
+  JSR PrintText
   JSR calcArChecksum
   MOVEM.L (A7)+,D0-D3/A0-A2
   JMP PrintReady
@@ -52852,7 +52852,7 @@ LAB_A310B6:
   MOVE.L  A2,LAB_A1026A+2
   MOVE.L  A2,LAB_A103D0+2
 
-  BSR.W PrintText
+  JSR PrintText
   JSR calcArChecksum
   MOVEM.L (A7)+,D0-D3/A0-A2
   JMP PrintReady
