@@ -10551,7 +10551,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0-dev (29-Sep-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0 (08-Oct-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D

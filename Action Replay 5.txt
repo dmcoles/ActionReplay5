@@ -1,6 +1,6 @@
 Action Replay 5 Update History
 
-v5.2.0 (tbc)
+v5.2.0 (08-Oct-2025)
 
  - stop using address $204 as work space
  - RF command - enable fpu on 060, handle missing fpu on 040
@@ -30,7 +30,7 @@ v5.2.0 (tbc)
  - add missing key parameter in RPS and RPB commands on main help page
  - scan - set start and end
  - allow to read/write tracks from <a800
- - mfm read to fast mem / below a800
+ - mfm decode to fast mem / below a800
  - many code optimisations
  - fix rol.l dx,dy disassembly(d0 source was showing as d8) - also
    affected all shift instructions
