@@ -10551,7 +10551,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                ACTION REPLAY AMIGA V5.2.0 (08-Oct-2025)",$D
+  DC.B  "                ACTION REPLAY AMIGA V5.2.0 (11-Oct-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -16176,7 +16176,16 @@ CMD_FLASH:
   BSR.W PrintText
   BRA.W PrintReady
 .romok
+  MOVE.L EXT_20000+$7C,D0
+  AND.L #$ffffC000,D0
+  CMP.L #SECSTRT_0,D0
+  BEQ.S .correctrom
 
+  LEA incorrectrom(PC),A0
+  BSR.W PrintText
+  BRA.W PrintReady
+
+.correctrom
   LEA EXT_20000+$7c,A0
   MOVEQ #0,D1
   MOVEQ #0,D2
@@ -16540,7 +16549,19 @@ verifyingtext
   DC.B  "VERIFYING...",0
 
 invalidrom:
-  DC.B  "This is not an action replay rom.",$D,0
+  DC.B  $D,"This is not an action replay rom.",$D,0
+
+incorrectrom:
+  DC.B  $D,"This is not the correct version of the rom for this hardware",$D
+  endc
+  if (arhardware+demon2)=2
+  DC.B  "You need the DeMoN v2 ROM.",$D,0
+  endc
+  if (arhardware+demon2)=1
+  DC.B  "You need the DeMoN v1 ROM.",$D,0
+  endc
+
+  if (arhardware=1)
 
 invalidcrc:
   DC.B  "Warning: The ROM CRC is incorrect. It will be corrected during flashing.",$D,$D,0
@@ -21810,7 +21831,7 @@ LAB_A1BD5C:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D1,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BSR.W memSafeWriteWordA1

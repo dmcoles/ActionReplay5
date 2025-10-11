@@ -72,7 +72,7 @@ PROC main()
   DEF id,id1,id2
   DEF response[100]:STRING
   
-  WriteF('Action Replay 5 Flash Tool v1.2 by REbEL/QTX\n\n')
+  WriteF('Action Replay 5 Flash Tool v1.2.1 by REbEL/QTX\n\n')
   
   IF StrLen(arg)=0
     WriteF('Usage: ar5flasher <filename>\n\n')
@@ -125,6 +125,13 @@ PROC main()
   
   IF Long(romFile+4)<>"ACTI"
     WriteF('Error: Action Replay ROM signature not found\n\n')
+    Dispose(romFile)
+    RETURN
+  ENDIF
+  
+  id:=Long(romFile+$7c) AND $ffffc000
+  IF id<>arbase
+    WriteF('Error: Incorrect ROM version for this hardware.\nYou need the DeMoN v\d ROM\n\n',IF arbase=$400000 THEN 1 ELSE 2)
     Dispose(romFile)
     RETURN
   ENDIF
@@ -223,4 +230,4 @@ PROC main()
   Dispose(romFile)
 ENDPROC
 
-CHAR '$VER: ar5flasher 1.2.0-08092025',0
+CHAR '$VER: ar5flasher 1.2.1-11102025',0
