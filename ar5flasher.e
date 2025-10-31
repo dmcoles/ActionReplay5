@@ -71,6 +71,7 @@ PROC main()
   DEF fh,romFile,chip,sector,i,arbase=0,checksum,src,dest
   DEF id,id1,id2
   DEF response[100]:STRING
+  DEF startoffset
   
   WriteF('Action Replay 5 Flash Tool v1.2.1 by REbEL/QTX\n\n')
   
@@ -135,6 +136,11 @@ PROC main()
     Dispose(romFile)
     RETURN
   ENDIF
+  IF arbase=$a80000
+    startoffset:=2
+  ELSE
+    startoffset:=4
+  ENDIF
   
   checksum:=calcArChecksum(romFile)
   
@@ -157,6 +163,13 @@ PROC main()
   
   //copy pref settings to the new file
   IF Long(arbase+$40000-512)="pref"
+    /*WriteF('\nDo you wish to keep your prefs settings (Y/n)? ')
+    ReadStr(Input(),response)
+    UpperStr(response)
+    IF response<>'N'
+      WriteF('\nCopy prefs from current ROM')
+      CopyMem(arbase+$40000-512,romFile+$40000-512,128)
+    ENDIF*/
     WriteF('\nCopy prefs from current ROM')
     CopyMem(arbase+$40000-512,romFile+$40000-512,128)
   ENDIF
@@ -187,7 +200,7 @@ PROC main()
         Disable()
         sendFlashWrite(arbase,chip)
         FOR i:=0 TO 127
-          IF dest>=(arbase+4) THEN PutChar(dest,Char(src)) 
+          IF dest>=(arbase+startoffset) THEN PutChar(dest,Char(src)) 
           dest+=2
           src+=2
         ENDFOR
@@ -198,7 +211,7 @@ PROC main()
       
       IF id==[$BFB5,$0120]
         FOR i:=0 TO 127
-          IF dest>=(arbase+4)
+          IF dest>=(arbase+startoffset)
             Forbid()
             Disable()
             sendFlashWrite(arbase,chip)
@@ -217,7 +230,7 @@ PROC main()
   WriteF('\n\nVerifying: ')
   FOR i:=0 TO (256*1024-1)
     IF (i AND 511=0) THEN WriteF('.')
-    IF i>=4
+    IF i>=startoffset
       IF Char(romFile+i)<>Char(arbase+i)
         WriteF('\n\nVerify failure. Operation failed!\n\n')
         Dispose(romFile)
@@ -230,4 +243,4 @@ PROC main()
   Dispose(romFile)
 ENDPROC
 
-CHAR '$VER: ar5flasher 1.2.1-11102025',0
+CHAR '$VER: ar5flasher 1.2.1-31102025',0

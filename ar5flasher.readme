@@ -88,4 +88,5 @@ V1.1 - Updated to support new DeMoN hardware (26-May-2025)
 
 V1.2 - Updated to add support for amd 29f010 flash chip (30-Sep-2025)
 
-V1.2.1 - Added checks for correct DeMoN ROM version (11-Oct-2025)
+V1.2.1 - Added checks for correct DeMoN ROM version
+       - Updated flash routine to only skip first 2 bytes  (31-Oct-2025)
