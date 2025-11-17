@@ -1,5 +1,72 @@
-Action Replay 5 Private Alpha For TTE
+Action Replay 5 Update History
 
+v5.2.0 (31-Oct-2025)
+
+ - stop using address $204 as work space
+ - RF command - enable fpu on 060, handle missing fpu on 040
+ - SQR command - dont restart if error shown
+ - fix 8mb ram issue with xcopy
+ - add fpu disabled message for 68060
+ - add Shift Tab (insert 8 spaces)
+ - add Shift Return (insert line)
+ - add KICKVER command
+ - allow more breakpoints and memwatch points (20) in demon cart
+ - tidy up some text strings / spelling mistakes
+ - add EX command to exchange memory block
+ - added end address option for D, M, MQ, N, NQ, Y commands
+ - added support for amd 29f010 flash chip
+ - changed lea 100.s,a0 in disassembly to lea 100.w
+ - added support for lea 100.w in assembler (both .s and .w can be used)
+ - add support for the 020 instruction EXTB in the assembler and
+   disassembler
+ - fix decoding of 020 scale on disassembly eg (a0,d0*4)
+ - fix assembling LINEF and LINEA opcodes
+ - fix mfm buffer restore after RNC command
+ - move trainer workspace in DeMoN so that disk and tracker operations do
+   not have to disable trainer search
+ - add WDS -write (Amiga)dos sectors, WDB - write (Amiga)dos bytes,
+   WPS - write pdos sectors, WPB - write pdos bytes commands
+ - fix incorrect help template for RR commmand
+ - add missing key parameter in RPS and RPB commands on main help page
+ - scan - set start and end
+ - allow to read/write tracks from <a800
+ - mfm decode to fast mem / below a800
+ - many code optimisations
+ - fix rol.l dx,dy disassembly(d0 source was showing as d8) - also
+   affected all shift instructions
+ - add TA command (trace until pc = address or pc in a particular range)
+ - add TRB command (trace until pc is in ram = bootblock finder)
+ - added check for correct DeMoN hardware version when flashing
+ - fixed screen corruption when using 'nores option'
+ - sending screen to printer now prints correct number of lines
+ - added DeMoN 2 boot logo
+ - made action replay memory checker routine (ARRAM) more robust
+ - Updated flash routine to only skip 2 bytes at start instead of 4
+
+V5.1.0 (12-Jun-2025)
+ - fix double triggering issue in software mode
+ - fix TS command corrupting memory
+ - ensure AGA palette bank 0 is selected after palette restore
+ - descriptions for cia registers fixed (order was not correct)
+ - fix disassembly being cropped on 32 bit CPUs
+ - display extra aga display and cpu parameters in INFO
+ - add RYG and FYG commands to support ymodem-g receiving
+ - update picture viewer to fix display stability issues on AGA
+ - add support for aca500plus
+ - add support for upcoming DeMoN 2 cart
+ - clear CPU caches on exit
+ - updated ascii logo and file id by stratos!/contra!
+ - fix for trainer searching issues with 32 bit CPUs
+ - cursor flash speed made consistent regardless of CPU speed
+ - fixed crash in COPY command if user chose not to kill running program
+
+v5.0.0 (14-Apr-2025)
+ - Initial Public Release 
+
+
+----------------------------------------------------------------
+
+Previous Private Alpha/Beta Releases
 
 v0.1 Bug fixes/enhancements (tte private members release):
   - fix: invalid sector number error sometimes occurred when disk full
@@ -149,5 +216,4 @@ v0.9.0
     completion (eg, memcode, add, trans)
   - replaced Burst nibbler with X-Copy 
   - many bugfixes and tweaks
-  
   
