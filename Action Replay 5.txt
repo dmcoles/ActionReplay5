@@ -1,6 +1,6 @@
 Action Replay 5 Update History
 
-v5.2.1 (??-Dec-2025)
+v5.2.1 (24-Dec-2025)
  - improved VBR processing
  - fixed issue with D0 being corrupted in setActivateMode function
  - added CAPS lock key support
