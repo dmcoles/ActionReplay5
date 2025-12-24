@@ -1,7 +1,25 @@
 Action Replay 5 Update History
 
-v5.2.0 (31-Oct-2025)
+v5.2.1 (24-Dec-2025)
+ - improved VBR processing
+ - fixed issue with D0 being corrupted in setActivateMode function
+ - added CAPS lock key support
+ - fixed issue with beamcon0 getting corrupted
+ - added French keymap
+ - fixed issue with bitplane DMA not being enabled correctly with mem
+   watches
+ - fixed issue with int5 vector when viewed with M command
+ - updated memory control prefs to better handle different kickstart
+   versions
+ - resetcfg command handles different memory configurations
+ - external memory address in prefs screen was not lined up correctly
+ - boot selector / bootblock coder / drive controls correctly
+   enabled/disabled according to kickstart version
+ - savecfg correctly handles flash chip with 16k sector size
+ - autoconfig handling improved to work more like AR3
+ - savePrefs was saving corrupt data
 
+v5.2.0 (31-Oct-2025)
  - stop using address $204 as work space
  - RF command - enable fpu on 060, handle missing fpu on 040
  - SQR command - dont restart if error shown
@@ -43,7 +61,7 @@ v5.2.0 (31-Oct-2025)
  - made action replay memory checker routine (ARRAM) more robust
  - Updated flash routine to only skip 2 bytes at start instead of 4
 
-V5.1.0 (12-Jun-2025)
+v5.1.0 (12-Jun-2025)
  - fix double triggering issue in software mode
  - fix TS command corrupting memory
  - ensure AGA palette bank 0 is selected after palette restore

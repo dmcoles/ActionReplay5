@@ -1,12 +1,21 @@
 ;Action Replay 5
+  ifnd __VASM
 dbg=0
 pistorm=0
 arhardware=1
 arsoft=0
+  endc
 
 
+  ifnd __VASM
 demon2=0
+  endc
+
 xcopy=1
+
+  ifd __VASM
+	output AR5
+  endc
 
 ;$1000-$4e80 (NTSC) $1000-$6000(PAL)  screen memory (copied to ChipramSave1)
 ;$7000-$a608 mfm buffer (copied to ChipramSave2)
@@ -118,6 +127,7 @@ EXT_E80000  EQU $E80000
 EXT_F80004  EQU $F80004
 EXT_F8000D  EQU $F8000D
 EXT_F8000E  EQU $F8000E
+EXT_F8000F  EQU $F8000F
 EXT_F8031C  EQU $F8031C
 EXT_F800D0  EQU $F800D0
 EXT_F81F84  EQU $F81F84
@@ -342,7 +352,7 @@ fixcol macro
 ;fixcol macro
 ;  endm
 
- if arhardware=1
+ if (arhardware+pistorm=1)
    LEA rel(PC),A1
    ADD.L #$50000,A1
    JMP (A1)
@@ -785,7 +795,8 @@ InstallExceptionHandlers:
 
 
   JSR getVBR
-  MOVE.L  A0,OldVbr
+  MOVE.L  D0,OldVbr
+  MOVE.L D0,A0
 
   LEA oldVecs,A2
   MOVE.W  #$003f,D0
@@ -971,9 +982,14 @@ NMI_Entry:
   BEQ.S .k3
 
   MOVE.B  EXT_F8000D,kickstartVersion
+  CMP.B #37,kickstartVersion
+  BNE.S .k3
+  CMP.L #$2d4c004e,$f802c2  ;has to be the a500 version of 37.175 otherwise 
+  BEQ.S .k3
+  ADD.B #1,kickstartVersion ;we treat this as 38 even though 38 rom doesnt exist
 .k3
   endc
-  
+ 
   if arhardware=1
   MOVE.L A0,tempD0
   MOVE.L arhwreg,A0
@@ -1003,9 +1019,7 @@ NMI_Entry:
   bne.s .notttrace
 .istr
   ;MOVE.L D0,tempD0
-  ;MOVE.L A0,D0
   ;BSR.W getVBR
-  ;MOVE.L D0,A0
   ;MOVE.W vbrflag,D0
   ;ADD.W D0,D0
   ;ADDQ.W #6,D0
@@ -1068,12 +1082,12 @@ x:
   MOVE.W  D0,-(A7)
   MOVE.W  P1AutoFirePrefsSetting,D0
   BEQ.S LAB_4000F0
-  SUB.W D0,LAB_A48240
+  SUB.W D0,P1AutofireCounter
   BMI.W LAB_400542
 LAB_4000F0:
   MOVE.W  P2AutoFirePrefsSetting,D0
   BEQ.S LAB_400104
-  SUB.W D0,LAB_A48242
+  SUB.W D0,P2AutofireCounter
   BMI.W LAB_400598
 LAB_400104:
   MOVE.W  (A7)+,D0
@@ -1095,7 +1109,7 @@ LAB_400106:
   BCLR  #0,D0
   BRA.S LAB_400188
 LAB_400156:
-  LEA LAB_A483E0,A0
+  LEA megaStickWorkspace,A0
   MOVE.B  0(A0,D1.W),D0
   BNE.S LAB_40017E
   BTST  #0,LAB_A483C4
@@ -1169,11 +1183,11 @@ LAB_400314:
   BNE.S LAB_40032C
   BRA.W AREntry2
 LAB_40032C:
-  TST.B LAB_A48391
+  TST.B extFuncCallFlag
   BEQ.S LAB_400348
   CMPI.L  #$00000080,2(A7)
   BNE.S LAB_400348
-  JMP LAB_A25432
+  JMP restoreTrap
 LAB_400348:
   TST.B LAB_A481E5
   BEQ.S LAB_40036E
@@ -1306,7 +1320,7 @@ LAB_400538:
   RTE
 LAB_400542:
   BCLR  #7,ciaaddra
-  ADDI.W  #$0064,LAB_A48240
+  ADDI.W  #$0064,P1AutofireCounter
   MOVE.W  #$0014,D0
 LAB_400556:
   DBF D0,LAB_400556
@@ -1323,7 +1337,7 @@ LAB_40058C:
   BRA.W LAB_4000F0
 LAB_400598:
   BCLR  #6,ciaaddra
-  ADDI.W  #$0064,LAB_A48242
+  ADDI.W  #$0064,P2AutofireCounter
   MOVE.W  #$0014,D0
 LAB_4005AC:
   DBF D0,LAB_4005AC
@@ -1380,7 +1394,7 @@ LAB_40066A:
 LAB_40066E:
   DC.W  $60f6
 SUB_400670:
-  CMPI.W  #4,LAB_A4822A
+  CMPI.W  #4,BootSelectPrefsCopy
   BNE.W LAB_40070C
   MOVEM.L D0-D1/A0,-(A7)
   LEA ciabprb,A0
@@ -1414,10 +1428,10 @@ LAB_4006D0:
 LAB_4006EA:
   SUBQ.W  #1,D0
   DBF D1,LAB_4006D0
-  CLR.W LAB_A4822A
+  CLR.W BootSelectPrefsCopy
   BRA.S LAB_400702
 LAB_4006FA:
-  MOVE.W  D1,LAB_A4822A
+  MOVE.W  D1,BootSelectPrefsCopy
   BSET  D0,(A0)
 LAB_400702:
   MOVE.B  (A7)+,ciabprb
@@ -1434,10 +1448,10 @@ LAB_40071A:
   DBF D1,LAB_40071A
   TST.W D0
   BNE.S LAB_400734
-  MOVE.W  LAB_A4822A,D0
+  MOVE.W  BootSelectPrefsCopy,D0
   BRA.S LAB_400740
 LAB_400734:
-  CMP.W LAB_A4822A,D0
+  CMP.W BootSelectPrefsCopy,D0
   BNE.S LAB_400740
   CLR.W D0
 LAB_400740:
@@ -1527,7 +1541,7 @@ LAB_4008B2:
   BNE.W LAB_400396
   TST.B NotExtMemAddPrefsFlag
   BNE.S LAB_40091A
-  JSR SUB_425C62
+  JSR addExtMem
   ST  NotExtMemAddPrefsFlag
   TST.B doPatchingFlag
   BNE.S LAB_40091A
@@ -1612,13 +1626,13 @@ LAB_400A1C:
   MOVEQ #0,D1
   TST.B LAB_A481E5
   BEQ.S LAB_400A2E
-  MOVE.W  LAB_A4822A,D1
+  MOVE.W  BootSelectPrefsCopy,D1
 LAB_400A2E:
   LEA DiskCoderDf0Flag,A1
   NOT.B 0(A1,D1.W)
   LEA $2C(A5),A1
   PEA -456(A6)
-  JSR SUB_A253D0
+  JSR callExternalFunc
   TST.W D0
   BNE.W LAB_4009BC
 LAB_400A4C:
@@ -1762,7 +1776,7 @@ LAB_400C20:
   MOVE.L  A3,2(A7)
   MOVE.L  A2,USP
   CLR.W (A7)
-  ST  LAB_A48392
+  ST  bootVirusFound
   MOVEQ #0,D0
   BRA.W AREntry2
 LAB_400C3C:
@@ -1878,7 +1892,7 @@ LAB_400D92:
   MOVE.L  A3,2(A7)
   MOVE.L  A2,USP
   CLR.W (A7)
-  ST  LAB_A48392
+  ST  bootVirusFound
   MOVEQ #0,D0
   MOVEM.L CopySpr0Pt,D0-D2/A0-A3
   BRA.W AREntry2
@@ -2183,6 +2197,17 @@ AREntry2:
   MOVE.W #8,cpuAddrSize  
 .2
 
+  BSR getVBR
+  MOVE.L D0,VBRSAVE
+  if arsoft=0
+  BEQ .novbr
+  endc
+  MOVEQ #0,D0
+  opt p=68020
+  MOVEC D0,VBR
+  opt p=68000
+.novbr
+
   MOVE.L  vposr+hardware,D0
   MOVE.L D0,SAVE_VPOS
   AND.L #$7fffffff,D0
@@ -2304,6 +2329,24 @@ LAB_A10A88:
   ;MOVE.L Save200,EXT_200.W
   ;MOVE.L Save204,EXT_204.W
 
+  if arsoft=1
+  
+  MOVE.L VBRSAVE,D0
+  BNE.S .1
+  TST.B MoveVbr
+  BEQ.S .novbr
+  MOVE.L #NEWVBR,D0
+.1  
+  else
+  MOVE.L VBRSAVE,D0
+  BEQ .novbr
+  endc
+  opt p=68020
+  MOVEC D0,VBR
+  opt p=68000
+  
+.novbr
+
   MOVEM.L SaveCpuRegs,D0-D7/A0-A7
   MOVE.W  SaveOldSr,(A7)
   MOVE.L  SaveOldPc,2(A7)
@@ -2396,15 +2439,15 @@ getVBR:
   MOVE.L ILLEG_OPC.W,-(A7)
   MOVE.L #vbrtrap,ILLEG_OPC.W
   MOVE.W #1,vbrflag
-  SUB.L A0,A0
+  MOVEQ #0,D0
   OPT p=68040
-  MOVEC VBR,A0
+  MOVEC VBR,D0
   OPT p=68000
   MOVE.L (A7)+,ILLEG_OPC.W
   if arsoft=1
-  CMP.L #NEWVBR,A0
+  CMP.L #NEWVBR,D0
   BNE.S .1
-  MOVE.L OldVbr,A0
+  MOVE.L OldVbr,D0
 .1
   endc
   RTS
@@ -2504,7 +2547,7 @@ LAB_A10D6A:
 LAB_A10D7A:
   RTS
 setActivateMode:
-  MOVE.W  D0,tempD0
+  MOVE.L  D0,tempD0
   CLR.W newActivateMode
   MOVEQ #0,D0
   TST.W acaflags
@@ -2520,12 +2563,12 @@ LAB_A10D94:
   BNE.S LAB_A10DCA
   TST.W acaflags
   BNE.S ks2_skip              ;aca mode - disable nasty stuff
-  CMP.B #34,kickstartVersion
-  BHI.S ks2_skip
   MOVE.B  NotExtMemAddPrefsFlag,D0
   NOT.B D0
-  OR.B  LAB_A48391,D0
+  OR.B  extFuncCallFlag,D0
   OR.B  updateDrivesConnectedFlag,D0
+  CMP.B #34,kickstartVersion
+  BHI.S ks2_skip
   OR.B  OSPatchesInstalledFlag,D0
   OR.B  safeDiskInstallingFlag,D0
 ks2_skip:
@@ -2549,7 +2592,7 @@ LAB_A10DD2:
   BEQ.S LAB_A10E00
   BSET  #1,newActivateModeLo
 LAB_A10E00:
-  MOVE.W  tempD0,D0
+  MOVE.L  tempD0,D0
   if arhardware=1
   MOVE.L A0,tempD0
   MOVE.L arhwreg,A0
@@ -2648,7 +2691,7 @@ LAB_A10ED6:
   RTS
 KeyboardIntInstall:
   LEA hardware,A5
-  MOVE.L  A0,-(A7)
+
   MOVE.L  AUTO_INT2.W,Int2Save
   MOVE.L  #KeyboardIntHandler,AUTO_INT2.W
   CLR.W KeyCode
@@ -2661,7 +2704,6 @@ KeyboardIntInstall:
   BSR.W keyAckDelay
   BCLR  #6,ciaacra
   MOVE.W  #$8008,$9A(A5)
-  MOVEA.L (A7)+,A0
   RTS
 SerialInt:
   MOVEM.L D0/A0,-(A7)
@@ -2722,7 +2764,14 @@ KeyboardInt:
   ;LEA keydata,A0
   ;NOT.B (A0,D0.W)
   ;MOVE.L (Sp)+,A0
+  
+  CMPI.B #$62,D0  ;CAPS lock key
+  BNE.S .notcaps
 
+  BTST  #0,RawKeyCodeLo
+  SNE CapsLockActive
+
+.notcaps
   CMPI.B  #$64,D0   ;alt key
   BNE.S LAB_A10FB2
   BTST  #0,RawKeyCodeLo
@@ -2760,9 +2809,7 @@ LAB_A11006:
 KeyboardIntRemove:
   LEA hardware,A5
   MOVE.W  #8,$9A(A5)
-  MOVE.L  A0,-(A7)
   MOVE.L  Int2Save,AUTO_INT2.W
-  MOVEA.L (A7)+,A0
   RTS
 keyAckDelay:
 
@@ -2837,7 +2884,7 @@ PrintCursor:
   ADD.W cursorX,D0
   ADDI.W  #$0230,D0
   LEA 0(A0,D0.W),A1
-  ADD.W  #1310,LAB_A481E8  ;was 8
+  ADD.W  #1310,CursorFlashCounter  ;was 8
   BPL.S LAB_A110C8
   CMPI.B  #$ff,(A1)
   BNE.S LAB_A110D6
@@ -2856,7 +2903,7 @@ LAB_A110D6:
   MOVE.L  cursorX,D0
   CMP.L LAB_A47F3E,D0
   BEQ.S LAB_A11114
-  CLR.W LAB_A481E8
+  CLR.W CursorFlashCounter
   MOVE.W  #$0280,D0
   MULU  LAB_A47F40,D0
   ADD.W LAB_A47F3E,D0
@@ -3063,7 +3110,7 @@ LAB_A11320:
   CLR.L (A0)+
   CLR.L (A0)+
   DBF D0,LAB_A11320
-  CLR.W LAB_A481E8
+  CLR.W CursorFlashCounter
   MOVE.W  #$0280,D0
   MULU  cursorY,D0
   ADD.W cursorX,D0
@@ -3221,8 +3268,12 @@ CheckPalMode
 CalcBeamCon0
   MOVEM.L D0-D1/A0,-(A7)
 
+  BTST.B #0,ChipsetIdValue      ;ecs agnus
+  BNE.S .0
+
   MOve.L RegSnoopAddr,A0
   MOVE.W beamcon0(A0),D0
+  AND.W #$DFFF,D0
   TST.W D0
   BEQ.S .0
 
@@ -3231,6 +3282,7 @@ CalcBeamCon0
 
   MOVE.W D0,SaveBeamCon0
   MOVE.B #-1,VgaModeFlag
+  MOVEM.L (A7)+,D0-D1/A0
   RTS
 .0:
   MOVE.W #0,SaveBeamCon0
@@ -4062,45 +4114,57 @@ LAB_A11B24:
   MOVEM.L (A7)+,D1/A0
   RTS
 getKeymap:
+  MOVEQ #0,D0
+  TST.B IgnoreShift
+  BNE.S .1
+  MOVE.B ShiftKey,D0
+  TST.B CapsLockActive
+  BEQ.S .1
+  NOT.B D0
+.1
+
   TST.B keymap
-  BEQ.S LAB_A11B44
+  BEQ.W LAB_A11B44
   CMP.B #1,keymap
   BEQ.S LAB_A11B44_2
 
   CMP.B #2,keymap
   BEQ.S LAB_A11B44_3
+
+  CMP.B #3,keymap
+  BEQ.S LAB_A11B44_4
+
   LEA keymapUK(PC),A0
-  TST.B IgnoreShift
-  BNE.S LAB_A11B54
-  TST.B ShiftKey
+  TST.B D0
   BEQ.S LAB_A11B54
   LEA keymapUpperUK(PC),A0
   BRA.S LAB_A11B54
-LAB_A11B44_2
+LAB_A11B44_2:
   LEA keymapUS(PC),A0
-  TST.B IgnoreShift
-  BNE.S LAB_A11B54
-  TST.B ShiftKey
+  TST.B D0
   BEQ.S LAB_A11B54
   LEA keymapUpperUS(PC),A0
   BRA.S LAB_A11B54
-LAB_A11B44_3
+LAB_A11B44_3:
   LEA keymapIT(PC),A0
-  TST.B IgnoreShift
-  BNE.S LAB_A11B54
-  TST.B ShiftKey
+  TST.B D0
   BEQ.S LAB_A11B54
   LEA keymapUpperIT(PC),A0
   BRA.S LAB_A11B54
+LAB_A11B44_4:
+  LEA keymapFR(PC),A0
+  TST.B D0
+  BEQ.S LAB_A11B54
+  LEA keymapUpperFR(PC),A0
+  BRA.S LAB_A11B54
 LAB_A11B44:
   LEA keymapDE(PC),A0
-  TST.B IgnoreShift
-  BNE.S LAB_A11B54
-  TST.B ShiftKey
+  TST.B D0
   BEQ.S LAB_A11B54
   LEA keymapUpperDE(PC),A0
 LAB_A11B54:
   RTS
+
 keymapDE:
   DC.L  $60313233,$34353637,$383930df,$005c0030
   DC.L  $71776572,$747a7569,$6f70fc2b,$00313233
@@ -4114,6 +4178,22 @@ keymapUpperDE:
   DC.L  $51574552,$545a5549,$4f50dc2a,$00313233
   DC.L  $41534446,$47484a4b,$4cd6c45e,$00343536
   DC.L  $3e595843,$56424e4d,$3b3a5f00,$2e373839
+  DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
+  DC.L  $8a8b8c8d,$8e8f9091,$92937b7d,$2f2a2b85
+  DS.L  2
+keymapFR:
+  DC.L  $60260022,$27280000,$21000029,$2d5c0030
+  DC.L  $617a6572,$74797569,$6f705e24,$00313233
+  DC.L  $71736466,$67686a6b,$6c6d0000,$00343536
+  DC.L  $3c777863,$76626e2c,$3b3a3d00,$00373839
+  DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
+  DC.L  $8a8b8c8d,$8e8f9091,$92935b5d,$2f2a2b85
+  DS.L  2
+keymapUpperFR:
+  DC.L  $60313233,$34353637,$38393000,$5f7c0030
+  DC.L  $415a4552,$545a5549,$4f50002a,$00313233
+  DC.L  $51534446,$47484a4b,$4c4d25a3,$00343536
+  DC.L  $3e575843,$56424e3f,$2e2f2b00,$2e373839
   DC.L  $2008090d,$0d1b8400,$00002d00,$80818382
   DC.L  $8a8b8c8d,$8e8f9091,$92937b7d,$2f2a2b85
   DS.L  2
@@ -4314,6 +4394,7 @@ fontData:
   DC.L  $03030303,$337f3000,$48241209,$12244800
   DC.L  $1c363078,$30307e00
 ReadInputLine:
+  SF.B IgnoreShift
   MOVE.L  D0,-(A7)
 LAB_A120BC:
   BSR.W GetMappedKeyCode
@@ -4343,6 +4424,7 @@ LAB_A120E8:
   LEA -80(A0,D0.W),A0
   MOVEQ #$50,D7
   MOVE.L  (A7)+,D0
+  ST.B IgnoreShift
 LAB_A12108:
   RTS
 ArMain:
@@ -4351,9 +4433,9 @@ ArMain:
   BEQ.S LAB_A1211E
   JMP LAB_A27018
 LAB_A1211E:
-  TST.B LAB_A48392
+  TST.B bootVirusFound
   BEQ.S LAB_A1212C
-  JSR SUB_A25462
+  JSR doVirusMenu
 LAB_A1212C:
   TST.B apiCall
   BNE.S .1
@@ -7861,7 +7943,7 @@ cmd_yyy_help:
 CMD_X:
   TST.B TBufferAllocated
   BEQ.S LAB_A12A58
-  TST.B LAB_A48393
+  TST.B killBufferFlag
   BNE.S LAB_A12A58
   LEA resetTBufferText(PC),A0
   BSR.W AskYN
@@ -8296,7 +8378,7 @@ CMD_D:
   CLR.W repeatCount
 dcont:
   CLR.L endAddress
-  SF  LAB_A48205
+  SF  PrintInsBreak
   BSR.W ReadParameter
   TST.B ParamFound
   BEQ.S CMD_TILDE
@@ -8324,7 +8406,7 @@ SUB_A12F08:
 LAB_A12F20:
   MOVEA.L D0,A0
   MOVE.L  D0,-(A7)
-  TST.B LAB_A48205
+  TST.B PrintInsBreak
   BEQ.S LAB_A12F46
   TST.B LAB_A480CA
   BEQ.S LAB_A12F46
@@ -8355,10 +8437,10 @@ LAB_A12F6A:
   BEQ.S LAB_A12F9C
   CMPI.W  #$001e,D0
   BEQ.S LAB_A12F9C
-  SF  LAB_A48205
+  SF  PrintInsBreak
   BRA.S LAB_A12FA2
 LAB_A12F9C:
-  ST  LAB_A48205
+  ST  PrintInsBreak
 LAB_A12FA2:
   TST.B debuggerMode
   BNE.S .2
@@ -8483,10 +8565,9 @@ prReady:
   JMP PrintReady
 
 CMD_RC:
-  BSR.W getVBR
-  MOVE.L ILLEG_OPC(a0),-(A7)
+  MOVE.L ILLEG_OPC.W,-(A7)
   CLR.L tempD0
-  MOVE.L #vbrtrap2,ILLEG_OPC(A0)
+  MOVE.L #vbrtrap2,ILLEG_OPC.W
 
   OPT p=68040
   MOVEC VBR,A0
@@ -8496,11 +8577,7 @@ CMD_RC:
 
   LEA vbrText(PC),A0
   BSR.W PrintText
-  SUB.L A0,A0
-  OPT p=68040
-  MOVEC VBR,A0
-  OPT p=68000
-  MOVE.L A0,D0
+  MOVE.L VBRSAVE,D0
   BSR PrintAddressHex
   LEA sfcText(PC),A0
   BSR.W PrintText
@@ -8542,8 +8619,7 @@ CMD_RC:
   BSR PrintAddressHex
   BSR PrintCR
 vbrclean:
-  BSR.W getVBR
-  MOVE.L (A7)+,ILLEG_OPC(A0)
+  MOVE.L (A7)+,ILLEG_OPC.W
   RTS
 
 novbr:
@@ -8561,10 +8637,9 @@ cacrText DC.B " CACR=",0
   even
 
 CMD_RF:
-  BSR.W getVBR
-  MOVE.L LINEF_EMU(A0),-(A7)
+  MOVE.L LINEF_EMU.W,-(A7)
   CLR.L tempD0
-  MOVE.L #fmovetrap,LINEF_EMU(A0)
+  MOVE.L #fmovetrap,LINEF_EMU.W
 
   CMP.B #5,cpuType
   BNE.S .not060
@@ -8720,8 +8795,7 @@ CMD_RF:
   BSR.W Print8DigitHex
   BSR PrintCR
 restorelinef:
-  BSR.W getVBR
-  MOVE.L (A7)+,LINEF_EMU(A0)
+  MOVE.L (A7)+,LINEF_EMU.W
   RTS
 
 nofpu:
@@ -9173,10 +9247,9 @@ LAB_16738:
 
 
 CMD_RM:
-  BSR.W getVBR
-  MOVE.L ILLEG_OPC(A0),-(A7)
+  MOVE.L ILLEG_OPC.W,-(A7)
   CLR.L tempD0
-  MOVE.L #vbrtrap2,ILLEG_OPC(A0)
+  MOVE.L #vbrtrap2,ILLEG_OPC.W
 
   OPT p=68040
   MOVEC ITT0,A0
@@ -9253,8 +9326,7 @@ CMD_RM:
   BSR PrintAddressHex
   BSR PrintCR
 mmuclean:
-  BSR.W getVBR
-  MOVE.L (A7)+,ILLEG_OPC(A0)
+  MOVE.L (A7)+,ILLEG_OPC.W
   RTS
 
 nommu:
@@ -10132,7 +10204,7 @@ repeatm:
   BSR.W PrintChar
   MOVE.L  A1,D0
   BSR.W PrintAddressHex
-  TST.W LAB_A35698
+  TST.W opcodeSize
   BNE.W LAB_A1387C
   MOVEQ #$F,D1
 LAB_A13832:
@@ -10176,12 +10248,12 @@ LAB_A13854:
   ADDQ.W #2,D1
   MOVE.W  D1,cursorX
   JSR UpdateSerCursor
-  BSR.W PrintCursor
+  JSR PrintCursor
   MOVEM.L (A7)+,D0-D1
   CLR.W repeatCount
   RTS
 LAB_A1387C:
-  CMPI.W  #1,LAB_A35698
+  CMPI.W  #1,opcodeSize
   BNE.S LAB_A138E6
   MOVEQ #7,D1
 LAB_A13888:
@@ -10264,7 +10336,7 @@ CMD_COLON:
   TST.B ParamFound
   BEQ.W PrintWTF
   MOVEA.L D0,A1
-  TST.W LAB_A35698
+  TST.W opcodeSize
   BNE.S LAB_A1398C
   MOVEQ #$F,D1
 LAB_A13964:
@@ -10281,7 +10353,7 @@ LAB_A13964:
   MOVEM.L (A7)+,D0-D1/D3/A1
   RTS
 LAB_A1398C:
-  CMPI.W  #1,LAB_A35698
+  CMPI.W  #1,opcodeSize
   BNE.S LAB_A139CC
   MOVEQ #7,D1
 LAB_A13998:
@@ -10326,10 +10398,11 @@ Init:
   MOVE.W  #$0110,dmacon+hardware
   SF  restartFlag
   ST  cursorEnabled
-  SF  LAB_A483DB
+  SF  PrintInverse
   SF  printerDumpToggle
   SF  scrollLock
   SF  LAB_A483CB
+  ST  IgnoreShift
   CLR.W BlankerCount
   CMPI.B  #$ff,ciabpra
   SNE PrinterFound
@@ -10398,8 +10471,9 @@ LAB_A13B08:
   LEA HeaderStarsText(PC),A0
   BSR.W PrintText
   MOVE.W  #8,BreakpointTrapNo
-  MOVE.L  TRAP_08.W,SaveTrap
-  MOVE.L  #$00000040,TRAP_08.W
+  MOVE.L VBRSAVE,A0
+  MOVE.L  TRAP_08(a0),SaveTrap
+  MOVE.L  #$00000040,TRAP_08(A0)
   LEA RemarksData,A0
   MOVEQ #$1D,D0
 LAB_A13B4A:
@@ -10418,24 +10492,24 @@ LAB_A13B62:
 .nocrc
   TST.B safeDiskInstallingFlag
   BNE.S LAB_A13B7C
-  SF  LAB_A483CD
+  SF  skipExecbaseCheck
 LAB_A13B7C:
   ST  forceUpper
   SF  EscapePressed
   SF  AltKey
-  SF  LAB_A48393
+  SF  killBufferFlag
   SF  TBufferAllocated
   SF  LAB_A4839B
   MOVE.L  #$ffffffff,oldTrackPositions
   CLR.L rootBlockLoadedFlags
   ST  LAB_A48334
-  CLR.W LAB_A481E8
+  CLR.W CursorFlashCounter
   SF  trackerPlaying
   CLR.W SaveCopJmp
   CLR.W picViewerMode
   TST.B TraceActive
   BNE.W LAB_A13C7C
-  TST.B LAB_A48392
+  TST.B bootVirusFound
   BEQ.S LAB_A13BEC
   BSR.W Cls
   LEA DangerText(PC),A0
@@ -10467,9 +10541,7 @@ LAB_A13C1E:
   LEA SaveCpuRegs,A0
   MOVEA.L $3C(A0),A1    ;get old A7
   MOVE.L  (A1),-(A7)
-  MOVE.L A0,D0
   JSR getVBR
-  MOVE.L D0,A0
   MOVEQ #0,D0
   MOVE.W  vbrflag,D0
   ADD.W   D0,D0
@@ -10502,9 +10574,7 @@ LAB_A13C7C:
   LEA SaveCpuRegs,A0
   MOVEA.L $3C(A0),A1
   MOVE.L  (A1),-(A7)
-  MOVE.L A0,D0
   JSR getVBR
-  MOVE.L D0,A0
   MOVEQ #0,D0
   MOVE.W  vbrflag,D0
   ADD.W   D0,D0
@@ -10545,6 +10615,8 @@ LAB_A13CCE:
   BSR.W PrintCrIfNotBlankLine
 LAB_A13D02:
   MOVE.L  SaveOldPc,DefaultAddress
+  MOVE.W	#$8100,dmacon+hardware
+ 
   MOVEA.L (A7)+,A0
   RTS
 MemoryByteText:
@@ -10558,7 +10630,7 @@ ChangedToText:
 
 aboutText:
   DC.B  "********************************************************************************"
-  DC.B  "                    ACTION REPLAY AMIGA V5.2.0 (31-Oct-2025)",$D
+  DC.B  "                    ACTION REPLAY AMIGA V5.2.1 (24-Dec-2025)",$D
   DC.B  "                          Developed by REbEL / QUARTEX",$D
   DC.B  "                    Hardware Engineering by NA103 and GERBIL",$D,$D
   DC.B  "               Based upon Action Replay MKIII (Datel Electronics)",$D
@@ -10573,16 +10645,14 @@ ResidentProgramText:
   DC.B  "Resident program allocated at: ",0
 
 DangerText:
-  DC.B  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-  DC.B  "+++++++++++++++++++!  D A N G E R  !  D A N G E R  !  D A N G"
-  DC.B  " E R  !  D A N G E R  !  D A N G E R !Bootblock is messing wi"
-  DC.B  "th the execbase -> maybe a virus (90%)",$D,"  Press f1 to continue"
-  DC.B  " booting                    f2 to display bootblock",$D,"        f"
-  DC.B  "3 to install normal bootblock            f4 to install anti-v"
-  DC.B  "irus-boot",$D,"        f5 to restore execbase and cont. booting  f"
-  DC.B  "6 to show changed vectors",$D,"       f10 to exit to monitor",$D,"+++++"
-  DC.B  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-  DC.B  "++++++++++++++",0
+  DC.B  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+  DC.B  "!  D A N G E R  !  D A N G E R  !  D A N G E R  !  D A N G E R  !  D A N G E R !"
+  DC.B  "Bootblock is messing with the execbase -> maybe a virus (90%)",$D
+  DC.B  "  Press f1 to continue booting                    f2 to display bootblock",$D
+  DC.B  "        f3 to install normal bootblock            f4 to install anti-virus-boot",$D
+  DC.B  "        f5 to restore execbase and cont. booting  f6 to show changed vectors",$D
+  DC.B  "       f10 to exit to monitor",$D
+  DC.B  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++",0
 
 AboutArText:
   DC.B  "                            __",13
@@ -10725,16 +10795,32 @@ LAB_A145D6:
 LAB_A145E2:
   MOVE.L  A0,D0
   ANDI.W  #$fffc,D0
-  CMPI.L  #$0000006c,D0
+
+  CMPI.L  #AUTO_INT5+4,D0
+  BHI.S .1
+
+  CMPI.L  #AUTO_INT5,D0
+  BCS.S .1
+
+  MOVE.L  A0,-(A7)
+  MOVE.L  A0,D0
+  SUBI.W  #AUTO_INT5,D0
+  LEA Int5Save,A0
+  BRA.S .2
+
+.1
+  CMPI.L  #AUTO_INT2+4,D0
   BHI.W LAB_A1456C
-  CMPI.L  #$00000068,D0
+  CMPI.L  #AUTO_INT2,D0
   BCS.W LAB_A1456C
   MOVE.L  A0,-(A7)
   MOVE.L  A0,D0
-  SUBI.W  #$0068,D0
+  SUBI.W  #AUTO_INT2,D0
   LEA Int2Save,A0
+.2
   LEA 0(A0,D0.W),A0
   BRA.W LAB_A14564
+
 
 memSafeUpdateByteWithMFM:
   CMP.L #SECSTRT_0,A0
@@ -10810,15 +10896,29 @@ LAB_A14654:
 LAB_A1465C:
   MOVE.L  A0,D1
   ANDI.W  #$fffc,D1
-  CMPI.L  #$0000006c,D1
+
+  CMPI.L  #AUTO_INT5+4,D0
+  BHI.S .1
+
+  CMPI.L  #AUTO_INT5,D0
+  BCS.S .1
+
+  MOVE.L  A0,D1
+  SUBI.W  #AUTO_INT5,D1
+  LEA Int5Save,A0
+  BRA.S .2
+
+.1
+  CMPI.L  #AUTO_INT2+4,D1
   BHI.S LAB_A1462E
-  CMPI.L  #$00000068,D1
+  CMPI.L  #AUTO_INT2,D1
   BCS.S LAB_A1462E
   MOVE.W  A0,D1
-  SUBI.W  #$0068,D1
+  SUBI.W  #AUTO_INT2,D1
   LEA Int2Save,A0
+.2
   LEA 0(A0,D1.W),A0
-  BRA.S LAB_A1462E
+  BRA.W LAB_A1462E
 CMD_C:
   MOVE.L  D0,-(A7)
   BSR.W ReadParameter
@@ -10907,7 +11007,7 @@ LAB_A14766:
   MOVE.L  D2,D0
   SWAP  D0
   ROR.W #8,D0
-  BSR.W Print2DigitHex
+  JSR Print2DigitHex
   MOVE.W  #$002c,D0
   BSR.W PrintChar
   MOVE.W  #$0024,D0
@@ -13408,6 +13508,8 @@ PrintChar:
   CMPI.B  #$7f,D1
   BLS.W LAB_A16C38
 LAB_A16B08:
+  TST.B IgnoreShift
+  BNE.S .noshift
   TST.B ShiftKey
   BEQ.S .noshift
   CMPI.B  #$0d,D1
@@ -13519,7 +13621,7 @@ LAB_A16C3E:
   MOVEQ #7,D0
 LAB_A16C54:
   MOVE.B  (A1)+,D3
-  TST.B LAB_A483DB
+  TST.B PrintInverse
   BEQ.S LAB_A16C60
   NOT.B D3
 LAB_A16C60:
@@ -13535,7 +13637,7 @@ PrintF9:
   TST.B ShiftKey
   BNE.W LAB_A17078
   ADDQ.B #1,keymap
-  CMP.B #3,keymap
+  CMP.B #4,keymap
   BNE.S nores
   MOVE.B #$FF,keymap
 nores:
@@ -13548,6 +13650,9 @@ nores:
   BEQ.S LAB_A16C94
   LEA ITKeymapText(PC),A0
   CMP.B #2,keymap
+  BEQ.S LAB_A16C94
+  LEA FRKeymapText(PC),A0
+  CMP.B #3,keymap
   BEQ.S LAB_A16C94
   LEA UKKeymapText(PC),A0
 LAB_A16C94:
@@ -13565,6 +13670,9 @@ UKKeymapText:
 
 ITKeymapText:
   DC.B  $D,"Keymap is set to italian",$D,0
+
+FRKeymapText:
+  DC.B  $D,"Keymap is set to french",$D,0
 
   even
 PrintF1:
@@ -14550,7 +14658,7 @@ LAB_A175DE:
 LAB_A1760C:
   CMPI.W  #$002a,D2     ;multiply
   BNE.S LAB_A1761A
-  BSR.W SUB_A1A758
+  BSR.W doMultiply
   MOVE.L  D0,D1
   BRA.S LAB_A175DE
 LAB_A1761A:  
@@ -15232,7 +15340,7 @@ BootIntercept:
 LAB_407C98:
   MOVEM.L D0-D7/A0-A6,-(A7)
   CMPI.L  #BRON_TAG,bronFlag
-  BEQ.W LAB_407E64
+  BEQ.W SoftBootIntercept
   MOVE.B frozenState,D2
   MOVE.W RegSnoop+dmacon,D1
   LEA arramstart,A0
@@ -15255,21 +15363,7 @@ LAB_407CF6:
   BSR.W FirstInit
   BSR.W GetDrivesConnected
   BSR.W FindMemoryRanges
-  MOVEQ #$10,D1
-  MOVE.W  LAB_A4822E,D0
-  BTST  #3,D0
-  BEQ.S LAB_407D24
-  BSET  #3,D1
-LAB_407D24:
-  BTST  #2,D0
-  BEQ.S LAB_407D34
-  BSET  #2,D1
-  BRA.S LAB_407D40
-LAB_407D34:
-  BTST  #1,D0
-  BEQ.S LAB_407D40
-  BSET  #1,D1
-LAB_407D40:
+  BSR GetmemoryControlPrefsValue
   MOVE.W  D1,memoryControlPrefsValue
   BSR ARInit
 
@@ -15282,7 +15376,6 @@ LAB_407D40:
 
   MOVEA.L EXT_F80004,A7
   JMP (A7)
-
 .1
   MOVEM.L (A7)+,D0-D7/A0-A6
   MOVE.L (A7)+,tempD0   ;get saved exception stackframe
@@ -15298,7 +15391,26 @@ LAB_407D40:
   JMP Freeze
 .2
   JMP exit_rte
-LAB_407E64:
+
+GetmemoryControlPrefsValue:
+  MOVEQ #$10,D1
+  MOVE.W  memConfigFlags,D0
+  BTST  #3,D0       ;1mb chip flag
+  BEQ.S LAB_407D24
+  BSET  #3,D1
+LAB_407D24:
+  BTST  #2,D0       ;1mb+ slow flag
+  BEQ.S LAB_407D34
+  BSET  #2,D1
+  BRA.S LAB_407D40
+LAB_407D34:
+  BTST  #1,D0       ;512k+ slow flag
+  BEQ.S LAB_407D40
+  BSET  #1,D1
+LAB_407D40:
+  RTS
+
+SoftBootIntercept:
   MOVEM.L (A7)+,D0-D7/A0-A6
   MOVE.L (A7)+,tempD0
   MOVE.L (A7)+,tempD1
@@ -15313,14 +15425,14 @@ LAB_407E64:
   CLR.W BlankerCount
   CLR.L LAB_A483A2
   CLR.L LAB_A483A6
-  JSR SUB_41BD86
+  JSR doAutoconfigMapping3
   BSR.W GetDrivesConnected
   MOVE.W  DrivesConnected,D0
   TST.B BurstNibblerFastStartPrefsFlag
   BEQ.S LAB_407EE0
   BTST  #6,ciaapra
   BNE.S LAB_407EE0
-  JSR SUB_41BC8A
+  ;JSR doAutoconfigMapping2
   MOVE.L  foundChipMemEnd,ChipMemEnd
   MOVE.L  foundSlowMemEnd,SlowMemEnd
   MOVE.W  #$ff00,potgo+hardware
@@ -15338,17 +15450,18 @@ LAB_407EE0:
   SF  TraceActive
   CLR.L TraceStepCount
   SF  breakpointsActive
+  CLR.B CapsLockActive
   CLR.W P1AutoFirePrefsSetting
   CLR.W P2AutoFirePrefsSetting
   SF  MegaStickPrefsFlag
   SF  autofireP1ORP2
-  SF  LAB_A48391
+  SF  extFuncCallFlag
   SF  LAB_A4838E
   SF  LAB_A4838F
   MOVE.W  DriveControlPrefsValue,D0
   CMP.W DrivesConnected,D0
   SNE updateDrivesConnectedFlag
-  MOVE.W  BootSelectPrefs,LAB_A4822A
+  MOVE.W  BootSelectPrefs,BootSelectPrefsCopy
   TST.W BootSelectPrefs
   SPL LAB_A481E5
   SPL LAB_A48336
@@ -15366,18 +15479,18 @@ LAB_407EE0:
 
   BSR.W SUB_408140
   MOVE.L  sqMemOverrideAddr,D0
-  CMP.L LAB_A48452,D0
+  CMP.L sqMemOverrideAddr2,D0
   BNE.S LAB_407FE0
-  MOVE.L  LAB_A4846A,D0
+  MOVE.L  autoConfigMemStart2,D0
   CMP.L autoConfigMemStart,D0
   BNE.S LAB_407FE0
-  MOVE.L  LAB_A4846E,D0
+  MOVE.L  autoConfigMemEnd2,D0
   CMP.L autoConfigMemEnd,D0
   BNE.S LAB_407FE0
-  MOVE.W  LAB_A4823C,D0
-  CMP.W LAB_A4822E,D0
+  MOVE.W  MemConfigFlagsCopy,D0
+  CMP.W memConfigFlags,D0
   BNE.S LAB_407FE0
-  MOVE.W  LAB_A4823E,D0
+  MOVE.W  memoryControlPrefsValueCopy,D0
   CMP.W memoryControlPrefsValue,D0
   BEQ.S LAB_407FE6
 LAB_407FE0:
@@ -15405,7 +15518,7 @@ LAB_408028:
   BNE.S LAB_408028
 LAB_408036:
   MOVE.L  (A7)+,EXT_0.W
-  BTST  #4,memoryControlPrefsValueLo
+  BTST  #4,memoryControlPrefsValueLo    ;clear mem flag
   BEQ.W LAB_4080C6
 
   MOVE.B  #0,ciaatodlo
@@ -15444,7 +15557,7 @@ LAB_4080A8:
   MOVE.B  ciaatodmid,D5
   LSL.W #8,D5
   MOVE.B  ciaatodlo,D5
-  CMP.W #175,D5
+  CMP.W #185,D5
   BLE.S LAB_4080A8
 
   BSR.W disableAllDma
@@ -15456,21 +15569,22 @@ LAB_4080B8:
 LAB_4080C6:
   TST.W acaflags
   BNE.S LAB_408104
-  CMP.B #34,kickstartVersion
+  CMP.B #37,kickstartVersion      ;memory control 1.x and 2.x only
   BHI.S LAB_408104
-  MOVE.W  LAB_A4822E,D0
+  MOVE.W  memConfigFlags,D0
   MOVE.W  memoryControlPrefsValue,D1
   ANDI.W  #8,D0
-  ANDI.W  #8,D1
+  ANDI.W  #8,D1     ;512k chipmem only flag
   CMP.W D0,D1
   BNE.S LAB_40812C
-  MOVE.W  LAB_A4822E,D0
+  MOVE.W  memConfigFlags,D0
   MOVE.W  memoryControlPrefsValue,D1
   ANDI.W  #7,D0
-  ANDI.W  #7,D1
-  CMPI.W  #7,D0
+  ANDI.W  #7,D1    ;slowfast control settings
+
+  CMPI.W  #7,D0   ; 1mb+ of slowfast?
   BNE.S LAB_408120
-  CMPI.W  #4,D0
+  CMPI.W  #4,D1   ; check maximum slowfast enabled
   BNE.S LAB_40812C
 LAB_408104:
   MOVEM.L (A7)+,D0-D7/A0-A6
@@ -15486,9 +15600,9 @@ LAB_408104:
   JMP exit_rte
 
 LAB_408120:
-  CMPI.W  #3,D0
+  CMPI.W  #3,D0     ;512k of slowfast found?
   BNE.S LAB_408104
-  CMPI.W  #2,D0
+  CMPI.W  #2,D1     ;check slowfast enabled
   BEQ.S LAB_408104
 LAB_40812C:
   MOVEM.L (A7)+,D0-D7/A0-A6
@@ -15501,21 +15615,25 @@ SUB_408140:
   CLR.L autoConfigMemEnd
   TST.B ExtMemAddPrefsFlag
   BEQ.S LAB_40816E
-  MOVE.L  LAB_A483AA,autoConfigMemStart
-  MOVE.L  LAB_A483AE,autoConfigMemEnd
+  MOVE.L  extMemStart,autoConfigMemStart
+  MOVE.L  extMemEnd,autoConfigMemEnd
   BRA.S LAB_40818C
 LAB_40816E:
-  TST.B AutoConfigPrefsFlag
+  TST.B AutoConfigPrefsDisableFlag
   BNE.S LAB_40818C
   MOVE.L  foundAutoConfigMemStart,autoConfigMemStart
   MOVE.L  foundAutoConfigMemEnd,autoConfigMemEnd
 LAB_40818C:
-  MOVE.L  #$00080000,ChipMemEnd
-  BTST  #3,memoryControlPrefsValueLo
-  BEQ.S LAB_4081AC
   MOVE.L  foundChipMemEnd,ChipMemEnd
+  CMPI.B  #37,kickstartVersion      ;memory control 1.x, 2.x only
+  BHI.S LAB_4081AC
+  BTST  #3,memoryControlPrefsValueLo
+  BNE.S LAB_4081AC
+  MOVE.L  #$00080000,ChipMemEnd
 LAB_4081AC:
   MOVE.L  foundSlowMemEnd,SlowMemEnd
+  CMPI.B  #37,kickstartVersion      ;memory control 1.x, 2.x only
+  BHI.S LAB_4081DE
   BTST  #2,memoryControlPrefsValueLo
   BNE.S LAB_4081DE
   MOVE.L  #$00c80000,SlowMemEnd
@@ -15539,9 +15657,13 @@ ARInit:
   BEQ.S .k3
 
   MOVE.B  EXT_F8000D,kickstartVersion
-
+  CMP.B #37,kickstartVersion
+  BNE.S .k3
+  CMP.L #$2d4c004e,$f802c2  ;has to be the a500 version of 37.175 otherwise 
+  BEQ.S .k3
+  ADD.B #1,kickstartVersion ;we treat this as 38 even though 38 rom doesnt exist
 .k3
-  JSR SUB_41BB88
+  JSR doAutoconfigMapping1
   BSR.W SUB_A17DF4
   MOVE.B  ExtMemAddPrefsFlag,NotExtMemAddPrefsFlag
   NOT.B NotExtMemAddPrefsFlag
@@ -15558,6 +15680,7 @@ ARInit:
   SF  TestPrefsFlag
   SF  LAB_A481E5
   CLR.B currDriveNo
+  CLR.B CapsLockActive
   SF  sqMemOverrideFlag
   ST  BurstNibblerFastStartPrefsFlag
   ST  DisableVposWrite 
@@ -15593,7 +15716,7 @@ LAB_A17D26:
   CLR.W P2AutoFirePrefsSetting
   SF  MegaStickPrefsFlag
   SF  autofireP1ORP2
-  SF  LAB_A48391
+  SF  extFuncCallFlag
   SF  LAB_A4838E
   SF  LAB_A4838F
   MOVE.B  #3,VirusCheckerSettingsPrefs
@@ -15621,7 +15744,7 @@ LAB_A17D26:
 .noprefs
   endc
 
-  LEA LAB_A483E0,A0
+  LEA megaStickWorkspace,A0
   MOVEQ #$35,D0
 LAB_A17DC8:
   CLR.B (A0)+
@@ -15652,7 +15775,7 @@ ArEntry1:
   CLR.B deepMemWatch
   BSR.W FindMemoryRanges
   MOVEQ #$10,D1
-  MOVE.W  LAB_A4822E,D0
+  MOVE.W  memConfigFlags,D0
   BTST  #3,D0
   BEQ.S LAB_A17C80
   BSET  #3,D1
@@ -15787,8 +15910,11 @@ FirstInit:
   if (arhardware+demon2)=1
   LEA arramstart+$BF000,A0
   endc
-  if (arhardware+demon2)=2
+  if (arhardware+demon2+arhardwarebase)=$a80002
   LEA arramstart+$3F000,A0
+  endc
+  if (arhardware+demon2+arhardwarebase)=$800002
+  LEA arramstart+$BF000,A0
   endc
   if (arhardware=1)
   MOVE.L A0,RegSnoopAddr
@@ -15815,11 +15941,11 @@ SUB_A17DF4:
   CLR.L autoConfigMemEnd
   TST.B ExtMemAddPrefsFlag
   BEQ.S LAB_A17E1E
-  MOVE.L  LAB_A483AA,autoConfigMemStart
-  MOVE.L  LAB_A483AE,autoConfigMemEnd
+  MOVE.L  extMemStart,autoConfigMemStart
+  MOVE.L  extMemEnd,autoConfigMemEnd
   BRA.S LAB_A17E3A
 LAB_A17E1E:
-  TST.B AutoConfigPrefsFlag
+  TST.B AutoConfigPrefsDisableFlag
   BNE.S LAB_A17E3A
   MOVE.L  foundAutoConfigMemStart,autoConfigMemStart
   MOVE.L  foundAutoConfigMemEnd,autoConfigMemEnd
@@ -16085,14 +16211,25 @@ LAB_A18164:
   BRA.W LAB_A18114
 
 CMD_RESETCFG:
+  if (arhardware=1)
+  JSR GetmemoryControlPrefsValue
+  MOVE.W D1,memoryControlPrefsValue
+  endc
+  LEA extMemStart,A0
+  ;CLR.L (A0)+
+  ;CLR.L (A0)+
+  ;CLR.L (A0)+
+  
+  MOVE.L foundAutoConfigMemStart,(a0)+
+  MOVE.L foundAutoConfigMemEnd,(a0)+
+  MOVE.L foundAutoConfigMemEnd,D0
+  SUB.L foundAutoConfigMemStart,D0
+  MOVE.L D0,(a0)
 
-  MOVE.W #$10,memoryControlPrefsValue
-  LEA LAB_A483AA,A0
-  CLR.L (A0)+
-  CLR.L (A0)+
-  CLR.L (A0)+
-
-  SF  AutoConfigPrefsFlag
+  CMP.L #$400000,D0   ;4mb of ram
+  SEQ  AutoConfigPrefsDisableFlag
+  SEQ  ExtMemAddPrefsFlag
+  
   CLR.B NoresPrefsFlag 
   CLR.B TestPrefsFlag
 
@@ -16116,7 +16253,6 @@ CMD_RESETCFG:
   CLR.W DriveControlPrefsValue
   MOVE.B  #3,VirusCheckerSettingsPrefs
   ST.B keymap
-  SF  ExtMemAddPrefsFlag
   CLR.L sqMemOverrideAddr
   ST  BurstNibblerFastStartPrefsFlag
   MOVE.L #9600,serSpeed 
@@ -16175,13 +16311,13 @@ CMD_FLASH:
   BSR.W PrintText
   MOVE.L  A2,D0
   JSR PrintAddressHex
-  ADD.L fileSize,D0
+  ADD.L FileReadSize,D0
   LEA LoadingToText,A0
   BSR.W PrintText
   JSR PrintAddressHex
   BSR.W PrintCrIfNotBlankLine
   MOVEA.L (A7)+,A0
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   JSR readFileData
 
   MOVE.B  (A7)+,currDriveNo
@@ -16196,7 +16332,7 @@ CMD_FLASH:
   BRA.W PrintReady
 .romok
   MOVE.L EXT_20000+$7C,D0
-  AND.L #$ffffC000,D0
+  AND.L #$fffc0000,D0
   CMP.L #SECSTRT_0,D0
   BEQ.S .correctrom
 
@@ -17096,6 +17232,7 @@ RestoreBreakpoints:
   MOVE.W  BreakpointTrapNo,D0
   LSL.W #2,D0
   LEA TRAP_00.W,A0
+  ADD.L VBRSAVE,A0
   CMPI.L  #$00000040,0(A0,D0.W)
   BEQ.S LAB_A18804
   MOVE.L  0(A0,D0.W),SaveTrap
@@ -17124,14 +17261,15 @@ LAB_A18826:
   MOVE.W  BreakpointTrapNo,D0
   LSL.W #2,D0
   LEA TRAP_00.W,A0
+  ADD.L VBRSAVE,A0
   MOVE.L  SaveTrap,0(A0,D0.W)
   SF  breakpointsActive
   RTS
 LAB_A1884E:
   MOVE.W  BreakpointTrapNo,D0
-  JSR getVBR
   LSL.W #2,D0
-  LEA TRAP_00(A0),A0
+  LEA TRAP_00.W,A0
+  ADD.L VBRSAVE,A0
   MOVE.L  #$00000040,0(A0,D0.W)
   LEA EXT_40.W,A3
 
@@ -17215,6 +17353,7 @@ LAB_A188F8:
   DBF D1,LAB_A188F8
   MOVE.W  BreakpointTrapNo,D0
   LEA TRAP_00.W,A0
+  ADD.L VBRSAVE,A0
   LSL.W #2,D0
   MOVE.L  SaveTrap,0(A0,D0.W)
   ADDQ.W  #1,BreakpointTrapNo
@@ -17500,9 +17639,7 @@ LAB_A18C86:
   ADDQ.B  #1,CopyDiwStop
   ADDQ.W  #1,LAB_A480DE
 LAB_A18C9C:
-  ST.B IgnoreShift
   JSR GetMappedKeyCode
-  SF.B IgnoreShift
   MOVE.W  KeyCode,D0
   JSR UpperCaseChar(PC)
   BEQ.W LAB_A19C8E
@@ -19797,30 +19934,30 @@ PlayerText:
   DC.B  "player?",$D,0
   even
 
-SUB_A1A758:
-  CLR.L LAB_A481C8
-  CLR.L LAB_A481CC
-  MOVE.L  D0,LAB_A481C0
-  MOVE.L  D1,LAB_A481C4
-  MOVE.W  LAB_A481C2,D0
-  MULU  LAB_A481C6,D0
-  MOVE.L  D0,LAB_A481CC
-  MOVE.W  LAB_A481C0,D0
-  MULU  LAB_A481C6,D0
-  ADD.L LAB_A481CA,D0
-  MOVE.L  D0,LAB_A481CA
-  MOVE.W  LAB_A481C2,D0
-  MULU  LAB_A481C4,D0
-  ADD.L LAB_A481CA,D0
+doMultiply:
+  CLR.L MultTemp5
+  CLR.L MultTemp7
+  MOVE.L  D0,MultTemp1
+  MOVE.L  D1,MultTemp3
+  MOVE.W  MultTemp2,D0
+  MULU  MultTemp4,D0
+  MOVE.L  D0,MultTemp7
+  MOVE.W  MultTemp1,D0
+  MULU  MultTemp4,D0
+  ADD.L MultTemp6,D0
+  MOVE.L  D0,MultTemp6
+  MOVE.W  MultTemp2,D0
+  MULU  MultTemp3,D0
+  ADD.L MultTemp6,D0
   BCC.S LAB_A1A7B4
-  ADDQ.W  #1,LAB_A481C8
+  ADDQ.W  #1,MultTemp5
 LAB_A1A7B4:
-  MOVE.L  D0,LAB_A481CA
-  MOVE.W  LAB_A481C0,D0
-  MULU  LAB_A481C4,D0
-  ADD.L LAB_A481C8,D0
-  MOVE.L  D0,LAB_A481C8
-  MOVE.L  LAB_A481CC,D0
+  MOVE.L  D0,MultTemp6
+  MOVE.W  MultTemp1,D0
+  MULU  MultTemp3,D0
+  ADD.L MultTemp5,D0
+  MOVE.L  D0,MultTemp5
+  MOVE.L  MultTemp7,D0
   RTS
 SUB_A1A7DA:
   MOVEM.L D3-D5,-(A7)
@@ -20292,15 +20429,15 @@ LAB_40B102:
   SUBA.L  A4,A4
 LAB_40B110:
   MOVE.L  A4,foundSlowMemEnd
-  ANDI.W  #$0018,LAB_A4822E
+  ANDI.W  #$0018,memConfigFlags
   CMPA.L  #0,A4
   BEQ.S LAB_40B14A
   CMPA.L  #$00c80000,A4
   BLS.S LAB_40B13A
-  BSET  #2,memConfigFlags
+  BSET  #2,memConfigFlagsLo
 LAB_40B13A:
-  BSET  #1,memConfigFlags
-  BSET  #0,memConfigFlags
+  BSET  #1,memConfigFlagsLo
+  BSET  #0,memConfigFlagsLo
 LAB_40B14A:
   endc
 
@@ -20327,10 +20464,10 @@ LAB_A1AD0E:
   MOVE.L D2,(A2)
   MOVEA.L A0,A3
   MOVE.L  A3,foundChipMemEnd
-  BCLR  #3,memConfigFlags
+  BCLR  #3,memConfigFlagsLo
   CMPA.L  #$80000,A3
   BEQ.S LAB_A1AD2E
-  BSET  #3,memConfigFlags
+  BSET  #3,memConfigFlagsLo
 LAB_A1AD2E:
   MOVEM.L (A7)+,D0-D4/A0-A4
   RTS
@@ -20953,12 +21090,12 @@ LAB_A1B2E6:
   SUBA.L  A0,A0
   RTS
 SUB_A1B2EC:
-  ST  LAB_A481E1
+  ST  printOneOnly
   BSR.S LAB_A1B306
-  SF  LAB_A481E1
+  SF  printOneOnly
   RTS
 LAB_A1B2FC:
-  SF  LAB_A481E1
+  SF  printOneOnly
   ;BRA.W LAB_A1B306
 LAB_A1B306:
   MOVE.L  A0,-(A7)
@@ -20985,7 +21122,7 @@ LAB_A1B338:
   BSR.W SUB_A1B220
   BSR.W PrintCrIfNotBlankLine
   MOVE.L  A0,D0
-  TST.B LAB_A481E1
+  TST.B printOneOnly
   BNE.S LAB_A1B356
   TST.L D0
   BNE.S LAB_A1B338
@@ -21008,6 +21145,9 @@ PrintInterrupts:
 LAB_40B89E:
   CMPI.B  #34,kickstartVersion
   BLS.W LAB_40B9CE
+
+
+;KS2+ code
   BRA.S LAB_40B8B0
 LAB_40B8AE:
   MOVE.L  A1,(A0)+
@@ -21024,6 +21164,7 @@ LAB_40B8B0:
   MOVEQ #0,D0
   MOVEA.L D0,A2
   MOVEA.L ChipMemEnd,A3
+  
   MOVE.L  D2,-(A7)
   LEA EXT_400.W,A0
   LEA EXT_F8031C,A1
@@ -21032,13 +21173,16 @@ LAB_40B8B0:
   SUB.L D1,D0
   MOVE.W  #$0303,D1
   MOVEQ #-10,D2
+
   PEA $00f81f32
-  JSR SUB_A253D0
+  JSR callExternalFunc
   MOVE.L  (A7)+,D2
+
+
   LEA EXT_400.W,A0
   MOVE.L  #$0000057c,D0
   PEA $00f81c02
-  JSR SUB_A253D0
+  JSR callExternalFunc
   MOVEA.L D0,A6
   SUBA.W  #$fce8,A6
   MOVE.L  A6,EXT_4.W
@@ -21064,7 +21208,7 @@ LAB_40B958:
   LEA EXT_F81F84,A1
   MOVEA.L A1,A2
   PEA $00f81ad0
-  JSR SUB_A253D0
+  JSR callExternalFunc
   MOVE.W  D0,$10(A6)
   MOVE.W  #$0264,$12(A6)
   LEA $17A(A6),A0
@@ -21079,12 +21223,15 @@ LAB_40B958:
   MOVE.L  A0,-(A0)
   LEA EXT_400.W,A1
   PEA $00f81904
-  JSR SUB_A253D0
+  JSR callExternalFunc
   LEA EXT_C00000,A0
   LEA EXT_DC0000,A1
   MOVEA.L SlowMemEnd,A4
   BSR dovpos0
+  
   JMP EXT_F802C2
+
+;KS1.x code
 LAB_40B9CC:
   MOVE.L  A1,(A0)+
 LAB_40B9CE:
@@ -21738,7 +21885,7 @@ LAB_A1BBCC:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D2,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   BRA.W LAB_A1C162
@@ -21792,7 +21939,7 @@ LAB_A1BC8C:
   MOVEM.L D0/A0,-(A7)
   MOVEA.L A4,A0
   MOVE.W  D2,D0
-  BSR.W memSafeWriteWord
+  JSR memSafeWriteWord
   ADDQ.W  #2,A4
   MOVEM.L (A7)+,D0/A0
   MOVE.W  #$4880,D0
@@ -22486,7 +22633,7 @@ LAB_A1C5AE:
   BRA.W LAB_A1C424
 LAB_A1C5BA:
   BSR.W readCmdChar
-  JSR AsciiCharToHexDigit(PC)
+  JSR AsciiCharToHexDigit
   CMPI.W  #7,D0
   BHI.W LAB_A1C424
   MOVE.L  D0,6(A1)
@@ -22508,7 +22655,7 @@ LAB_A1C5E4:
   BNE.W LAB_A1C424
 LAB_A1C60E:
   BSR.W readCmdChar
-  JSR AsciiCharToHexDigit(PC)
+  JSR AsciiCharToHexDigit
   CMPI.W  #7,D0
   BHI.W LAB_A1C424
   MOVE.L  D0,$E(A1)
@@ -22556,7 +22703,7 @@ LAB_A1C6A0:
   CMPI.W  #$0041,D0
   BNE.W LAB_A1C424
   BSR.W readCmdChar
-  BSR.W AsciiCharToHexDigit
+  JSR AsciiCharToHexDigit
   CMPI.W  #7,D0
   BHI.W LAB_A1C424
   MOVE.L  D0,2(A1)
@@ -22580,7 +22727,7 @@ LAB_A1C6EA:
   CMPI.W  #$0041,D0     ;A
   BNE.W LAB_A1C424
   BSR.W readCmdChar
-  BSR.W AsciiCharToHexDigit
+  JSR AsciiCharToHexDigit
   CMPI.W  #7,D0
   BHI.W LAB_A1C424
   MOVE.L  D0,2(A1)
@@ -23253,7 +23400,7 @@ PrintExceptions:
 LAB_A1CD6E:
   MOVE.W  (A2)+,D0
   EXT.L D0
-  JSR getVBR
+  MOVE.L VBRSAVE,A0
   ADD.L D0,A0
   JSR memSafeReadLong
   JSR PrintValue
@@ -23266,6 +23413,7 @@ LAB_A1CD6E:
   MOVEQ #$F,D2
   MOVEQ #0,D3
   LEA TRAP_00.W,A0
+  ADD.L VBRSAVE,A0
 LAB_A1CD9C:
   MOVE.W  D3,D0
   MOVEQ #1,D1
@@ -23322,7 +23470,7 @@ LAB_A1CFB2:
   DBF D0,LAB_A1CFB2
 
   MOVE.L A0,A1
-  JSR getVBR
+  MOVE.L VBRSAVE,A0
 
   if arhardware=0
   MOVE.L a1,TRAP_14(A0)
@@ -23597,11 +23745,11 @@ LAB_A1D3D0:
   MOVEA.L D0,A1
 LAB_A1D3E4:
   MOVE.L  A1,ramDiskMem
-  MOVE.W  LAB_A4822E,LAB_A4823C
-  MOVE.W  memoryControlPrefsValue,LAB_A4823E
-  MOVE.L  sqMemOverrideAddr,LAB_A48452
-  MOVE.L  autoConfigMemStart,LAB_A4846A
-  MOVE.L  autoConfigMemEnd,LAB_A4846E
+  MOVE.W  memConfigFlags,MemConfigFlagsCopy
+  MOVE.W  memoryControlPrefsValue,memoryControlPrefsValueCopy
+  MOVE.L  sqMemOverrideAddr,sqMemOverrideAddr2
+  MOVE.L  autoConfigMemStart,autoConfigMemStart2
+  MOVE.L  autoConfigMemEnd,autoConfigMemEnd2
   MOVE.L  #$00080000,ramDiskMem2
   CMPI.L  #$00100000,ChipMemEnd
   BGE.S LAB_A1D44E
@@ -25649,8 +25797,8 @@ PrefsSettingPage1:
   DC.L  $800c0007,$00270008
   DC.B  " External Memory",0
   even
-  DC.L  $800e0009,$00180009
-  DC.B  "$       -$",0
+  DC.L  $800f0009,$00180009
+  DC.B  "$      -$",0
   even
   DC.L  $0001000c,$0027000f
   DC.B  " Module Interna",0
@@ -25863,8 +26011,8 @@ LAB_A1E6CC:
   BNE.S LAB_A1E6DC
   TST.W acaflags
   BNE.S LAB_A1E6DC
-  CMPI.B  #34,kickstartVersion
-  BHI.S LAB_A1E6DC
+  ;CMPI.B  #34,kickstartVersion
+  ;BHI.S LAB_A1E6DC
   NOT.B ExtMemAddPrefsFlag
   BRA.W LAB_A1E646
 LAB_A1E6DC:
@@ -25949,10 +26097,10 @@ LAB_A1E7B2:
   BHI.S LAB_A1E7D4
   TST.W acaflags
   BNE.S LAB_A1E7D4
-  CMPI.B  #34,kickstartVersion
+  CMPI.B  #37,kickstartVersion      ;memory control 1.x, 2.x only
   BHI.S LAB_A1E7D4
 ; memory control settings
-  BTST  D0,memConfigFlags
+  BTST  D0,memConfigFlagsLo
   BEQ.W LAB_A1E646
   ANDI.W  #$fff8,memoryControlPrefsValue
   BSET  D0,memoryControlPrefsValueLo
@@ -25962,7 +26110,7 @@ LAB_A1E7D4:
   BNE.S LAB_A1E7E6
   TST.W acaflags
   BNE.S LAB_A1E7E6
-  CMPI.B  #34,kickstartVersion
+  CMPI.B  #37,kickstartVersion      ;memory control 1.x, 2.x only
   BHI.S LAB_A1E7E6
 ; chipram control settings
   BCLR  #3,memoryControlPrefsValueLo
@@ -25972,9 +26120,9 @@ LAB_A1E7E6:
   BNE.S LAB_A1E804
   TST.W acaflags
   BNE.S LAB_A1E804
-  CMPI.B  #34,kickstartVersion
+  CMPI.B  #37,kickstartVersion      ;memory control 1.x, 2.x only
   BHI.S LAB_A1E804
-  BTST  #3,memConfigFlags
+  BTST  #3,memConfigFlagsLo
   BEQ.W LAB_A1E646
   BSET  #3,memoryControlPrefsValueLo
   BRA.W LAB_A1E646
@@ -25987,10 +26135,10 @@ LAB_A1E810:
   BNE.S LAB_A1E834
   TST.W acaflags
   BNE.S LAB_A1E834
-  CMPI.B  #34,kickstartVersion
-  BHI.S LAB_A1E834
+  ;CMPI.B  #34,kickstartVersion
+  ;BHI.S LAB_A1E834
   BSR.W drawPrefsHighlightsPage1
-  MOVE.L  LAB_A483AA,D0
+  MOVE.L  extMemStart,D0
   MOVEQ #6,D1
   MOVE.L  #$00100009,D7
   BSR.W SUB_A1EE00
@@ -26001,12 +26149,12 @@ LAB_A1E834:
   BNE.S LAB_A1E88C
   TST.W acaflags
   BNE.S LAB_A1E88C
-  CMPI.B  #34,kickstartVersion
-  BHI.S LAB_A1E88C
+  ;CMPI.B  #34,kickstartVersion
+  ;BHI.S LAB_A1E88C
   BSR.W drawPrefsHighlightsPage1
-  MOVE.L  LAB_A483AA,D2
+  MOVE.L  extMemStart,D2
 LAB_A1E846:
-  MOVE.L  LAB_A483AE,D0
+  MOVE.L  extMemEnd,D0
   MOVEQ #6,D1
   MOVE.L  #$00180009,D7
   BSR.W SUB_A1EE00
@@ -26018,15 +26166,15 @@ LAB_A1E846:
   MOVEA.L D3,A1
   BCLR  #0,D2
   BCLR  #0,D3
-  MOVE.L  D2,LAB_A483AA
-  MOVE.L  D3,LAB_A483AE
+  MOVE.L  D2,extMemStart
+  MOVE.L  D3,extMemEnd
   SUB.L D2,D3
-  MOVE.L  D3,LAB_A483B2
+  MOVE.L  D3,extMemSize
   BRA.W LAB_A1E646
 LAB_A1E88C:
   CMPI.W  #$0058,D0
   BNE.S LAB_A1E89C
-  NOT.B AutoConfigPrefsFlag
+  NOT.B AutoConfigPrefsDisableFlag
   BRA.W LAB_A1E646
 LAB_A1E89C:
   BRA.W LAB_A1E646
@@ -26099,7 +26247,7 @@ LAB_A1E91A:
 ; bootblock coder setting
   TST.W acaflags
   BNE.S LAB_A1E934
-  CMPI.B  #38,kickstartVersion
+  CMPI.B  #40,kickstartVersion      ;bootblock coder 3.1 and below only
   BHI.S LAB_A1E934
   NOT.B BootblockCoderPrefsFlag
   ;BEQ.W LAB_A1E8B8
@@ -26110,7 +26258,7 @@ LAB_A1E934:
   BNE.S LAB_A1E972
   TST.W acaflags
   BNE.S LAB_A1E972
-  CMPI.B  #38,kickstartVersion    ;bootblock coder 1.x, 2.x only
+  CMPI.B  #40,kickstartVersion    ;bootblock coder 3.1 and below only
   BHI.S LAB_A1E972
 ; Bootblock coder value
   BSR.W drawPrefsHighlightsPage2
@@ -26182,7 +26330,7 @@ LAB_A1E9F0:
   BHI.S LAB_A1EA14
   TST.W acaflags
   BNE.S LAB_A1EA14
-  CMPI.B  #34,kickstartVersion      ;drive control 1.x only
+  CMPI.B  #40,kickstartVersion      ;drive control 3.1 and below only
   BHI.S LAB_A1EA14
 ; Drive control setting
   SUBI.W  #$0010,D0
@@ -26204,7 +26352,7 @@ LAB_A1EA14:
   if arhardware=1
   TST.W acaflags
   BNE.S LAB_A1EA72
-  CMPI.B  #38,kickstartVersion    ;virus boot ks 1.x and 2.x only
+  CMPI.B  #40,kickstartVersion    ;virus boot ks 3.1 or lower
   BHI.S LAB_A1EA72
   else
   BRA.S LAB_A1EA72
@@ -26361,6 +26509,9 @@ drawPrefsHighlightsPage2:
   CMP.W #6,D0
   BNE.S .dis
 
+  CMP.B #40,kickstartVersion
+  BLS.S .dis2a
+
   MOVEQ #16,D0
 .dis2
   JSR disablePrefsBox(PC)   ;disable drive control
@@ -26368,7 +26519,7 @@ drawPrefsHighlightsPage2:
   CMP.W #20,D0
   BNE.S .dis2
 
-
+.dis2a
   MOVEQ #23,D0    ;disable safedisk resident
   JSR disablePrefsBox(PC)
 
@@ -26381,8 +26532,8 @@ drawPrefsHighlightsPage2:
   TST.W acaflags
   BNE.S .do2
 
-  CMP.B #39,kickstartVersion
-  BLO.S .dis3
+  CMP.B #40,kickstartVersion
+  BLS.S .dis3
 
 .do2
   MOVEQ #22,D0              ;disable virus boot
@@ -26414,7 +26565,7 @@ LAB_A1EB54:
   BLS.S LAB_A1EB44
   TST.W acaflags
   BNE.S .do3
-  CMPI.B  #34,kickstartVersion
+  CMPI.B  #34,kickstartVersion      ;boot selector - ks 1.x
   BLS.S LAB_A1EB78
 .do3
   MOVEQ #0,D0
@@ -26534,8 +26685,8 @@ drawPrefsHighlightsPage1:
 
   TST.W acaflags
   BNE.S .do
-  CMP.B #34,kickstartVersion
-  BLS.S .is13
+  CMP.B #37,kickstartVersion      ;memory control - ks 1.x / 2.x
+  BLS.S .memok
 
 .do
   MOVEQ #0,D0
@@ -26545,13 +26696,16 @@ drawPrefsHighlightsPage1:
   CMP.L #5,D0
   BNE.S .dis
 
+  TST.W acaflags
+  BEQ.S .memok
+
   MOVEQ #6,D0    ;disable memory add
   JSR disablePrefsBox(PC)
 
-.is13:
+.memok:
   endc
   MOVEQ #0,D0
-  MOVE.W  LAB_A4822E,D1
+  MOVE.W  memConfigFlags,D1
   MOVEQ #2,D2
 LAB_A1ECA0:
   LSR.W #1,D1
@@ -26588,10 +26742,10 @@ LAB_A1ECE4:
   MOVEQ #5,D0
   JSR highlightPrefsBox(PC)
 LAB_A1ECF0:
-  MOVE.L  LAB_A483AA,D0
-  MOVE.L  #$000f0009,cursorX
+  MOVE.L  extMemStart,D0
+  MOVE.L  #$00100009,cursorX
   JSR Print6DigitHex
-  MOVE.L  LAB_A483AE,D0
+  MOVE.L  extMemEnd,D0
   MOVE.L  #$00180009,cursorX
   JSR Print6DigitHex
   TST.B ExtMemAddPrefsFlag
@@ -26665,7 +26819,7 @@ LAB_A1EDC4:
   ADD.W D1,D0
   BSR.W highlightPrefsBox
   MOVEQ #$58,D0
-  TST.B AutoConfigPrefsFlag
+  TST.B AutoConfigPrefsDisableFlag
   BNE.S LAB_A1EDFA
   JSR highlightPrefsBox(PC)
 LAB_A1EDFA:
@@ -27091,13 +27245,13 @@ LAB_A1F270:
   MOVEQ #1,D3
   LSR.L #1,D0
   BNE.S LAB_A1F27C
-  BSR.S SUB_A1F2F4
+  BSR.W SUB_A1F2F4
 LAB_A1F27C:
   BCS.S LAB_A1F2CA
   MOVEQ #3,D1
   CLR.W D4
 LAB_A1F282:
-  BSR.S SUB_A1F300
+  BSR.W SUB_A1F300
   MOVE.W  D2,D3
   ADD.W D4,D3
 LAB_A1F288:
@@ -27109,7 +27263,7 @@ LAB_A1F28A:
 LAB_A1F290:
   ROXL.L  #1,D2
   DBF D1,LAB_A1F28A
-  MOVE.B  D2,-(A2)
+  MOVE.B  D2,-(A2) 
   DBF D3,LAB_A1F288
   BRA.S LAB_A1F2D6
 LAB_A1F29E:
@@ -27139,7 +27293,7 @@ LAB_A1F2CC:
   SUBQ.W  #1,A2
   MOVE.B  0(A2,D2.W),(A2)
   DBF D3,LAB_A1F2CC
-LAB_A1F2D6:
+LAB_A1F2D6: 
   CMPA.L  A2,A1
   BLT.W LAB_A1F216
   TST.L D5
@@ -29529,12 +29683,12 @@ LAB_A1FA00:
   DBF D0,LAB_A1FA00
   MOVEM.L (A7)+,D0-D1/A0-A1
   ST  currTrackNo
-  ST  LAB_A4824A
+  ST  currDriveNoCopy
   SF  TrackBufferModified
   SF  LAB_A4824C
-  ST  LAB_A4824D
+  ST  doSectorCRCFlag
   SF  LAB_A48333
-  SF  LAB_A48335
+  SF  fixSectorError
   MOVE.W  #$8002,intreq+hardware
   RTS
 restoreMfmBuffer:
@@ -30062,7 +30216,7 @@ decodeAdosSectorMfm:
   MOVEM.L D1-D7/A0-A3,-(A7)
   MOVE.L  #$55555555,D6
   MOVEM.L A0-A1,-(A7)
-  TST.B LAB_A4824D
+  TST.B doSectorCRCFlag
   BEQ.S LAB_A1FECC
 ;calculate data checksum
   LEA $40(A0),A0
@@ -30085,7 +30239,7 @@ LAB_A1FECC:
   BSR.W SUB_A20290
   MOVEM.L (A7)+,A0-A1
   MOVEA.L A1,A3
-  TST.B LAB_A4824D
+  TST.B doSectorCRCFlag
   BEQ.S LAB_A1FF0E
   MOVEQ #0,D7
   LEA 8(A0),A2
@@ -30111,7 +30265,7 @@ LAB_A1FF1C:
   OR.L  D2,D1
   MOVE.L  D1,(A1)+
   DBF D0,LAB_A1FF10
-  TST.B LAB_A4824D
+  TST.B doSectorCRCFlag
   BEQ.S LAB_A1FF4C
   MOVEQ #-9,D0        ;not a dos track error
   CMPI.B  #$ff,4(A3)
@@ -30129,17 +30283,17 @@ LAB_A1FF4E:
   MOVEM.L (A7)+,D1-D7/A0-A3
   RTS
 LAB_A1FF56:
-  TST.B LAB_A48335
+  TST.B fixSectorError
   BEQ.S LAB_A1FF4E
   MOVE.B  #$ff,4(A3)
   BRA.S LAB_A1FF4C
 LAB_A1FF66:
-  TST.B LAB_A48335
+  TST.B fixSectorError
   BEQ.S LAB_A1FF4E
   MOVE.L  D7,$18(A3)
   BRA.S LAB_A1FF4C
 LAB_A1FF74:
-  TST.B LAB_A48335
+  TST.B fixSectorError
   BEQ.S LAB_A1FF4E
   MOVE.L  D5,$1C(A3)
   BRA.S LAB_A1FF4C
@@ -30835,7 +30989,7 @@ loadSector:
   BSR.S stepToTrack2
   BMI.S LAB_A207A2
   MOVE.B  currDriveNo,D0
-  CMP.B LAB_A4824A,D0
+  CMP.B currDriveNoCopy,D0
   BNE.S LAB_A2078C
   CMP.B currTrackNo,D1
   BEQ.S LAB_A20792
@@ -30885,7 +31039,7 @@ LAB_A207B2:
   BMI.S LAB_A207DE
 .1
   MOVE.B  D2,currTrackNo
-  MOVE.B  currDriveNo,LAB_A4824A
+  MOVE.B  currDriveNo,currDriveNoCopy
   SF  TrackBufferModified
   MOVEM.L (A7)+,D1-D2
   MOVEQ #0,D0
@@ -30896,7 +31050,7 @@ LAB_A207DE:
   DBF D1,LAB_A207B2
 LAB_A207E8:
   ST  currTrackNo
-  ST  LAB_A4824A
+  ST  currDriveNoCopy
   MOVEM.L (A7)+,D1-D2
   TST.W D0
   RTS
@@ -30904,7 +31058,7 @@ SUB_A207FC:
   BSR.W stepToTrack2
   BMI.S LAB_A2084A
   MOVE.B  currDriveNo,-(A7)
-  MOVE.B  LAB_A4824A,currDriveNo
+  MOVE.B  currDriveNoCopy,currDriveNo
   MOVE.L  D1,-(A7)
   MOVEQ #5,D1
 
@@ -30915,7 +31069,7 @@ LAB_A2081A:
   MOVE.L  (A7)+,D1
   MOVE.B  (A7)+,currDriveNo
   ST  currTrackNo
-  ST  LAB_A4824A
+  ST  currDriveNoCopy
   SF  TrackBufferModified
   MOVEQ #0,D0
   RTS
@@ -30929,7 +31083,7 @@ LAB_A2084A:
 SUB_A2084E:
   CMPI.B  #$ff,currTrackNo
   BEQ.S LAB_A2086C
-  CMPI.B  #$ff,LAB_A4824A
+  CMPI.B  #$ff,currDriveNoCopy
   BEQ.S LAB_A2086C
   TST.B TrackBufferModified
   BEQ.S LAB_A2086C
@@ -31208,7 +31362,7 @@ LAB_A20BB4:
   MOVEA.L A1,A0
   BSR.W SUB_A20AF8
   BSR.W SUB_A20132
-  MOVE.B  currDriveNo,LAB_A4824A
+  MOVE.B  currDriveNo,currDriveNoCopy
   SF  TrackBufferModified
   MOVE.W  #$009f,D1
 LAB_A20BF6:
@@ -31320,7 +31474,7 @@ VerifyingText:
 
 doVerify:
   MOVEM.L D1-D2/A1,-(A7)
-  ST  LAB_A4824D
+  ST  doSectorCRCFlag
   MOVE.W  #0,D2
 LAB_A20D6A:
   MOVEA.L A0,A1
@@ -31349,7 +31503,7 @@ LAB_A20D6A:
   BLS.S LAB_A20D6A
   MOVEQ #0,D0
 LAB_A20DBE:
-  ST  LAB_A4824D
+  ST  doSectorCRCFlag
   MOVEM.L (A7)+,D1-D2/A1
   TST.W D0
   RTS
@@ -31651,7 +31805,7 @@ LAB_A21138:
   MOVE.W  #$0200,DataBlockSize
 LAB_A21156:
   CLR.W dataBLockSequenceNum
-  CLR.L LAB_A48314
+  CLR.L FileWriteSize
   CLR.L currentHeaderBlock
   CLR.W diskOpResult2
   MOVEQ #0,D0
@@ -31701,7 +31855,7 @@ LAB_A2118C:
   TST.W D0
   BMI.W LAB_A21292
   MOVE.L  #2,(A1)
-  MOVE.L  LAB_A48314,$144(A1)
+  MOVE.L  FileWriteSize,$144(A1)
   MOVE.B  FilenameLenLo,$1B0(A1)
   MOVEQ #0,D0
   LEA $1B1(A1),A4
@@ -31812,7 +31966,7 @@ memSafeWriteFileBytes:
 LAB_A21342:
   MOVE.L  D1,D0
   MOVE.L  D0,D3
-  ADD.L D0,LAB_A48314
+  ADD.L D0,FileWriteSize
   BSR.W SUB_A215DC
   BMI.W LAB_A213F6
 LAB_A21354:
@@ -31881,7 +32035,7 @@ writeFileBytes:
 LAB_A21424:
   MOVE.L  D1,D0
   MOVE.L  D0,D3
-  ADD.L D0,LAB_A48314
+  ADD.L D0,FileWriteSize
   BSR.W SUB_A215DC
   BMI.W LAB_A214D0
 LAB_A21436:
@@ -31946,7 +32100,7 @@ LAB_A214D8:
 LAB_A214F2:
   MOVE.L  D1,D0
   MOVE.L  D0,D3
-  ADD.L D0,LAB_A48314
+  ADD.L D0,FileWriteSize
   BSR.W SUB_A215DC
   BMI.S LAB_A21558
 LAB_A21502:
@@ -31994,7 +32148,7 @@ LAB_A21560:
 LAB_A2157A:
   MOVE.L  D1,D0
   MOVE.L  D0,D3
-  ADD.L D0,LAB_A48314
+  ADD.L D0,FileWriteSize
   BSR.S SUB_A215DC
   BMI.S LAB_A215D4
 LAB_A21588:
@@ -32039,7 +32193,7 @@ LAB_A215F0:
   CMPI.W  #$01e8,DataBlockSize
   BEQ.S LAB_A21602
 LAB_A215FA:
-  MOVE.L  LAB_A4830C,D1
+  MOVE.L  allocatedBlock,D1
   BRA.S LAB_A21648
 LAB_A21602:
   CLR.W DataBlockSize
@@ -32062,7 +32216,7 @@ LAB_A21632:
   BMI.S LAB_A2164A
   MOVE.L  D1,D0
   BSR.W SUB_A2186A
-  MOVE.L  D1,LAB_A4830C
+  MOVE.L  D1,allocatedBlock
   ADDQ.W  #1,dataBLockSequenceNum
 LAB_A21648:
   MOVEQ #0,D0
@@ -32087,7 +32241,7 @@ LAB_A21666:
   BRA.S LAB_A21690
 SUB_A21674:
   MOVE.L A0,-(A7)
-  LEA LAB_A44FE2,A0
+  LEA DiskBitmap2,A0
   MOVEQ #$1B,D0
 LAB_A21680:
   TST.L (A0)+
@@ -32614,13 +32768,13 @@ apiLoadFile2:
   JSR PrintText
   MOVE.L  A2,D0
   JSR PrintAddressHex
-  ADD.L fileSize,D0
+  ADD.L FileReadSize,D0
   LEA LoadingToText(PC),A0
   JSR PrintText
   JSR PrintAddressHex
   JSR PrintCrIfNotBlankLine
   MOVEA.L (A7)+,A0
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   BSR.S readFileData
 LAB_A21BC6:
   MOVE.B  (A7)+,currDriveNo
@@ -32649,7 +32803,7 @@ readFileData:
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D1,D0
-  BSR.W SUB_A21D10
+  BSR.W memSafeReadFileBytes
   BRA.S LAB_A21C58
 LAB_A21C20:
   MOVE.L  D0,D1
@@ -32662,7 +32816,7 @@ LAB_A21C20:
   BSR.W SUB_A22006
   BMI.S LAB_A21C58
   MOVE.L  D2,D0
-  BSR.W SUB_A21D10
+  BSR.W memSafeReadFileBytes
   BMI.S LAB_A21C58
 LAB_A21C48:
   LEA EXT_7000.W,A1
@@ -32734,13 +32888,13 @@ LAB_A21D08:
   MOVEM.L (A7)+,D1-D2/A1
   TST.W D0
   RTS
-SUB_A21D10:
+memSafeReadFileBytes:
   TST.B FastFileSystemFlag1
   BNE.W LAB_A21DF4
   MOVEM.L D1-D3/A1,-(A7)
   MOVE.L  D0,D3
   MOVE.W  LAB_A48322,D2
-  MOVE.L  LAB_A4831A,D0
+  MOVE.L  NextDataBlock,D0
   BSR.W loadSector
   BMI.S LAB_A21D7A
   EXG A0,A2
@@ -32762,7 +32916,7 @@ LAB_A21D52:
   MOVEQ #-22,D0
   BRA.S LAB_A21D82
 LAB_A21D5E:
-  MOVE.L  D0,LAB_A4831A
+  MOVE.L  D0,NextDataBlock
   EXG A0,A2
   BSR.W loadSector
   BMI.S LAB_A21D7A
@@ -32785,7 +32939,7 @@ readFileBytes:
   MOVEM.L D1-D3/A1,-(A7)
   MOVE.L  D0,D3
   MOVE.W  LAB_A48322,D2
-  MOVE.L  LAB_A4831A,D0
+  MOVE.L  NextDataBlock,D0
   BSR.W loadSector
   BMI.S LAB_A21DE8
   EXG A0,A2
@@ -32805,7 +32959,7 @@ LAB_A21DC0:
   MOVEQ #-22,D0
   BRA.S LAB_A21DF0
 LAB_A21DCC:
-  MOVE.L  D0,LAB_A4831A
+  MOVE.L  D0,NextDataBlock
   EXG A0,A2
   BSR.W loadSector
   BMI.S LAB_A21DE8
@@ -32826,7 +32980,7 @@ LAB_A21DF4:
   MOVEM.L D1-D3/A1/A3-A4,-(A7)
   MOVE.L  D0,D3
   MOVE.W  LAB_A48322,D2
-  MOVEA.L LAB_A4831A,A3
+  MOVEA.L NextDataBlock,A3
   MOVEQ #0,D0
   MOVE.W  (A3),D0
   BSR.W loadSector
@@ -32839,7 +32993,7 @@ LAB_A21E1A:
   JSR memSafeUpdateByte
   ADDQ.L  #1,A0
   ADDQ.W  #1,D2
-  ADDQ.L  #1,LAB_A484D6
+  ADDQ.L  #1,fileCurrPos
   SUBQ.L  #1,D3
   BEQ.S LAB_A21EAE
   CMPI.W  #$0200,D2
@@ -32847,10 +33001,10 @@ LAB_A21E1A:
 LAB_A21E38:
   MOVEQ #0,D2
   MOVEQ #-22,D0
-  MOVE.L  LAB_A484D6,D1
-  CMP.L fileSize,D1
+  MOVE.L  fileCurrPos,D1
+  CMP.L FileReadSize,D1
   BCC.S LAB_A21EC0
-  CMPI.L  #hashTable,LAB_A4831A
+  CMPI.L  #hashTable,NextDataBlock
   BNE.S LAB_A21E90
   MOVE.L  fileExtensionBlock,D0
   BNE.S LAB_A21E62
@@ -32869,12 +33023,12 @@ LAB_A21E80:
   MOVE.W  2(A4),(A3)+
   ADDQ.L  #4,A4
   DBF D0,LAB_A21E80
-  MOVE.L  A3,LAB_A4831A
+  MOVE.L  A3,NextDataBlock
 LAB_A21E90:
-  MOVEA.L LAB_A4831A,A3
+  MOVEA.L NextDataBlock,A3
   MOVEQ #0,D0
   MOVE.W  -(A3),D0
-  MOVE.L  A3,LAB_A4831A
+  MOVE.L  A3,NextDataBlock
   EXG A0,A2
   BSR.W loadSector
   BMI.S LAB_A21EB8
@@ -32895,7 +33049,7 @@ LAB_A21EC4:
   MOVEM.L D1-D3/A1/A3-A4,-(A7)
   MOVE.L  D0,D3
   MOVE.W  LAB_A48322,D2
-  MOVEA.L LAB_A4831A,A3
+  MOVEA.L NextDataBlock,A3
   MOVEQ #0,D0
   MOVE.W  (A3),D0
   BSR.W loadSector
@@ -32906,7 +33060,7 @@ LAB_A21EC4:
 LAB_A21EEA:
   MOVE.B  0(A1,D2.W),(A0)+
   ADDQ.W  #1,D2
-  ADDQ.L  #1,LAB_A484D6
+  ADDQ.L  #1,fileCurrPos
   SUBQ.L  #1,D3
   BEQ.S LAB_A21F76
   CMPI.W  #$0200,D2
@@ -32914,10 +33068,10 @@ LAB_A21EEA:
 LAB_A21F00:
   MOVEQ #0,D2
   MOVEQ #-22,D0
-  MOVE.L  LAB_A484D6,D1
-  CMP.L fileSize,D1
+  MOVE.L  fileCurrPos,D1
+  CMP.L FileReadSize,D1
   BCC.S LAB_A21F88
-  CMPI.L  #hashTable,LAB_A4831A
+  CMPI.L  #hashTable,NextDataBlock
   BNE.S LAB_A21F58
   MOVE.L  fileExtensionBlock,D0
   BNE.S LAB_A21F2A
@@ -32936,12 +33090,12 @@ LAB_A21F48:
   MOVE.W  2(A4),(A3)+
   ADDQ.L  #4,A4
   DBF D0,LAB_A21F48
-  MOVE.L  A3,LAB_A4831A
+  MOVE.L  A3,NextDataBlock
 LAB_A21F58:
-  MOVEA.L LAB_A4831A,A3
+  MOVEA.L NextDataBlock,A3
   MOVEQ #0,D0
   MOVE.W  -(A3),D0
-  MOVE.L  A3,LAB_A4831A
+  MOVE.L  A3,NextDataBlock
   EXG A0,A2
   BSR.W loadSector
   BMI.S LAB_A21F80
@@ -32972,11 +33126,11 @@ OpenFile:
   MOVE.L  D1,D0
   BSR.W loadSector
   BMI.S LAB_A21FFE
-  MOVE.L  $10(A1),LAB_A4831A
-  MOVE.L  $144(A1),fileSize
+  MOVE.L  $10(A1),NextDataBlock
+  MOVE.L  $144(A1),FileReadSize
   MOVE.L  $1F8(A1),fileExtensionBlock
   CLR.W LAB_A48322
-  CLR.L LAB_A484D6
+  CLR.L fileCurrPos
   TST.B FastFileSystemFlag1
   BEQ.S LAB_A21FFC
   LEA hashTable,A2
@@ -32987,7 +33141,7 @@ LAB_A21FEA:
   ADDQ.L  #4,A1
   DBF D0,LAB_A21FEA
   SUBQ.L  #2,A2
-  MOVE.L  A2,LAB_A4831A
+  MOVE.L  A2,NextDataBlock
 LAB_A21FFC:
   MOVEQ #0,D0
 LAB_A21FFE:
@@ -33382,8 +33536,8 @@ LAB_A223FC:
   MOVE.W  #$4000,intena+hardware
   JSR SwapChipRam1
   MOVE.L  Int2Save,AUTO_INT2.W
-  MOVE.L  Int3Save,AUTO_INT3.W  
-  MOVE.L  Int5Save,AUTO_INT5.W  
+  MOVE.L  Int3Save,AUTO_INT3.W
+  MOVE.L  Int5Save,AUTO_INT5.W
   SUBI.L  #$00000a00,ChipMemEnd
   BSR.W SUB_A1F9A2
   ADDI.L  #$00000a00,ChipMemEnd
@@ -33705,6 +33859,7 @@ LAB_A229F8:
   MOVE.L  AUTO_INT2.W,-(A7)
   MOVE.L  AUTO_INT3.W,-(A7)
   MOVE.L  AUTO_INT5.W,-(A7)
+
   JSR SwapChipRam1
   MOVE.L  #KeyboardIntHandler,AUTO_INT2.W
   MOVE.L  #VBlankIntHandler,AUTO_INT3.W
@@ -33862,7 +34017,7 @@ LAB_A22C06:
   MOVE.L  autoConfigMemEnd,D1
   BEQ.S LAB_A22C36
   ST  ExtMemAddPrefsFlag
-  ST  AutoConfigPrefsFlag
+  ST  AutoConfigPrefsDisableFlag
   CMP.L foundAutoConfigMemEnd,D1
   BHI.W LAB_A22CD6
   MOVE.L  autoConfigMemStart,D1
@@ -33872,7 +34027,7 @@ LAB_A22C36:
   BSR.W SUB_A22DF0
   BMI.W LAB_A22CD6
   LEA LAB_A4520A,A2
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   SUBI.L  #$00000020,D0
   SUB.L LAB_A48354,D0
   TST.L LAB_A48350
@@ -34089,7 +34244,7 @@ LAB_A22F6A:
 SUB_A22F96:
   MOVEM.L D4/A0-A4,-(A7)
   MOVE.L  LAB_A48250,-(A7)
-  MOVE.W  LAB_A4822E,D0
+  MOVE.W  memConfigFlags,D0
   MOVE.W  (A1),D1
   ANDI.W  #$ffee,D0
   ANDI.W  #$ffee,D1
@@ -36525,18 +36680,31 @@ saveflashcode:
 .flashok2
 
   CMP.W #$1FD5,D1
-  BEQ.S .flashat39
+  BEQ.W .flashat39
 
-  ;make a temp copy of the last 8k
-  lea arramstart-8192,A2
-  LEA arramstart+(1024*1024)-8192,A1
-  MOVE.W #8192/4-1,D1
+  MOVE.L #8192,D6     ;2*4K sectors
+  CMP.W #$BFB5,D1
+  BEQ.S .flashok3
+
+  MOVE.L #32768,D6    ;2*16K sectors
+
+.flashok3
+  ;make a temp copy of the last 2*sector size
+  lea arramstart,A2
+  SUB.L D6,A2
+  
+  LEA arramstart+(1024*1024)-1024,A1
+  SUB.L D6,A1
+ 
+  MOVE.L D6,D1
+  LSR.L #2,D1
+  SUBQ.L #1,D1
 .copy
   MOVE.L (A2)+,(A1)+
   DBF D1,.copy
  
   ;update the settings
-  LEA arramstart+(1024*1024)-512,A1
+  LEA arramstart+(1024*1024)-1024-512,A1
   MOVE.W #128-1,D1
 .loop
   TST.L D0
@@ -36549,7 +36717,8 @@ saveflashcode:
 .flskip
   DBF D1,.loop
 
-  LEA arramstart-8192,A1
+  LEA arramstart,A1
+  SUB.L D6,A1
   ;erase sectors both chips
   MOVE.W #$AAAA,(A3)
   MOVE.W #$5555,(A4)
@@ -36560,10 +36729,14 @@ saveflashcode:
 
   BSR.S .flashWait
   
-  ;reprogram the last 8k
-  LEA arramstart+(1024*1024)-8192,A0
-  LEA arramstart-8192,A1
-  MOVE.W #4096-1,D2
+  ;reprogram the last sector of each chip
+  LEA arramstart+(1024*1024)-1024,A0
+  SUB.L D6,A0
+  LEA arramstart,A1
+  SUB.L D6,A1
+  MOVE.L D6,D2
+  LSR.L #1,D2
+  SUBQ.L #1,D2
 .update
   ;enable write both chips
   MOVE.W #$AAAA,(A3)
@@ -36831,7 +37004,7 @@ CMD_FCRC16:
   MOVE.B  currDriveNo,-(A7)
   BSR.W OpenFile
   BMI.S filecrc16done
-  MOVE.L  fileSize,D5
+  MOVE.L  FileReadSize,D5
   BEQ.S filecrc16done
   MOVEQ #0,D6
   MOVEQ #0,D7
@@ -36910,7 +37083,7 @@ CMD_FCRC32:
   MOVE.B  currDriveNo,-(A7)
   BSR.W OpenFile
   BMI.S filecrc32done
-  MOVE.L  fileSize,D5
+  MOVE.L  FileReadSize,D5
   BEQ.S filecrc32done
   MOVEQ #-1,D7
   MOVEQ #0,D6
@@ -37777,7 +37950,7 @@ getSerTempAddr:
   RTS
 .killoption
   MOVE.L D0,-(A7)
-  TST.B LAB_A48393
+  TST.B killBufferFlag
   BNE.S .kill
   LEA NoFreememText(PC),A0
   JSR AskYN
@@ -37856,7 +38029,7 @@ CMD_SFY:
   LEA stringWorkspace,A0
   CLR.B (A0,D6)
 
-  MOVE.L fileSize,D7      
+  MOVE.L FileReadSize,D7      
   BSR.W doYModemSend
 
 filesenddone:
@@ -39058,7 +39231,7 @@ LAB_A24B52:
   MOVEQ #3,D1
   JSR PrintValue
   MOVE.L  D3,D1
-  TST.B LAB_A48393
+  TST.B killBufferFlag
   BNE.S LAB_A24BA0
   LEA TracksText(PC),A0
   JSR AskYN
@@ -39174,7 +39347,7 @@ dopWTF:
   JMP PrintWTF
   
 getKillBuffer:
-  ST  LAB_A48393
+  ST  killBufferFlag
   MOVEM.L D0/A0,-(A7)
   MOVE.L  ChipMemEnd,D0
   ADDI.L  #EXT_C00000,D0
@@ -39219,18 +39392,18 @@ LAB_A24CEA:
   JSR PrintCrIfNotBlankLine
   CMPI.W  #$fff8,D0
   BEQ.S LAB_A24D50
-  ST  LAB_A48335
+  ST  fixSectorError
   MOVE.W  D1,D0
   JSR SUB_A207AA
   BMI.S LAB_A24D3E
-  SF  LAB_A48335
+  SF  fixSectorError
   MOVE.L  A0,-(A7)
   LEA BadDataText(PC),A0
   JSR PrintText
   MOVEA.L (A7)+,A0
   BRA.S LAB_A24D58
 LAB_A24D3E:
-  SF  LAB_A48335
+  SF  fixSectorError
   TST.B mfmRead
   BEQ.S .notmfm
   ADD.W mfmLength,A2
@@ -39781,7 +39954,7 @@ mfm:
 
 done
   MOVE.B  D1,currTrackNo
-  MOVE.B  currDriveNo,LAB_A4824A
+  MOVE.B  currDriveNo,currDriveNoCopy
 retryTrack:
   MOVEM.L D0/A0,-(A7)
   LEA WritingText2(PC),A0
@@ -39860,7 +40033,7 @@ SUB_A24FD6:
   CLR.W cursorX
   JSR UpdateSerCursor
   MOVEM.L (A7)+,D0/A0
-  SF  LAB_A48335
+  SF  fixSectorError
   JSR SUB_A207AA
   BMI.S LAB_A2502A
   LEA mfmSectorAddresses,A2
@@ -39967,7 +40140,7 @@ LAB_A25126:
   JSR restoreMfmBuffer
   RTS
 LAB_A25132:
-  TST.B LAB_A48393
+  TST.B killBufferFlag
   BNE.S LAB_A25148
   LEA NoFreememText(PC),A0
   JSR AskYN
@@ -39984,7 +40157,7 @@ LAB_A25164:
 LAB_A25168:
   MOVE.B  currDriveNo,-(A7)
   MOVE.B  D5,currDriveNo
-  TST.B LAB_A48393
+  TST.B killBufferFlag
   BNE.S LAB_A25194
   LEA KillWarningText(PC),A0
   JSR AskYN
@@ -39994,7 +40167,7 @@ LAB_A25168:
   MOVEQ #-8,D0
   RTS
 LAB_A25194:
-  ST  LAB_A48393
+  ST  killBufferFlag
   LEA EXT_7000.W,A0
   JSR backupMfmBuffer
   MOVE.L foundAutoConfigMemEnd,D1
@@ -40134,14 +40307,14 @@ HeadText2:
   even
 
 SUB_A253C4:
-  MOVE.L  (A7)+,LAB_A4807A
+  MOVE.L  (A7)+,saveReturnAddr
   CLR.W -(A7)
   BRA.S LAB_A253DA
-SUB_A253D0:
-  MOVE.L  (A7)+,LAB_A4807A
+callExternalFunc:
+  MOVE.L  (A7)+,saveReturnAddr
   MOVE.W  #$0700,-(A7)
 LAB_A253DA:
-  ST  LAB_A48391
+  ST  extFuncCallFlag
   JSR setActivateMode
   MOVE  SR,SaveSR
   MOVE.L  TRAP_00.W,CopyColor
@@ -40162,20 +40335,20 @@ LAB_A2542A:
   DC.L  $00bfd100
 LAB_A2542E:
   DC.L  $60f660f4
-LAB_A25432:
+restoreTrap:
   MOVE.L  CopyColor,TRAP_00.W
   MOVE.L  SaveTrap1,TRAP_01.W
   MOVE.L  SaveTrap2,TRAP_02.W
   ADDQ.L #6,A7
-  MOVE.L  LAB_A4807A,-(A7)
-  SF  LAB_A48391
+  MOVE.L  saveReturnAddr,-(A7)
+  SF  extFuncCallFlag
   MOVE  SaveSR,SR
   RTS
-SUB_A25462:
-  SF  LAB_A48392
+doVirusMenu:
+  SF  bootVirusFound
   SF  cursorEnabled
   MOVE.B  currDriveNo,-(A7)
-  MOVE.B  LAB_A4822B,currDriveNo
+  MOVE.B  BootSelectPrefsCopyLo,currDriveNo
 LAB_A2547E:
   JSR GetMappedKeyCode
   MOVE.W  KeyCode,D0
@@ -40328,7 +40501,7 @@ LAB_A256BA:
 CMD_BOOTCODE:
   TST.W acaflags
   BNE.S BBNotCompatible
-  CMP.B #39,kickstartVersion
+  CMP.B #41,kickstartVersion
   BHS.S BBNoKS3
   JSR ReadParameter
   TST.B ParamFound
@@ -40364,7 +40537,7 @@ BBCodeText:
 BBCoderDisabledText:
   DC.B  "Bootblockcoder disabled",$D,0
 
-BBCoderNotKS3Text: DC.B "Bootblockcoder is not compatible with Kickstart 3.x or higher",13,0
+BBCoderNotKS3Text: DC.B "Bootblockcoder is not compatible with this Kickstart version",13,0
 
 BBCoderNotCompat: DC.B "Bootblockcoder is not compatible with ACA500plus",13,0
 
@@ -40422,7 +40595,7 @@ CMD_TYPE:
   MOVE.B  currDriveNo,-(A7)
   BSR.W OpenFile
   BMI.S fileTypeDone
-  MOVE.L  fileSize,D5
+  MOVE.L  FileReadSize,D5
   BEQ.S fileTypeDone
 LAB_A25830:
   LEA EXT_7000.W,A0
@@ -40580,7 +40753,7 @@ LAB_A259FA:
 dcheckWtf
   JMP PrintWTF
 LAB_A25A14:
-  TST.B  LAB_A48393  
+  TST.B  killBufferFlag  
   BNE.S .1
   LEA killProgText(PC),A0
   JSR AskYN
@@ -40797,10 +40970,10 @@ LAB_A25BE0:
   OR.B  D0,CopyColorLo
   CLR.B D0
   ROL.W #4,D0
-  OR.B  D0,LAB_A4806C
+  OR.B  D0,CopyColorLo2
   CLR.B D0
   ROL.W #4,D0
-  OR.B  D0,LAB_A4806D
+  OR.B  D0,CopyColorLo3
   LEA CopyColorLo,A2
   MOVEQ #3,D0
   MOVEA.L A5,A0
@@ -41023,235 +41196,289 @@ TestMemKS2:
   RTS
   
   if (arhardware+demon2)=2
-SUB_41BB88:
-SUB_41BD86:
-SUB_41BC8A:
+doAutoconfigMapping1:
+  BSR doAutoconfigMapping3
+  RTS
+  
+;doAutoconfigMapping2:
+doAutoconfigMapping3:
+  TST.W acaflags
+  BEQ.S LAB_41BDEA
+  
+  LEA EXT_E80000,A0
+  MOVEQ #$14,D1
+  TST.B AutoConfigPrefsDisableFlag
+  BEQ.W LAB_41BDEA
+LAB_41BBB4:
+  MOVE.W  (A0),D0     ;get autoconfig er_type top nybble
+
+  ;tell board to shutup
+  MOVE.B  #$ff,$4C(A0)
+  DBF D1,LAB_41BBB4
+LAB_41BDEA:
   RTS
   endc
   
   if (arhardware+demon2)=1
-SUB_41BB88:
+;hard reset autoconfig mapping
+
+doAutoconfigMapping1:
   TST.W acaflags
-  BNE.S .2
-  CMPI.B  #34,kickstartVersion
-  BLS.S .1
+  BEQ.S .1
 .2
   RTS
 
 .1  
-  LEA LAB_A483AA,A0
+  LEA extMemStart,A0
   CLR.L (A0)+
   CLR.L (A0)+
   CLR.L (A0)+
   CLR.L foundAutoConfigMemStart
   CLR.L foundAutoConfigMemEnd
   SF  ExtMemAddPrefsFlag
-  SF  AutoConfigPrefsFlag
+  SF  AutoConfigPrefsDisableFlag
   LEA EXT_E80000,A0
   MOVEQ #$14,D1
 LAB_41BBB4:
-  MOVE.W  (A0),D0
+  MOVE.W  (A0),D0     ;get autoconfig er_type top nybble
   CMP.W #$ffff,D0
   BEQ.W LAB_41BC78
 
-  AND.W #$e000,D0
-  CMPI.W  #$e000,D0
+  AND.W #$e000,D0     ;mask off pic type and memory flags
+  CMPI.W  #$e000,D0   ;zorro 2 ram
   BEQ.S .1
-  CMPI.W  #$a000,D0
+  CMPI.W  #$a000,D0   ;zorro 3 ram
   BNE.W LAB_41BC78
 .1
-  MOVE.W  2(A0),D0
-  AND.W #$7000,D0
-  BNE.W LAB_41BC2E
-  ST  AutoConfigPrefsFlag
+  MOVE.W  2(A0),D0    ;get autoconfig er_type bottom nybble
+  AND.W #$7000,D0     ;mask off size bits
+  BNE.W LAB_41BC2E    ;not 8mb
+
+  ;8mb board
+  ST  AutoConfigPrefsDisableFlag
+  ;tell board to shutup
   MOVE.B  #$ff,$4C(A0)
   BRA.W LAB_41BC78
 LAB_41BBDE:
-;#$1000 ; 64k e90000
-;#$2000 ; 128k ea0000
-;#$3000 ; 256k e00000
+;#$1000 ; 64k 200000
+;#$2000 ; 128k 200000
+;#$3000 ; 256k 200000
 ;#$4000 ; 512k 200000
 ;#$5000 ; 1024k 200000
+;#$6000 ; 2048k 200000
+;#$7000 ; 4096k 600000
   CMPI.W  #$6000,D0
   BNE.S .1
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
+  ;2mb board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  CMP.L #$00200000,extMemSize
+  BGE.S .11
+  
+  MOVE.L  #$00200000,extMemStart
   MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #SECSTRT_0,LAB_A483AE
-  MOVE.L  #SECSTRT_0,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
+  MOVE.L  #$00400000,extMemEnd
+  MOVE.L  #$00400000,foundAutoConfigMemEnd
+  MOVE.L  #$00200000,extMemSize
+.11
+  ;map board to $200000
   MOVE.B  #$20,$48(A0)
   BRA.W LAB_41BC78
 .1
   CMPI.W  #$5000,D0
   BNE.S .2
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
+  ;1mb board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  CMP.L #$00100000,extMemSize
+  BGE.S .21
+  MOVE.L  #$00200000,extMemStart
   MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #$00300000,LAB_A483AE
+  MOVE.L  #$00300000,extMemEnd
   MOVE.L  #$00300000,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
+  MOVE.L  #$00100000,extMemSize
+.21
   MOVE.B  #$20,$48(A0)
+  ;map board to $200000
   BRA.W LAB_41BC78
 .2
   CMPI.W  #$4000,D0
-  BNE.S .2
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
-  MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #$00280000,LAB_A483AE
-  MOVE.L  #$00280000,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
-  MOVE.B  #$20,$48(A0)
-  BRA.W LAB_41BC78
-  CMPI.W  #$3000,D0
   BNE.S .3
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
+  CMP.L #$00080000,extMemSize
+  BGE.S .31
+  ;0.5mb board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  MOVE.L  #$00200000,extMemStart
   MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #$00240000,LAB_A483AE
-  MOVE.L  #$00240000,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
+  MOVE.L  #$00280000,extMemEnd
+  MOVE.L  #$00280000,foundAutoConfigMemEnd
+  MOVE.L  #$00080000,extMemSize
+  ;map board to $200000
+.31
   MOVE.B  #$20,$48(A0)
   BRA.W LAB_41BC78
 .3
-  CMPI.W  #$2000,D0
-  BNE.S .4
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
-  MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #$00220000,LAB_A483AE
-  MOVE.L  #$00220000,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
-  MOVE.B  #$20,$48(A0)
-  BRA.W LAB_41BC78
-.4
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
-  MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #$00210000,LAB_A483AE
-  MOVE.L  #$00210000,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
-  MOVE.B  #$20,$48(A0)
-  BRA.S LAB_41BC78
+  ;CMPI.W  #$3000,D0
+  ;BNE.S .4
+  ;256kb board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  ;MOVE.L  #$00200000,extMemStart
+  ;MOVE.L  #$00200000,foundAutoConfigMemStart
+  ;MOVE.L  #$00240000,extMemEnd
+  ;MOVE.L  #$00240000,foundAutoConfigMemEnd
+  ;MOVE.L  #$00040000,extMemSize
+  ;map board to $200000
+  ;MOVE.B  #$20,$48(A0)
+  ;BRA.W LAB_41BC78
+;.4
+  ;CMPI.W  #$2000,D0
+  ;BNE.S .5
+  ;128k board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  ;MOVE.L  #$00200000,extMemStart
+  ;MOVE.L  #$00200000,foundAutoConfigMemStart
+  ;MOVE.L  #$00220000,extMemEnd
+  ;MOVE.L  #$00220000,foundAutoConfigMemEnd
+  ;MOVE.L  #$00020000,extMemSize
+  ;map board to $200000
+  ;MOVE.B  #$20,$48(A0)
+  ;BRA.W LAB_41BC78
+.5
+  ;64k board
+  ;SF  AutoConfigPrefsDisableFlag
+  ;SF  ExtMemAddPrefsFlag
+  ;MOVE.L  #$00200000,extMemStart
+  ;MOVE.L  #$00200000,foundAutoConfigMemStart
+  ;MOVE.L  #$00210000,extMemEnd
+  ;MOVE.L  #$00210000,foundAutoConfigMemEnd
+  ;MOVE.L  #$00010000,extMemSize
+  ;map board to $200000
+  ;MOVE.B  #$20,$48(A0)
+  ;BRA.S LAB_41BC78
 
 LAB_41BC2E:
   CMPI.W  #$7000,D0
   BNE.W LAB_41BBDE
+  ;4mb board
+  ;map board to $600000
   MOVE.B  #$60,$48(A0)
-  ST  AutoConfigPrefsFlag
-  MOVE.L  #$00600000,LAB_A483AA
+  ST  AutoConfigPrefsDisableFlag
+  MOVE.L  #$00600000,extMemStart
   MOVE.L  #$00600000,foundAutoConfigMemStart
-  MOVE.L  #$00a00000,LAB_A483AE
+  MOVE.L  #$00a00000,extMemEnd
   MOVE.L  #$00a00000,foundAutoConfigMemEnd
-  MOVE.L  #SECSTRT_0,LAB_A483B2
+  MOVE.L  #$00400000,extMemSize
   ST  ExtMemAddPrefsFlag
 LAB_41BC78:
+  ;tell board to shutup
   MOVE.B  #$ff,$4C(A0)
   DBF D1,LAB_41BBB4
   RESET
-  BSR.W SUB_41BD86
+  BSR.W doAutoconfigMapping3
   RTS
 
-SUB_41BC8A:
+;auto config mapping ready for burst nibbler / xcopy
+;doAutoconfigMapping2:
+;  TST.W acaflags
+;  BEQ.S .1
+;.2
+;  RTS
+;.1
+;  LEA extMemStart,A0
+;  CLR.L (A0)+
+;  CLR.L (A0)+
+;  CLR.L (A0)+
+;  CLR.L foundAutoConfigMemStart
+;  CLR.L foundAutoConfigMemEnd
+;  ;SF  ExtMemAddPrefsFlag
+;  ;SF  AutoConfigPrefsDisableFlag
+;  LEA EXT_E80000,A0
+;  MOVEQ #$14,D1
+;LAB_41BCB6:
+;  MOVE.W  (A0),D0
+;  CMP.W #$ffff,D0
+;  BEQ.W LAB_41BD7A
+;  
+;  AND.W #$e000,D0
+;  CMPI.W  #$e000,D0
+;  BEQ.S .1
+;  CMPI.W  #$a000,D0
+;  BNE.W LAB_41BD7A
+;.1
+;  MOVE.W  2(A0),D0
+;  AND.W #$7000,D0
+;  BNE.S LAB_41BD30
+;  ;8mb board
+;  ;ST  AutoConfigPrefsDisableFlag
+;  MOVE.B  #$ff,$4C(A0)
+;  BRA.W LAB_41BD7A
+;LAB_41BCE0:
+;  CMPI.W  #$6000,D0
+;  BNE.W LAB_41BD7A
+;  ;2mb board
+;  ;SF  AutoConfigPrefsDisableFlag
+;  ;SF  ExtMemAddPrefsFlag
+;  MOVE.L  #$00200000,extMemStart
+;  MOVE.L  #$00200000,foundAutoConfigMemStart
+;  MOVE.L  #$00400000,extMemEnd
+;  MOVE.L  #$00400000,foundAutoConfigMemEnd
+;  MOVE.L  #$00200000,extMemSize
+;  MOVE.B  #$20,$48(A0)
+;  BRA.S LAB_41BD7A
+;LAB_41BD30:
+;  CMPI.W  #$7000,D0
+;  BNE.S LAB_41BCE0
+;  ;4mb board
+;  MOVE.B  #$60,$48(A0)
+;  ;ST  AutoConfigPrefsDisableFlag
+;  MOVE.L  #$00600000,extMemStart
+;  MOVE.L  #$00600000,foundAutoConfigMemStart
+;  MOVE.L  #$00a00000,extMemEnd
+;  MOVE.L  #$00a00000,foundAutoConfigMemEnd
+;  MOVE.L  #$00400000,extMemSize
+;  ;ST  ExtMemAddPrefsFlag
+;LAB_41BD7A:
+;  MOVE.B  #$ff,$4C(A0)
+;  DBF D1,LAB_41BCB6
+;  RTS
+
+;soft reboot autoconfig handling
+;just remap board addresses
+;but AR settings are already populated
+doAutoconfigMapping3:
   TST.W acaflags
-  BNE.S .2
-  CMPI.B  #34,kickstartVersion
-  BLS.S .1
-.2
-  RTS
-.1
-  LEA LAB_A483AA,A0
-  CLR.L (A0)+
-  CLR.L (A0)+
-  CLR.L (A0)+
-  CLR.L foundAutoConfigMemStart
-  CLR.L foundAutoConfigMemEnd
-  SF  ExtMemAddPrefsFlag
-  SF  AutoConfigPrefsFlag
-  LEA EXT_E80000,A0
-  MOVEQ #$14,D1
-LAB_41BCB6:
-  MOVE.W  (A0),D0
-  CMP.W #$ffff,D0
-  BEQ.W LAB_41BD7A
-  
-  AND.W #$e000,D0
-  CMPI.W  #$e000,D0
   BEQ.S .1
-  CMPI.W  #$a000,D0
-  BNE.W LAB_41BD7A
-.1
-  MOVE.W  2(A0),D0
-  AND.W #$7000,D0
-  BNE.S LAB_41BD30
-  ST  AutoConfigPrefsFlag
-  MOVE.B  #$ff,$4C(A0)
-  BRA.W LAB_41BD7A
-LAB_41BCE0:
-  CMPI.W  #$6000,D0
-  BNE.W LAB_41BD7A
-  SF  AutoConfigPrefsFlag
-  SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
-  MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #SECSTRT_0,LAB_A483AE
-  MOVE.L  #SECSTRT_0,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
-  MOVE.B  #$20,$48(A0)
-  BRA.S LAB_41BD7A
-LAB_41BD30:
-  CMPI.W  #$7000,D0
-  BNE.S LAB_41BCE0
-  MOVE.B  #$60,$48(A0)
-  ST  AutoConfigPrefsFlag
-  MOVE.L  #$00600000,LAB_A483AA
-  MOVE.L  #$00600000,foundAutoConfigMemStart
-  MOVE.L  #$00a00000,LAB_A483AE
-  MOVE.L  #$00a00000,foundAutoConfigMemEnd
-  MOVE.L  #SECSTRT_0,LAB_A483B2
-  ST  ExtMemAddPrefsFlag
-LAB_41BD7A:
-  MOVE.B  #$ff,$4C(A0)
-  DBF D1,LAB_41BCB6
-  RTS
-
-SUB_41BD86:
-  TST.W acaflags
-  BNE.S .2
-  CMPI.B  #34,kickstartVersion
-  BLS.S .1
+;  BNE.S .2
+;  CMPI.B  #34,kickstartVersion
+;  BLS.S .1
 .2
   RTS
 
 .1  
   LEA EXT_E80000,A0
   MOVEQ #$14,D1
-  TST.B AutoConfigPrefsFlag
+  TST.B AutoConfigPrefsDisableFlag
   BEQ.W LAB_41BDEA
 LAB_41BD98:
-  MOVE.W  (A0),D0
+  MOVE.W  (A0),D0   ;er type
   CMP.W #$ffff,D0
-  BEQ.S LAB_41BDE0
+  BEQ.S board1024Test
 
   AND.W #$e000,D0
-  CMPI.W  #$e000,D0
+  CMPI.W  #$e000,D0   ;zorro 2 ram
   BEQ.S .1
-  CMPI.W  #$a000,D0
-  BNE.S LAB_41BDE0
+  CMPI.W  #$a000,D0   ;zorro 3 ram
+  BNE.S board1024Test
 .1
   MOVE.W  2(A0),D0  ;board size
   AND.W #$7000,D0
   BNE.S LAB_41BDBC
   ;8mb board
-  MOVE.B  #$ff,$4C(A0)
-  BRA.S LAB_41BDE0
+  MOVE.B  #$ff,$4C(A0)    ;shut up
+  BRA.S board1024Test
 LAB_41BDBC:
   CMPI.W  #$7000,D0
   BNE.S LAB_41BDCE
@@ -41261,11 +41488,11 @@ LAB_41BDBC:
   BRA.S LAB_41BDEC
 LAB_41BDCE:
   CMPI.W  #$6000,D0
-  BNE.S LAB_41BDE0
+  BNE.S board1024Test
   ;2mb board
   MOVE.B  #$20,$48(A0)  ;map to $200000
   BRA.S LAB_41BDEC
-LAB_41BDE0:
+board1024Test:
   CMPI.W  #$5000,D0
   BNE.S board512Test
   ;1mb board
@@ -41278,52 +41505,52 @@ board512Test:
   MOVE.B  #$20,$48(A0)  ;map to $200000
   BRA.S LAB_41BDEC
 board256Test:
-  CMPI.W  #$3000,D0
-  BNE.S board128Test
+  ;CMPI.W  #$3000,D0
+  ;BNE.S board128Test
   ;256k board
-  MOVE.B  #$20,$48(A0)  ;map to $200000
-  BRA.S LAB_41BDEC
-board128Test:
-  CMPI.W  #$2000,D0
-  BNE.S board64Test
+  ;MOVE.B  #$20,$48(A0)  ;map to $200000
+  ;BRA.S LAB_41BDEC
+;board128Test:
+  ;CMPI.W  #$2000,D0
+  ;BNE.S board64Test
   ;128k board
-  MOVE.B  #$20,$48(A0)  ;map to $200000
-  BRA.S LAB_41BDEC
-board64Test:
-  CMPI.W  #$1000,D0
-  BNE.S otherBoard
+  ;MOVE.B  #$20,$48(A0)  ;map to $200000
+  ;BRA.S LAB_41BDEC
+;board64Test:
+  ;CMPI.W  #$1000,D0
+  ;BNE.S otherBoard
   ;64k board
-  MOVE.B  #$20,$48(A0)  ;map to $200000
-  BRA.S LAB_41BDEC
-otherBoard:
+  ;MOVE.B  #$20,$48(A0)  ;map to $200000
+  ;BRA.S LAB_41BDEC
+;otherBoard:
   ;other size
-  MOVE.B  #$ff,$4C(A0)
+  MOVE.B  #$ff,$4C(A0)  ;shut up
   DBF D1,LAB_41BD98
 LAB_41BDEA:
   RTS
+
 LAB_41BDEC:
-  MOVE.B  #$ff,$4C(A0)
+  MOVE.B  #$ff,$4C(A0)  ;shut up
   DBF D1,LAB_41BDEC
   RTS
-
   endc
 
   if pistorm=1
-SUB_41BB88:
+doAutoconfigMapping1:
   RTS
   endc
 
   if arhardware+pistorm=0
 
-SUB_41BB88:
-  LEA LAB_A483AA,A0
+doAutoconfigMapping1:
+  LEA extMemStart,A0
   CLR.L (A0)+
   CLR.L (A0)+
   CLR.L (A0)+
   CLR.L foundAutoConfigMemStart
   CLR.L foundAutoConfigMemEnd
   SF  ExtMemAddPrefsFlag
-  SF  AutoConfigPrefsFlag
+  SF  AutoConfigPrefsDisableFlag
   MOVEM.L D2-D7/A0-A6,-(A7)
   MOVEA.L EXT_4.W,A6
   MOVE.L  $142(A6),D0
@@ -41338,23 +41565,24 @@ LAB_A25E52:
   MOVEM.L (A7)+,D2-D7/A0-A6
   TST.L D0
   BNE.S LAB_A25EA0
-  SF  AutoConfigPrefsFlag
+  SF  AutoConfigPrefsDisableFlag
   SF  ExtMemAddPrefsFlag
-  MOVE.L  #$00200000,LAB_A483AA
+  MOVE.L  #$00200000,extMemStart
   MOVE.L  #$00200000,foundAutoConfigMemStart
-  MOVE.L  #SECSTRT_0,LAB_A483AE
-  MOVE.L  #SECSTRT_0,foundAutoConfigMemEnd
-  MOVE.L  #$00200000,LAB_A483B2
+  MOVE.L  #$00400000,extMemEnd
+  MOVE.L  #$00400000,foundAutoConfigMemEnd
+  MOVE.L  #$00200000,extMemSize
   MOVE.B  #$20,$48(A0)
   BRA.S LAB_A25ECE
 LAB_A25EA0:
-  ST  AutoConfigPrefsFlag
+  ST  AutoConfigPrefsDisableFlag
   ST  ExtMemAddPrefsFlag
-  MOVE.L  D0,LAB_A483AA
+  MOVE.L  D0,extMemStart
   MOVE.L  D0,foundAutoConfigMemStart
-  MOVE.L  D1,LAB_A483AE
+  MOVE.L  D1,extMemEnd
   MOVE.L  D1,foundAutoConfigMemEnd
-  MOVE.L  #SECSTRT_0,LAB_A483B2
+  SUB.L D0,D1
+  MOVE.L  D1,extMemSize
 LAB_A25ECE:
   RTS
   endc
@@ -41369,7 +41597,7 @@ CMD_MEGASTICK:
   JSR Cls
   LEA MegaStickText(PC),A0
   JSR PrintText
-  LEA LAB_A483E0,A0
+  LEA megaStickWorkspace,A0
   MOVEQ #4,D7
 LAB_A25F0E:
   CMP.W D0,D7
@@ -41482,7 +41710,7 @@ SUB_A260D6:
   BSR.W SUB_A283B8
   LEA LAB_A261E0(PC),A0
   BSR.W SUB_A283B8
-  LEA LAB_A483E0,A0
+  LEA megaStickWorkspace,A0
   MOVEQ #5,D4
   LEA LAB_A26282(PC),A6
 LAB_A26118:
@@ -41619,7 +41847,7 @@ MStickAlreadyRemovedText:
   DC.B  "Megastickhandler is already removed!",$D,0,0
 
 CMD_CLRSTICK:
-  LEA LAB_A483E0,A0
+  LEA megaStickWorkspace,A0
   MOVEQ #$35,D0
 LAB_A2634C:
   CLR.B (A0)+
@@ -41645,10 +41873,10 @@ LAB_A2638A:
   MOVE.B  currDriveNo,-(A7)
   JSR OpenFile
   BMI.S LAB_A263DE
-  CMPI.L  #$00000036,fileSize
+  CMPI.L  #$00000036,FileReadSize
   BNE.S LAB_A263D2
   MOVEQ #$36,D0
-  LEA LAB_A483E0,A2
+  LEA megaStickWorkspace,A2
   JSR readFileData
   BMI.S LAB_A263DE
   LEA JoyCodesLoadText(PC),A0
@@ -41694,7 +41922,7 @@ LAB_A2644A:
   JSR SaveFileInit
   BMI.S LAB_A26486
   MOVEQ #$36,D0
-  LEA LAB_A483E0,A2
+  LEA megaStickWorkspace,A2
   JSR SaveFileData
   JSR HandleDiskFull
   BMI.S LAB_A26486
@@ -43110,7 +43338,7 @@ LAB_A26F76:
   MOVEA.L (A7)+,A5
   RTS
 SUB_A26F8E:
-  TST.B LAB_A483CD
+  TST.B skipExecbaseCheck
   BNE.S LAB_A26FA4
   JSR checkExecBaseValid
   TST.W D0
@@ -43168,7 +43396,7 @@ LAB_A27018:
   BNE.S LAB_A27080
   MOVE.L  SaveOldPc,LAB_A480CA
   MOVE.L  A0,SaveOldPc
-  ST  LAB_A483CD
+  ST  skipExecbaseCheck
   MOVE.W  #$0100,dmacon+hardware
   JSR SwapChipRam1
   MOVEQ #0,D0
@@ -43183,7 +43411,7 @@ SUB_A27084:
 CMD_SAFEDISK:
   TST.W acaflags
   BNE.S .1
-  CMPI.B  #34,kickstartVersion
+  CMPI.B  #34,kickstartVersion      ;savedisk is 1.x only
   BLS.S LAB_A270AE
 .1
   LEA WrongTDiskText(PC),A0
@@ -43248,7 +43476,7 @@ LAB_A27152:
   MOVE.L  #$00010001,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   LEA NoMemText(PC),A0
   MOVE.L  D0,LAB_A480CA
   BEQ.W LAB_A2727E
@@ -43264,12 +43492,12 @@ LAB_A271A6:
   MOVEA.L LAB_A480CA,A0
   MOVEA.L EXT_4.W,A6
   PEA -558(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   LEA $214(A6),A0
   MOVEA.L LAB_A480CA,A1
   MOVEA.L EXT_4.W,A6
   PEA -270(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
 LAB_A271E4:
   MOVEA.L LAB_A480CA,A2
   MOVEA.L $2E(A2),A3
@@ -43351,23 +43579,23 @@ SUB_A2736C:
   MOVE.L  #$0000640c,D0
   MOVEA.L EXT_4.W,A6
   PEA -210(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
 LAB_A2739C:
   MOVEA.L (A7)+,A1
   MOVE.L  $B8(A1),D0
   MOVEA.L EXT_4.W,A6
   PEA -210(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
 LAB_A273B0:
   MOVEA.L LAB_A480CA,A1
   MOVEA.L EXT_4.W,A6
   PEA -252(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   MOVEA.L LAB_A480CA,A1
   MOVEQ.L  #$00000042,D0
   MOVEA.L EXT_4.W,A6
   PEA -210(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
 LAB_A273DE:
   RTS
 BadTDiskText:
@@ -43469,7 +43697,7 @@ SUB_A27542:
   MOVE.L  #$00010001,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
 LAB_A275C4:
   LEA NoMemText(PC),A0
   MOVE.L  D0,LAB_A480DE
@@ -43536,7 +43764,7 @@ LAB_A276CC:
   LEA $86(A0),A0
   MOVEA.L EXT_4.W,A6
   PEA -558(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   BSR.S SUB_A2774A
   BMI.S LAB_A27702
   MOVE.L  LAB_A480DE,D0
@@ -43567,7 +43795,7 @@ SUB_A2774A:
   MOVE.L  #$0000640c,D0
   MOVEA.L EXT_4.W,A6
   PEA -210(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   MOVEA.L LAB_A480DE,A0
   CLR.L $82(A0)
 LAB_A2778A:
@@ -43581,7 +43809,7 @@ LAB_A2778E:
   MOVEQ.L  #2,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   MOVEA.L LAB_A480DE,A0
   MOVE.L  D0,$82(A0)
   BNE.S LAB_A2778A
@@ -44064,7 +44292,7 @@ CMD_TD:
   BEQ.S LAB_A27C16
   LEA DeepTrainerListText(PC),A0
   JSR PrintText
-  MOVEA.L LAB_A48420,A0
+  MOVEA.L deepTrainerWorkAddr,A0
   MOVEA.L A0,A1
   ADDA.L  #$0007fffa,A1
 LAB_A27BF6:
@@ -44113,7 +44341,7 @@ LAB_A27C6C:
   TST.L autoConfigMemEnd
   BNE.S LAB_A27C5E
   ST  DeepTrainerActive
-  MOVE.L  A3,LAB_A48420
+  MOVE.L  A3,deepTrainerWorkAddr
   CLR.L trainerContinueAddress
   SUBA.L  A0,A0
   MOVEA.L A3,A1
@@ -44150,7 +44378,7 @@ LAB_A27D54:
   SF  LAB_A480CA
   LEA PossibleAddrsText(PC),A0
   JSR PrintText
-  MOVEA.L LAB_A48420,A2
+  MOVEA.L deepTrainerWorkAddr,A2
   MOVEA.L A2,A4
   MOVEQ #-1,D5
   ADDA.L  #$0007fffa,A4
@@ -44183,7 +44411,7 @@ LAB_A27DB4:
   JSR PrintText
 LAB_A27DD2:
   MOVEA.L trainerContinueAddress,A3
-  MOVEA.L LAB_A48420,A2
+  MOVEA.L deepTrainerWorkAddr,A2
   MOVE.L  #$00080000,D5
   MOVEA.L A2,A4
   ADDA.L  #$0007fffa,A4
@@ -44218,7 +44446,7 @@ LAB_A27E30:
 LAB_A27E38:
   BRA.W LAB_A27C5E
 LAB_A27E3C:
-  MOVEA.L LAB_A48420,A3
+  MOVEA.L deepTrainerWorkAddr,A3
   MOVEA.L A3,A4
   ADDA.L  #$0007fffa,A4
   MOVEQ #-1,D5
@@ -44233,7 +44461,7 @@ LAB_A27E5E:
   CMPA.L  A3,A4
   BGT.S LAB_A27E4C
   MOVEA.L trainerContinueAddress,A3
-  MOVEA.L LAB_A48420,A2
+  MOVEA.L deepTrainerWorkAddr,A2
   MOVE.L  #$00080000,D5
 LAB_A27E74:
   CMP.L A3,D5
@@ -44271,7 +44499,7 @@ LAB_A27EAA:
   MOVEA.L D0,A2
   CMPA.L  A1,A2
   BCS.S LAB_A27EAA
-  MOVEA.L LAB_A48420,A0
+  MOVEA.L deepTrainerWorkAddr,A0
   MOVEA.L A0,A3
   ADDA.L  #$0007fffa,A3
 LAB_A27EE0:
@@ -44464,7 +44692,8 @@ LAB_A2813E:
   ;MOVE.L  #$bfe001,(A2)+
   MOVE.L  #$4e714e71,(A2)+
   else
-  MOVE.L  #$00000046,TRAP_15.W
+  MOVE.L VBRSAVE,A0
+  MOVE.L  #$00000046,TRAP_15(a0)
   LEA EXT_46.W,a0
   MOVE.W #$4ef9,(a0)+
   MOVE.L #ExceptionEntry2,(a0)+ ;jmp ExceptionEntry2
@@ -44490,7 +44719,7 @@ LAB_A2817C:
   dc.w $4e7b,$01e0  ;movec d0,#$1e0
   endc
   ORI.W #$8000,SaveOldSr
-  JSR getVBR
+  MOVE.L VBRSAVE,a0
   MOVE.L  #$0000013a,TRACE(A0)
   RTS
 LAB_A28194:
@@ -44708,7 +44937,7 @@ CMD_DUMP
   MOVE.B  currDriveNo,-(A7)
   JSR OpenFile
   BMI filedumpdone
-  MOVE.L  fileSize,D5
+  MOVE.L  FileReadSize,D5
   BEQ filedumpdone
   MOVEQ #0,D6
   MOVEQ #0,D7
@@ -45115,7 +45344,7 @@ LAB_A28BC8:
   LEA LAB_A283D0(PC),A0
   BRA.W LAB_A28A76
 LAB_A28BDE:
-  TST.B  LAB_A48393  
+  TST.B  killBufferFlag  
   BNE.S .1
   JSR PrintCR
   LEA killProgText(PC),A0
@@ -45222,14 +45451,14 @@ LAB_A28DDA:
   MOVEQ #-1,D0
   BRA.W LAB_A28EB0
 LAB_A28DE4:
-  CMPI.L  #$00005000,fileSize
+  CMPI.L  #$00005000,FileReadSize
   BLS.S LAB_A28E00
   JSR restoreMfmBuffer
   LEA LAB_A28CD3(PC),A0
   MOVEQ #-1,D0
   BRA.W LAB_A28EB0
 LAB_A28E00:
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   LEA EXT_1000.W,A2
   JSR readFileBytes
   BMI.S LAB_A28DD4
@@ -45481,7 +45710,7 @@ LAB_A2913C:
   MOVE.L  #$00010001,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0(PC)
+  JSR callExternalFunc(PC)
   LEA LAB_A28CF0(PC),A0
   MOVE.L  D0,LAB_A48446
   BEQ.W LAB_A290DE
@@ -46985,7 +47214,7 @@ CMD_SETAPI:
   endc
 
   MOVE.L A0,A1
-  JSR getVBR
+  MOVE.L VBRSAVE,a0
 
   if arhardware=0
   MOVE.L a1,TRAP_14(A0)
@@ -47041,6 +47270,9 @@ CMD_KEYMAP:
   CMP.W #"IT",D1
   BEQ.S .keymapIT
 
+  CMP.W #"FR",D1
+  BEQ.S .keymapFR
+
 .keymapWTF:
   JMP PrintWTF
 
@@ -47056,6 +47288,9 @@ CMD_KEYMAP:
 
   CMP.B #2,keymap
   BEQ.S .keymapIT
+
+  CMP.B #3,keymap
+  BEQ.S .keymapFR
   
   RTS
 
@@ -47072,6 +47307,11 @@ CMD_KEYMAP:
 .keymapUK
   LEA UKKeymapText,A0
   MOVE.B #-1,keymap
+  BRA.S .keymapPrint
+
+.keymapFR
+  LEA FRKeymapText,A0
+  MOVE.B #3,keymap
   BRA.S .keymapPrint
 
 .keymapIT
@@ -47099,7 +47339,7 @@ LAB_420C92:
   JSR OpenFile
   BMI.W LAB_420D9E
   MOVE.L  DiskMonBufferSize,D0
-  CMP.L fileSize,D0
+  CMP.L FileReadSize,D0
   BCC.S LAB_420CE2
   LEA LAB_420D86(PC),A0
   JSR PrintText
@@ -47107,10 +47347,10 @@ LAB_420C92:
 LAB_420CE2:
   MOVEA.L DiskMonBuffer,A2
   LEA EXT_7000.W,A0
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   JSR readFileData
   MOVE.L  DiskMonBuffer,LAB_A480CA
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   ADD.L D0,LAB_A480CA
   MOVE.L  DiskMonBuffer,LAB_A480CE
   MOVE.L  LAB_A480CE,LAB_A480D6
@@ -47332,13 +47572,13 @@ LoadPrefs:
   JSR OpenFile
   BMI.S LAB_4210BC
   LEA EXT_1000.W,A2
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   CMPI.W  #$0400,D0
   BHI.S LAB_4210BC
   JSR readFileBytes
   BMI.S LAB_4210BC
   LEA EXT_1000.W,A1
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   BSR.S LoadPrefsFromMem
   JSR restoreMfmBuffer
   BPL.S LAB_4210FA
@@ -47407,7 +47647,7 @@ SavePrefs:
   LEA EXT_1000.W,A2
   MOVEQ #0,D0
   MOVE.W  D1,D0
-  JSR memSafeWriteFileBytes
+  JSR writeFileBytes
   JSR HandleDiskFull
   BMI.S LAB_42119A
   JSR AddFileToDirBlock
@@ -47460,9 +47700,9 @@ LAB_421174:
 LAB_4211F4:
   DC.L  memoryControlPrefsValue
   DC.W  $0002
-  DC.L  LAB_A483AA
+  DC.L  extMemStart
   DC.W  $000c
-  DC.L  AutoConfigPrefsFlag
+  DC.L  AutoConfigPrefsDisableFlag
   DC.W  $0001
   DC.L  NoresPrefsFlag
   DC.W  $0001
@@ -47531,7 +47771,7 @@ LAB_A2A23A:
   JSR OpenFile
   BMI.W LAB_A2A31C
 redo:
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   CMP.L DiskMonBufferSize,D0
   BHI.W LAB_A2A340
 
@@ -47584,7 +47824,7 @@ LAB_A2A2DE:
   BRA.S LAB_A2A31C
 LAB_A2A300:
   MOVEA.L DiskMonBuffer,A2
-  MOVE.L  fileSize,D0
+  MOVE.L  FileReadSize,D0
   JSR writeFileBytes
   JSR HandleDiskFull
   BMI.S LAB_A2A2DE
@@ -47605,7 +47845,7 @@ LAB_A2A340:
   MOVEM.L A0/D7,-(A7)
   LEA FileTooLargeText(PC),A0
   JSR PrintText
-  TST.B  LAB_A48393  
+  TST.B  killBufferFlag  
   BNE.S .1
   LEA killProgText2(PC),A0
   JSR AskYN
@@ -48415,7 +48655,7 @@ LAB_425B58:
   MOVE.L  #$00010000,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0
+  JSR callExternalFunc
   MOVE.L  D0,LAB_A48446
   BEQ.S LAB_425BD8
   MOVE.W  LAB_A48442,D1
@@ -48462,21 +48702,21 @@ LAB_425C4C:
   BLS.S LAB_425C3C
   MOVEM.L (A7)+,D0-D2/A0-A2
   RTS
-SUB_425C62:
+addExtMem:
   MOVEM.L D0-D1/A0-A1,-(A7)
-  CMPI.L  #$0000000f,LAB_A483B2
+  CMPI.L  #$0000000f,extMemSize
   BLS.S LAB_425CF2
   MOVEQ #$20,D0
   MOVE.L  #$00010001,D1
   MOVEA.L EXT_4.W,A6
   PEA -198(A6)
-  JSR SUB_A253D0
+  JSR callExternalFunc
   TST.L D0
   BEQ.S LAB_425CF2
-  MOVE.L  LAB_A483B2,D1
+  MOVE.L  extMemSize,D1
   LSR.L #2,D1
   SUBQ.L  #1,D1
-  MOVEA.L LAB_A483AA,A0
+  MOVEA.L extMemStart,A0
   MOVEA.L EXT_4.W,A6
   LEA $142(A6),A0
   MOVE.L  (A0),D1
@@ -48487,10 +48727,10 @@ SUB_425C62:
   MOVE.W  #$0a14,8(A1)
   CLR.L $A(A1)
   MOVE.W  #5,$E(A1)
-  MOVE.L  LAB_A483AA,$10(A1)
-  MOVE.L  LAB_A483AA,$14(A1)
-  MOVE.L  LAB_A483AE,$18(A1)
-  MOVE.L  LAB_A483B2,D0
+  MOVE.L  extMemStart,$10(A1)
+  MOVE.L  extMemStart,$14(A1)
+  MOVE.L  extMemEnd,$18(A1)
+  MOVE.L  extMemSize,D0
   SUBQ.L  #8,D0
   MOVE.L  D0,$1C(A1)
   MOVEA.L $10(A1),A0
@@ -48686,7 +48926,11 @@ ActivateTrace:
   TST.L TraceStepCount
   BEQ.W LAB_A2DDAE
 .trace
-  MOVE.L  TRACE.W,OldTrace
+  
+  move.l A0,-(a7)
+  MOVE.L VBRSAVE,A0
+  MOVE.L TRACE(A0),OldTrace
+  
   if pistorm=1
   ;enable trace
   dc.w $4e7a,$01e0  ;movec #$1e0,d0
@@ -48694,8 +48938,6 @@ ActivateTrace:
   dc.w $4e7b,$01e0  ;movec d0,#$1e0
   endc
 
-
-  move.l a0,-(a7)
   lea EXT_150.W,a0
 
   if arhardware=1
@@ -48721,7 +48963,7 @@ ActivateTrace:
   MOVE.L #DoArTrace,(a0)+
   endc
 
-  JSR getVBR
+  MOVE.L VBRSAVE,a0
   MOVE.L  #EXT_150,TRACE(a0)
   move.l (a7)+,a0
 
@@ -48800,12 +49042,13 @@ DeactivateTrace:
   TST.L TraceStepCount
   BNE.S LAB_A2DDFC
   JSR SUB_A131F6
-  SF  LAB_A48205
+  SF  PrintInsBreak
   MOVE.L  SaveOldPc,D0
   JSR SUB_A12F08
   JSR PrintCR
   SF  TraceActive
-  MOVE.L  OldTrace,TRACE.W
+  MOVE.L VBRSAVE,A0
+  MOVE.L  OldTrace,TRACE(a0)
   CLR.L TraceStepCount
   RTS
 LAB_A2DDFC:
@@ -48842,7 +49085,7 @@ CMD_TDI:
   BEQ.S LAB_A2DEB4
   LEA ProbableAddrsText(PC),A0
   JSR PrintText
-  MOVEA.L LAB_A48420,A0
+  MOVEA.L deepTrainerWorkAddr,A0
   MOVEA.L A0,A1
   ADDA.L  #$0007fffa,A1
   MOVEQ #0,D6
@@ -52135,7 +52378,7 @@ LAB_42C676:
   LEA EXT_C00000,A0
   MOVE.L  SlowMemEnd,D0
   BNE.W LAB_42C70C
-  TST.B AutoConfigPrefsFlag
+  TST.B AutoConfigPrefsDisableFlag
   BEQ.W LAB_42C6FC
   TST.B ExtMemAddPrefsFlag
   BEQ.W LAB_42C71A
@@ -53150,13 +53393,13 @@ SUB_A30FF8:
   MOVEQ #-1,D1
   TST.B endOfCmdString
   BNE.S LAB_A31046
-  CMPI.W  #$002e,D0
+  CMPI.W  #$002e,D0     ; "."
   BNE.S LAB_A31046
   JSR readCmdCharSkipSpaces
   MOVEQ #0,D1
   BCLR  #5,D0
   SUB.L A1,A1
-  CMPI.W  #$0042,D0
+  CMPI.W  #$0042,D0     ;65 - B
   BEQ.S LAB_A31046
   MOVEA.W #1,A1
   CMPI.W  #$0057,D0     ;87 - W
@@ -53166,7 +53409,7 @@ SUB_A30FF8:
   BEQ.S LAB_A31046
   SUB.L A1,A1
 LAB_A31046:
-  MOVE.W  A1,LAB_A35698
+  MOVE.W  A1,opcodeSize
   TST.W D1
   BNE.S LAB_A31052
   MOVE.L  A0,(A7)
@@ -54326,16 +54569,19 @@ LAB_A442F6:
   cnop 0,4
 DiskBitmap:
   DS.L  $1B
-LAB_A44FE2:
+DiskBitmap2:
   DS.L  $1C
 hashTable:
   DS.L  $37
 hashTable2:
   DS.L  $37
+
+;used as temporary file write buffer area
 LAB_A4520A:
   DS.L  $2F
   DS.W  1
 LAB_A4520A_end:
+
 LAB_A452C8:
   DS.L  $22
   DS.W  1
@@ -54354,10 +54600,10 @@ cpuAddrSize:
   DS.W  1
 vbrflag
   DS.W  1
-Save200:
-  DS.L  1
-Save204:
-  DS.L  1
+;Save200:
+;  DS.L  1
+;Save204:
+;  DS.L  1
 EscapeDisabled:
   DS.B  1
 IgnoreShift
@@ -54395,11 +54641,11 @@ dbgDisasmBase:
   DS.L  1
 dbgSecondLineAddr:
   DS.L  1
-repeatCount
+repeatCount:
   DS.W  1
-endAddress
+endAddress:
   DS.L 1
-LAB_A35698:
+opcodeSize:       ;0=byte,1=word,2=long
   DS.W  1
 SAVE_CACR:
   DS.L  1
@@ -54424,15 +54670,15 @@ copperPos:
   DS.L  1
 ;LAB_A489F0:
 ; DS.W  1
-LAB_A489FC:
+LAB_A489FC:       ;robd decryptor related
   DS.W  1
-LAB_A489FE:
+LAB_A489FE:       ;robd decryptor related
   DS.L  1
-LAB_A48A02:
+LAB_A48A02:       ;robd decryptor related
   DS.L  1
-LAB_A48A06:
+LAB_A48A06:       ;robd decryptor related
   DS.W  1
-LAB_A48A08:
+LAB_A48A08:       ;robd decryptor related
   DS.L  1
   if arsoft=1
 LAB_A48A0C:
@@ -54443,9 +54689,9 @@ CopyColor:
   DS.B  1
 CopyColorLo:
   DS.B  1
-LAB_A4806C:
+CopyColorLo2:
   DS.B  1
-LAB_A4806D:
+CopyColorLo3:
   DS.B  1
   even
 SaveTrap1:
@@ -54454,16 +54700,16 @@ SaveTrap2:
   DS.L  1
 SaveSR:
   DS.L  1
-LAB_A4807A:
+saveReturnAddr:
   DS.L  1
-LAB_A4807E:
+LAB_A4807E:       ;safedisk related
   DS.L  $B
-LAB_A480AA:
+LAB_A480AA:       ;mempeeker related
   DS.B  1
-LAB_A480AB:
+LAB_A480AB:       ;mempeeker related
   DS.B  1
   even
-LAB_A480AC:
+LAB_A480AC:       ;mempeeker related
   DS.W  1
 bpl1Work:
   DS.L  1
@@ -54481,8 +54727,10 @@ bpl7Work:
   DS.L  1
 bpl8Work:
   DS.L  1
-LAB_A480C6
+LAB_A480C6:       ;seems to be unused
   DS.L  1
+  
+;all these below seems to be general temporary storage
 ;dont split
 LAB_A480CA:
   DS.B  1
@@ -54560,50 +54808,46 @@ RemarksData:
 SaveCopJmp:
   DS.W  1
 ;dont split
-LAB_A481C0:
+MultTemp1:
   DS.W  1
-LAB_A481C2:
+MultTemp2:
   DS.W  1
-;end
-;dont split
-LAB_A481C4:
+MultTemp3:
   DS.W  1
-LAB_A481C6:
+MultTemp4:
   DS.W  1
-;end
-LAB_A481C8:
+MultTemp5:
   DS.W  1
-;dont split
-LAB_A481CA:
+MultTemp6:
   DS.W  1
-LAB_A481CC:
+MultTemp7:
   DS.L  1
 ;end
   ;DS.W 1
 bronFlag:
   DS.L  1
-LAB_A481D6:
+LAB_A481D6:     ;mempeek related
   DS.W  1
   ;DS.L 1
-LAB_A481DC:
+LAB_A481DC:     ;trainer related
   DS.W  1
-LAB_A481DE:
+LAB_A481DE:     ;command line procesing related
   DS.B  1
-LAB_A481DF:
+LAB_A481DF:     ;command line procesing related
   DS.B  1
   ;unused
   ;DS.B 1
-LAB_A481E1:
+printOneOnly:   ;print tasks/interrupts etc related
   DS.B  1
 cursorEnabled:
   DS.B  1
-LAB_A481E5:
-  DS.B  1
-  DS.B  1
   even
+LAB_A481E5:     ;boot select related
+  DS.B  1
+  DS.B  1
 VirusCheckerSettingsPrefs:
   DS.W  1
-LAB_A481E8:
+CursorFlashCounter:
   DS.W  1
 keymap:
   DS.W  1
@@ -54628,7 +54872,7 @@ saveSp:
   DS.L  1
 insertmode:
   DS.B  1
-LAB_A48205:
+PrintInsBreak:
   DS.B  1
   even
 ArBgCol:
@@ -54680,19 +54924,19 @@ DriveControlPrefsValueLo:
   even
 BootSelectPrefs:
   DS.W  1
-LAB_A4822A:
+BootSelectPrefsCopy:
   DS.B  1
-LAB_A4822B:
+BootSelectPrefsCopyLo:
   DS.B  1
   even
 memoryControlPrefsValue:
   DS.B  1
 memoryControlPrefsValueLo:
   DS.B  1
-LAB_A4822E:
-  DS.B  1
 memConfigFlags:
   DS.B  1
+memConfigFlagsLo:
+  DS.B  1       ;bit 3 = 1mb+ chip, bit2 = 1mb+ slow, bit1 = 512k+ slow, bit0 = 512k+ slow
   even
 foundSlowMemEnd:
   DS.L  1
@@ -54700,38 +54944,38 @@ foundChipMemEnd:
   DS.L  1
 ramDiskMem:
   DS.L  1
-LAB_A4823C:
+MemConfigFlagsCopy:
   DS.W  1
-LAB_A4823E:
+memoryControlPrefsValueCopy:
   DS.W  1
-LAB_A48240:
+P1AutofireCounter:
   DS.W  1
-LAB_A48242:
+P2AutofireCounter:
   DS.W  1
-LAB_A48244:
+LAB_A48244:   ;disk coder related (df0)
   DS.B  1
-LAB_A48245:
+LAB_A48245:   ;disk coder related (df1)
   DS.B  1
-LAB_A48246:
+LAB_A48246:   ;disk coder related (df2)
   DS.B  1
-LAB_A48247:
+LAB_A48247:   ;disk coder related (df3)
   DS.B  1
 currDriveNo:
   DS.B  1
 currTrackNo:
   DS.B  1
-LAB_A4824A:
+currDriveNoCopy:
   DS.B  1
 TrackBufferModified:
   DS.B  1
-LAB_A4824C:
+LAB_A4824C:     ; some kind of drive flags
   DS.B  1
-LAB_A4824D:
+doSectorCRCFlag:
   DS.B  1
   even
-LAB_A4824E:
+LAB_A4824E:     ;not used
   DS.W  1
-LAB_A48250:
+LAB_A48250:     ;drive related 
   DS.L  1
 oldTrackPositions:
   DS.L  1
@@ -54765,17 +55009,17 @@ DiskCoderDf3Value:
 DiskCoderDf4Value:
   DS.L  1
 ;end
-LAB_A4829A:
+LAB_A4829A:     ;packing related
   DS.L  1
-LAB_A4829E:
+LAB_A4829E:     ;packing related
   DS.W  1
-LAB_A482A0:
+LAB_A482A0:     ;packing workspace
   DS.L  $A
-LAB_A482C8:
+LAB_A482C8:     ;packing workspace
   DS.L  2
-LAB_A482D0:
+LAB_A482D0:     ;packing related
   DS.W  1
-LAB_A482D2:
+LAB_A482D2:     ;packing related
   DS.W  1
 PackStart:
   DS.L  1
@@ -54796,14 +55040,14 @@ PrinterFound:
   even
 trackerPlaying:
   DS.B  1
-LAB_A482F0:
+LAB_A482F0:     ;tracker search related
   DS.B  1
   even
 ModPointer:
   DS.L  1
 ModType:
   DS.W  1
-LAB_A482F8:
+LAB_A482F8:     ;tracker search related
   DS.L  1
 bitmapBlock:
   DS.L  1
@@ -54823,37 +55067,37 @@ SaveFilename:
   DS.L  1
 DataBlockSize:
   DS.W  1
-LAB_A4830C:
+allocatedBlock:
   DS.L  1
 currentHeaderBlock:
   DS.L  1
-LAB_A48314:
+FileWriteSize:
   DS.L  1
 dataBLockSequenceNum:
   DS.W  1
-LAB_A4831A:
+NextDataBlock:
   DS.L  1
-fileSize:
+FileReadSize:
   DS.L  1
-LAB_A48322:
+LAB_A48322:     ;reading from file related
   DS.L  4
-LAB_44F68E:
+LAB_44F68E:     ;scan related
   DS.W  1
-LAB_44F690:
+LAB_44F690:     ;scan related
   DS.W  1
 scanIncrement:
   DS.W  1
-LAB_44F694:
+LAB_44F694:     ;scan related
   DS.L  1
-LAB_44F698:
+LAB_44F698:     ;scan related
   DS.L  1
-LAB_A48332:
+LAB_A48332:     ;fix sector checksum on write
   DS.B  1
-LAB_A48333:
+LAB_A48333:     ;somehow related to above
   DS.B  1
-LAB_A48334:
+LAB_A48334:     ;drive related
   DS.B  1
-LAB_A48335:
+fixSectorError:
   DS.B  1
 LAB_A48336:
   DS.B  1
@@ -54869,22 +55113,22 @@ rootBlockLoadedFlags:
 rootBlockLoadedCrc:
 ;one long per drive
   DS.L  5 ;extra for ramdisk (drive 4)
-LAB_A48350:
+LAB_A48350:     ;SA/LA related
   DS.L  1
-LAB_A48354:
+LAB_A48354:     ;SA/LA related
   DS.L  1
   DS.W  1
-LAB_A4835A:
+LAB_A4835A:     ;SQ related
   DS.L  1
-LAB_A4835E:
+LAB_A4835E:     ;SQ related
   DS.L  1
-LAB_A48362:
+LAB_A48362:     ;SQ related
   DS.L  2
-LAB_A4836A:
+LAB_A4836A:     ;SA related
   DS.L  1
-LAB_A4836E:
+LAB_A4836E:     ;SA related
   DS.L  1
-LAB_A48372:
+LAB_A48372:     ;SA related
   DS.L  1
 SaveCop1Lch:
   DS.W  1
@@ -54896,33 +55140,33 @@ DiskMonBuffer:
   DS.L  1
 DiskMonBufferSize:
   DS.L  1
-LAB_A48386:
+LAB_A48386:     ;track buffer save/restore related
   DS.L  1
-LAB_A4838A:
+LAB_A4838A:     ;command line parsing related
   DS.B  1
 LAB_A4838B:
-  DS.B  1
+  DS.B  1       ;command line parsing related
 TBufferAllocated:
   DS.B  1
 doPatchingFlag:
   DS.B  1
-LAB_A4838E:
+LAB_A4838E:     ;doio patching related
   DS.B  1
-LAB_A4838F:
+LAB_A4838F:     ;doio patching related
   DS.B  1
 BootblockCoderPrefsFlag:
   DS.B  1
-LAB_A48391:
+extFuncCallFlag:
   DS.B  1
-LAB_A48392:
+bootVirusFound:
   DS.B  1
-LAB_A48393:
+killBufferFlag:
   DS.B  1
 updateDrivesConnectedFlag:
   DS.B  1
 UnpackNotFlashy:
   DS.B  1
-AutoConfigPrefsFlag:
+AutoConfigPrefsDisableFlag:
   DS.B  1
 sqMemOverrideFlag:
   DS.B  1
@@ -54930,32 +55174,34 @@ FileSelectorFlag:
   DS.B  1
 NoresPrefsFlag:
   DS.B  1
-LAB_A4839A:
+LAB_A4839A:     ;boot coder patching related
   DS.B  1
-LAB_A4839B:
+LAB_A4839B:     ;related to ED command character printing
   DS.B  1
   even
 BootblockCoderValue:
   DS.L  1
-LAB_A483A2:
+LAB_A483A2:     ;copy of cop1lc
   DS.L  1
-LAB_A483A6:
+LAB_A483A6:     ;copy of cop2lc
   DS.L  1
-LAB_A483AA:
+;dont split
+extMemStart:
   DS.L  1
-LAB_A483AE:
+extMemEnd:
   DS.L  1
-LAB_A483B2:
+extMemSize:
   DS.L  1
+;end
 sqMemOverrideAddr:
   DS.L  1
-LAB_A483BA:
+LAB_A483BA:   ;pack/unpack related
   DS.W  1
-LAB_A483BC:
+LAB_A483BC:   ;written to during packing and unpacking
   DS.L  1
-LAB_A483C0:
+LAB_A483C0:   ;written to during packing and unpacking
   DS.L  1
-LAB_A483C4:
+LAB_A483C4:   ;megastick related
   DS.B  1
 MegaStickPrefsFlag:
   DS.B  1
@@ -54969,11 +55215,11 @@ forceUpper:
   DS.B  1
 scrollLock:
   DS.B  1
-LAB_A483CB:
+LAB_A483CB:   ;scrolling related
   DS.B  1
 safeDiskInstallingFlag:
   DS.B  1
-LAB_A483CD:
+skipExecbaseCheck:
   DS.B  1
 DeepTrainerActive:
   DS.B  1
@@ -54981,11 +55227,11 @@ MemwatchActive:
   DS.B  1
 TestPrefsFlag:
   DS.B  1
-LAB_A483D1:
+LAB_A483D1:     ;test prefs related flag
   DS.B  1
 viewingPrefsCopy:
   DS.B  1
-LAB_A483D3:
+LAB_A483D3:     ;test prefs related flag
   DS.B  1
 ;dont split
 BlankerPrefsFlag:
@@ -55003,45 +55249,45 @@ ExtMemAddPrefsFlag:
   DS.B  1
 NotExtMemAddPrefsFlag:
   DS.B  1
-LAB_A483DB:
+PrintInverse:
   DS.B  1
 TraceActive:
   DS.B  1
 TraceSkipSubs:
   DS.B  1
   even
-LAB_A483DE:
+LAB_A483DE:     ;tracing related flag
   DS.W  1
-LAB_A483E0:
+megaStickWorkspace:
   DS.L  $D
   DS.W  1
-LAB_A48416:
+LAB_A48416:     ;megastick related
   DS.W  1
-LAB_A48418:
+LAB_A48418:     ;copy of currentdirblock, file selector related
   DS.L  1
-LAB_A4841C:
+LAB_A4841C:     ;file selector related
   DS.W  1
-LAB_A4841E:
+LAB_A4841E:     ;file selector related
   DS.W  1
-LAB_A48420:
+deepTrainerWorkAddr:
   DS.L  1
 MemWatchAddrs:
   DS.L  5
-LAB_A48438:
+LAB_A48438:     ;unknown is saved to config
   DS.L  1
 BlankerCount:
   DS.W  1
-LAB_A4843E:
+LAB_A4843E:     ;setmap related
   DS.L  1
-LAB_A48442:
+LAB_A48442:     ;setmap related
   DS.L  1
-LAB_A48446:
+LAB_A48446:     ;setmap related
   DS.L  1
-LAB_A4844A:
+LAB_A4844A:     ;setmap related
   DS.L  1
 saveOldDoIo:
   DS.L  1
-LAB_A48452:
+sqMemOverrideAddr2:
   DS.L  1
 ramDiskMem2:
   DS.L  1
@@ -55053,23 +55299,23 @@ foundAutoConfigMemStart:
   DS.L  1
 foundAutoConfigMemEnd:
   DS.L  1
-LAB_A4846A:
+autoConfigMemStart2:
   DS.L  1
-LAB_A4846E:
+autoConfigMemEnd2:
   DS.L  1
 TraceStepCount:
   DS.L  1
 LastCmdBuff:
   DS.L  $14
-LAB_A484C6:
+LAB_A484C6:     ;tracing related
   DS.L  1
-LAB_A484CA:
+LAB_A484CA:     ;SA/LA related
   DS.L  1
 CursorStore:
   DS.L  1
 fileExtensionBlock:
   DS.L  1
-LAB_A484D6:
+fileCurrPos:
   DS.L  1
 RegSnoopAddr:
   DS.L  1
@@ -55181,6 +55427,8 @@ arBfe001Trigger:
 TraceToAddressStart:
   DS.L 1
 TraceToAddressEnd:
+  DS.L 1
+VBRSAVE:
   DS.L 1
 
   if arsoft=1
@@ -55367,15 +55615,17 @@ EscapePressed:
   DS.B  1
 flashLedOnKey:
   DS.B  1
+CapsLockActive:
+  DS.B  1
   even
 CurrentPage:
   DS.L  1
 keyRepeat:
   DS.W  1
 ;keep these two toghter
-LAB_A47F3E:
+LAB_A47F3E:       ;cursorX copy
   DS.W  1
-LAB_A47F40:
+LAB_A47F40:       ;cursorY copy
   DS.W  1
 ;end
 ParamFound:

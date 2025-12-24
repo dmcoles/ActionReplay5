@@ -1,6 +1,6 @@
                          
 						 
-               Action Replay 5 Standalone Flasher Utility V1.2.1
+               Action Replay 5 Standalone Flasher Utility V1.2.2
                -------------------------------------------------
 						 
 This utility is for flashing the DeMoN cartridge. It relies on the presence of
@@ -90,3 +90,5 @@ V1.2 - Updated to add support for amd 29f010 flash chip (30-Sep-2025)
 
 V1.2.1 - Added checks for correct DeMoN ROM version
        - Updated flash routine to only skip first 2 bytes  (31-Oct-2025)
+
+V1.2.2 - Minor updates for future proofing (20-Nov-2025)

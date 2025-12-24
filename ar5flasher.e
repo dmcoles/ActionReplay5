@@ -73,7 +73,7 @@ PROC main()
   DEF response[100]:STRING
   DEF startoffset
   
-  WriteF('Action Replay 5 Flash Tool v1.2.1 by REbEL/QTX\n\n')
+  WriteF('Action Replay 5 Flash Tool v1.2.2 by REbEL/QTX\n\n')
   
   IF StrLen(arg)=0
     WriteF('Usage: ar5flasher <filename>\n\n')
@@ -130,13 +130,13 @@ PROC main()
     RETURN
   ENDIF
   
-  id:=Long(romFile+$7c) AND $ffffc000
+  id:=Long(romFile+$7c) AND $fffc0000
   IF id<>arbase
     WriteF('Error: Incorrect ROM version for this hardware.\nYou need the DeMoN v\d ROM\n\n',IF arbase=$400000 THEN 1 ELSE 2)
     Dispose(romFile)
     RETURN
   ENDIF
-  IF arbase=$a80000
+  IF arbase<>$400000
     startoffset:=2
   ELSE
     startoffset:=4
@@ -243,4 +243,4 @@ PROC main()
   Dispose(romFile)
 ENDPROC
 
-CHAR '$VER: ar5flasher 1.2.1-31102025',0
+CHAR '$VER: ar5flasher 1.2.2-20112025',0
